@@ -1,1 +1,27 @@
-{"name":"luminails","private":true,"version":"0.1.0","workspaces":["apps/*","packages/*"],"scripts":{"dev:client":"npm --workspace @lumi/client run dev","dev:provider":"npm --workspace @lumi/provider run dev","build":"npm run build:client && npm run build:provider","build:client":"npm --workspace @lumi/client run build","build:provider":"npm --workspace @lumi/provider run build"},"devDependencies":{"@capacitor/cli":"^7.4.3","typescript":"^5.9.3","vite":"^7.1.7"}}
+{
+  "name": "luminails",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:client": "npm --workspace @lumi/client run dev",
+    "dev:provider": "npm --workspace @lumi/provider run dev",
+    "build": "npm run build:client && npm run build:provider",
+    "build:client": "npm --workspace @lumi/client run build",
+    "build:provider": "npm --workspace @lumi/provider run build",
+    "cap:sync:client": "npm --workspace @lumi/client run cap:sync",
+    "cap:sync:provider": "npm --workspace @lumi/provider run cap:sync",
+    "android:debug:client": "npm --workspace @lumi/client run android:debug",
+    "android:debug:provider": "npm --workspace @lumi/provider run android:debug",
+    "android:release:client": "npm --workspace @lumi/client run android:release",
+    "android:release:provider": "npm --workspace @lumi/provider run android:release"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7"
+  }
+}
