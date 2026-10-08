@@ -1,0 +1,1 @@
+import type {CapacitorConfig} from "@capacitor/cli";const config:CapacitorConfig={appId:"com.luni.provider",appName:"Luni Manicurista",webDir:"dist",bundledWebRuntime:false};export default config;
