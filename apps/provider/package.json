@@ -11,7 +11,15 @@
     "android:release": "npm run build && npm run cap:sync && cd android && gradlew.bat assembleRelease"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^7.0.3",
     "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.0.2",
+    "@capacitor/network": "^7.0.2",
+    "@lumi/core": "0.1.0",
+    "@lumi/database": "0.1.0",
+    "@lumi/image-processor": "0.1.0",
+    "@lumi/sync": "0.1.0",
+    "blurhash": "^2.0.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "zustand": "^5.0.8"
