@@ -1,0 +1,1 @@
+export default function App(){return <main className="app"><section><div className="logo">L</div><h1>Luni</h1><p>Luni Cliente</p><small>Base Capacitor lista.</small></section></main>}
