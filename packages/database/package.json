@@ -1,1 +1,1 @@
-{"name":"@lumi/database","private":true,"version":"0.1.0","type":"module"}
+{"name":"@lumi/database","private":true,"version":"0.1.0","type":"module","main":"index.ts","types":"index.ts","dependencies":{"@capacitor-community/sqlite":"^7.0.3"}}
