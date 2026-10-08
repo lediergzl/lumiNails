@@ -1,1 +1,10 @@
-{"name":"@lumi/image-processor","private":true,"version":"0.1.0","type":"module"}
+{
+  "name": "@lumi/image-processor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "blurhash": "^2.0.5",
+    "browser-image-compression": "^2.0.2"
+  }
+}
