@@ -1,1 +1,14 @@
-{"name":"@lumi/api","private":true,"version":"0.1.0","type":"module"}
+{
+  "name": "@lumi/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.75.0"
+  }
+}
