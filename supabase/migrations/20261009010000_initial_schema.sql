@@ -30,6 +30,25 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- Prevent users from changing their own authorization role through profile updates.
+create or replace function public.luni_protect_profile_role()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $
+begin
+  if auth.uid() is not null and new.role is distinct from old.role then
+    raise exception 'PROFILE_ROLE_CHANGE_FORBIDDEN' using errcode = '42501';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists protect_profile_role_luni on public.profiles;
+create trigger protect_profile_role_luni
+  before update of role on public.profiles
+  for each row execute procedure public.luni_protect_profile_role();
+
 create table if not exists public.provider_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references public.profiles(id) on delete cascade,
@@ -46,6 +65,29 @@ create table if not exists public.provider_profiles (
   updated_at timestamptz not null default now(),
   deleted_at timestamptz
 );
+
+-- License and trial state must be changed only by trusted backend/admin operations.
+create or replace function public.luni_protect_provider_license()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $
+begin
+  if auth.uid() is not null and (
+    new.trial_started_at is distinct from old.trial_started_at
+    or new.license_expires_at is distinct from old.license_expires_at
+    or new.license_status is distinct from old.license_status
+  ) then
+    raise exception 'PROVIDER_LICENSE_CHANGE_FORBIDDEN' using errcode = '42501';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists protect_provider_license_luni on public.provider_profiles;
+create trigger protect_provider_license_luni
+  before update of trial_started_at, license_expires_at, license_status on public.provider_profiles
+  for each row execute procedure public.luni_protect_provider_license();
 
 create table if not exists public.services (
   id uuid primary key default gen_random_uuid(),
