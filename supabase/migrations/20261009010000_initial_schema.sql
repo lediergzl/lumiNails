@@ -199,7 +199,7 @@ returns public.appointments
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $$
+as $fn$
 declare
   v_client_id uuid := auth.uid();
   v_service public.services%rowtype;
