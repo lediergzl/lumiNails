@@ -11,6 +11,7 @@ export type ProviderProfile = {
   license_expires_at: string | null;
   license_status: "trial" | "active" | "grace" | "expired" | "suspended";
   is_published: boolean;
+  timezone: string;
 };
 
 export type ProviderService = {
@@ -47,7 +48,7 @@ export async function getMyProviderProfile(): Promise<ProviderProfile | null> {
   if (!user) return null;
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
-    .select("id,user_id,slug,business_name,bio,avatar_path,trial_started_at,license_expires_at,license_status,is_published")
+    .select("id,user_id,slug,business_name,bio,avatar_path,trial_started_at,license_expires_at,license_status,is_published,timezone")
     .eq("user_id", user.id)
     .is("deleted_at", null)
     .maybeSingle();
