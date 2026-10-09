@@ -35,14 +35,14 @@ create or replace function public.luni_protect_profile_role()
 returns trigger
 language plpgsql
 set search_path = public, pg_temp
-as $
+as $fn$
 begin
   if auth.uid() is not null and new.role is distinct from old.role then
     raise exception 'PROFILE_ROLE_CHANGE_FORBIDDEN' using errcode = '42501';
   end if;
   return new;
 end;
-$;
+$fn$;
 
 drop trigger if exists protect_profile_role_luni on public.profiles;
 create trigger protect_profile_role_luni
@@ -71,22 +71,29 @@ create or replace function public.luni_protect_provider_license()
 returns trigger
 language plpgsql
 set search_path = public, pg_temp
-as $
+as $fn$
 begin
-  if auth.uid() is not null and (
-    new.trial_started_at is distinct from old.trial_started_at
-    or new.license_expires_at is distinct from old.license_expires_at
-    or new.license_status is distinct from old.license_status
-  ) then
-    raise exception 'PROVIDER_LICENSE_CHANGE_FORBIDDEN' using errcode = '42501';
+  if auth.uid() is not null then
+    if tg_op = 'INSERT' then
+      if new.license_status <> 'trial' or new.license_expires_at is not null then
+        raise exception 'PROVIDER_LICENSE_CHANGE_FORBIDDEN' using errcode = '42501';
+      end if;
+      new.trial_started_at := now();
+    elsif (
+      new.trial_started_at is distinct from old.trial_started_at
+      or new.license_expires_at is distinct from old.license_expires_at
+      or new.license_status is distinct from old.license_status
+    ) then
+      raise exception 'PROVIDER_LICENSE_CHANGE_FORBIDDEN' using errcode = '42501';
+    end if;
   end if;
   return new;
 end;
-$;
+$fn$;
 
 drop trigger if exists protect_provider_license_luni on public.provider_profiles;
 create trigger protect_provider_license_luni
-  before update of trial_started_at, license_expires_at, license_status on public.provider_profiles
+  before insert or update on public.provider_profiles
   for each row execute procedure public.luni_protect_provider_license();
 
 create table if not exists public.services (
