@@ -40,10 +40,7 @@ create policy "client reads own provider relationships"
 drop policy if exists "provider reads own client relationships" on public.client_provider_relationships;
 create policy "provider reads own client relationships"
   on public.client_provider_relationships for select to authenticated
-  using (exists (
-    select 1 from public.provider_profiles p
-    where p.id = provider_id and p.user_id = auth.uid()
-  ));
+  using (public.luni_is_provider_owner(provider_id));
 
 -- No direct insert/update/delete policies: relationship changes must pass through checked RPCs.
 drop policy if exists "provider reads own invites" on public.provider_invites;
@@ -244,6 +241,40 @@ create trigger appointments_link_client_provider
   after insert on public.appointments
   for each row execute procedure public.luni_link_client_after_appointment();
 
+-- SECURITY DEFINER helpers avoid recursive RLS checks between relationship and profile policies.
+create or replace function public.luni_is_provider_owner(p_provider_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $fn$
+  select exists (
+    select 1 from public.provider_profiles p
+    where p.id = p_provider_id and p.user_id = auth.uid()
+  );
+$fn$;
+
+create or replace function public.luni_client_linked_to_provider(p_provider_id uuid, p_client_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $fn$
+  select exists (
+    select 1 from public.client_provider_relationships r
+    where r.provider_id = p_provider_id
+      and r.client_id = p_client_id
+      and r.status = 'active'
+  );
+$fn$;
+
+revoke all on function public.luni_is_provider_owner(uuid) from public;
+revoke all on function public.luni_client_linked_to_provider(uuid, uuid) from public;
+grant execute on function public.luni_is_provider_owner(uuid) to authenticated;
+grant execute on function public.luni_client_linked_to_provider(uuid, uuid) to authenticated;
+
 -- Replace anonymous/public discovery policies. A client may read only studios/services
 -- explicitly linked to their own account; a provider can always manage their own records.
 drop policy if exists "published providers are public" on public.provider_profiles;
@@ -253,25 +284,16 @@ drop policy if exists "linked clients read provider profiles" on public.provider
 create policy "linked clients read provider profiles"
   on public.provider_profiles for select to authenticated
   using (
-    user_id = auth.uid()
-    or exists (
-      select 1 from public.client_provider_relationships r
-      where r.provider_id = provider_profiles.id
-        and r.client_id = auth.uid() and r.status = 'active'
-    )
+    public.luni_is_provider_owner(id)
+    or public.luni_client_linked_to_provider(id, auth.uid())
   );
 
 drop policy if exists "linked clients read provider services" on public.services;
 create policy "linked clients read provider services"
   on public.services for select to authenticated
   using (
-    exists (select 1 from public.provider_profiles p
-      where p.id = services.provider_id and p.user_id = auth.uid())
-    or exists (
-      select 1 from public.client_provider_relationships r
-      where r.provider_id = services.provider_id
-        and r.client_id = auth.uid() and r.status = 'active'
-    )
+    public.luni_is_provider_owner(services.provider_id)
+    or public.luni_client_linked_to_provider(services.provider_id, auth.uid())
   );
 
 revoke all on function public.luni_create_provider_invite(uuid) from public;
