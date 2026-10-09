@@ -297,7 +297,7 @@ exception
   when exclusion_violation then
     raise exception 'SLOT_ALREADY_TAKEN' using errcode = '23P01';
 end;
-$$;
+$fn$;
 
 revoke all on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) from public;
 grant execute on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) to authenticated;
@@ -377,7 +377,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $$
+as $fn$
 begin
   insert into public.profiles(id, display_name, role)
   values (
@@ -388,7 +388,7 @@ begin
   on conflict (id) do nothing;
   return new;
 end;
-$$;
+$fn$;
 
 drop trigger if exists on_auth_user_created_luni on auth.users;
 create trigger on_auth_user_created_luni
