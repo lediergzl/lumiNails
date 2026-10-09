@@ -15,6 +15,8 @@ const AUTH_MESSAGES_BY_CODE: Record<string, string> = {
   email_address_invalid: "Escribe un correo electrónico válido.",
   over_request_rate_limit: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
   over_email_send_rate_limit: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+  otp_expired: "El código no es válido o ya venció. Pide uno nuevo.",
+  same_password: "La nueva contraseña debe ser distinta de la anterior.",
   signup_disabled: "El registro de cuentas nuevas no está disponible en este momento.",
 };
 
@@ -24,6 +26,7 @@ const AUTH_MESSAGES_BY_TEXT: Array<[RegExp, string]> = [
   [/email not confirmed/i, "Este correo aún no está confirmado. Revisa tu bandeja de entrada."],
   [/password should be at least/i, "La contraseña es demasiado corta. Usa al menos 6 caracteres."],
   [/unable to validate email|invalid format/i, "Escribe un correo electrónico válido."],
+  [/token has expired or is invalid|otp.*(expired|invalid)/i, "El código no es válido o ya venció. Pide uno nuevo."],
   [/rate limit|too many requests/i, "Demasiados intentos. Espera unos minutos e inténtalo de nuevo."],
 ];
 
@@ -68,6 +71,38 @@ export async function signInWithEmail(
   throwAuthError(error);
   if (!data.user) throw new Error("No se pudo iniciar sesión.");
   return { user: data.user, session: data.session };
+}
+
+/** Envía un código de recuperación al correo (no revela si el correo existe). */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email.trim().toLowerCase());
+  throwAuthError(error);
+}
+
+/**
+ * Verifica el código recibido por correo y fija la contraseña nueva.
+ * Deja la sesión iniciada. Si la contraseña no se puede guardar, cierra la
+ * sesión (el código ya se consumió) y pide uno nuevo.
+ */
+export async function resetPasswordWithCode(
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<Session | null> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: code.trim(),
+    type: "recovery",
+  });
+  throwAuthError(error);
+
+  const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+  if (updateError) {
+    await supabase.auth.signOut().catch(() => undefined);
+    throw new Error(`${friendlyAuthMessage(updateError)} Pide un código nuevo e inténtalo otra vez.`);
+  }
+  return data.session;
 }
 
 export async function signOut(): Promise<void> {

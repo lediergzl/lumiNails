@@ -31,6 +31,26 @@ Ten en cuenta que sin verificación:
 - Una persona puede registrarse con un correo que no es suyo o con un error de escritura, y no podrá recuperar la cuenta por correo. Todavía no existe flujo de «olvidé mi contraseña».
 - Es más fácil crear cuentas falsas. Revisa los límites de **Authentication → Rate Limits** y valora activar CAPTCHA.
 
+## Recuperar contraseña (código por correo)
+
+Como las apps son Capacitor, el enlace de un correo no puede devolver a la persona a la app sin configurar enlaces profundos nativos. Por eso la recuperación usa un **código numérico**: la persona pide el código, lo escribe en la app y elige su contraseña nueva (`requestPasswordReset` + `resetPasswordWithCode` en `@lumi/api`).
+
+Para que funcione hay que cambiar la plantilla del correo en Supabase:
+
+1. Ve a **Authentication → Email Templates → Reset Password**.
+2. Sustituye el enlace por el código. Por ejemplo:
+
+   ```html
+   <h2>Recupera tu contraseña de Luni</h2>
+   <p>Escribe este código en la app:</p>
+   <p style="font-size:28px;letter-spacing:6px"><b>{{ .Token }}</b></p>
+   <p>Si no lo pediste tú, ignora este mensaje.</p>
+   ```
+
+3. Guarda. El código es de un solo uso y caduca (por defecto, en una hora).
+
+Importante: el servicio de correo integrado de Supabase tiene límites estrictos y está pensado para pruebas. Para producción configura tu propio SMTP en **Authentication → Emails → SMTP Settings**, o los códigos no llegarán de forma fiable.
+
 ## Reservas
 
 La aplicación debe invocar la función RPC `luni_create_appointment` con:

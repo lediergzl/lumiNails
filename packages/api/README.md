@@ -22,6 +22,8 @@ Reinicia el servidor Vite después de cambiar variables. No subas los archivos `
 
 - `signUpWithEmail(email, password, displayName)`
 - `signInWithEmail(email, password)`
+- `requestPasswordReset(email)` y `resetPasswordWithCode(email, code, newPassword)`: recuperación por código (ver `supabase/README.md`)
+- `friendlyAuthMessage(error)`: mensajes de error de autenticación en español
 - `signOut()`
 - `getCurrentSession()`
 - `onAuthStateChange(callback)`

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AuthPanel from "./AuthPanel";
 import {
   createAppointment,
   getCurrentSession,
@@ -7,9 +8,7 @@ import {
   listPublicServices,
   listPublishedProviders,
   onAuthStateChange,
-  signInWithEmail,
   signOut,
-  signUpWithEmail,
   type PublicProvider,
   type PublicService,
   type RemoteAppointment,
@@ -42,10 +41,6 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
 
   const refreshAppointments = useCallback(async () => {
     const session = await getCurrentSession();
@@ -91,30 +86,6 @@ export default function App() {
   const visible = useMemo(() => services.filter(s =>
     `${s.name} ${s.description} ${s.providerName}`.toLowerCase().includes(search.toLowerCase())
   ), [services, search]);
-
-  const submitAuth = async () => {
-    setBusy(true); setError(""); setNotice("");
-    try {
-      if (authMode === "signup") {
-        const { session } = await signUpWithEmail(email, password, displayName);
-        if (session) {
-          await refreshAppointments();
-          setTab("inicio");
-          setNotice("Cuenta creada. Ya puedes reservar tu primera cita.");
-        } else {
-          setNotice("Cuenta creada. Confirma tu correo para poder iniciar sesión.");
-          setAuthMode("login");
-        }
-      } else {
-        await signInWithEmail(email, password);
-        await refreshAppointments();
-        setNotice("Sesión iniciada correctamente.");
-      }
-      setPassword("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo completar la autenticación.");
-    } finally { setBusy(false); }
-  };
 
   const submitBooking = async () => {
     if (!selected) return;
@@ -167,7 +138,7 @@ export default function App() {
 
     {tab === "citas" && <section className="simple-page"><span className="eyebrow">TU AGENDA PERSONAL</span><h1>Mis <em>citas.</em></h1>{!sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Inicia sesión para ver tus citas</h3><p>Las reservas se guardan en tu cuenta de Luni.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div> : appointments.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Tu próximo momento empieza aquí</h3><p>Aún no tienes citas. Explora los servicios disponibles.</p><button className="button-dark" onClick={() => setTab("inicio")}>Descubrir servicios <span>↗</span></button></div> : appointments.map(a => <article className="appointment-card" key={a.id}><span className="pending-pill">{a.status === "pending_confirmation" ? "Pendiente de confirmar" : a.status === "confirmed" ? "Confirmada" : a.status === "cancelled" ? "Cancelada" : a.status}</span><h3>{a.client_service_name}</h3><p>{new Date(a.starts_at).toLocaleString("es-CU", { dateStyle: "medium", timeStyle: "short" })}</p><b>{money(a.client_price_cents, a.client_currency)}</b></article>)}</section>}
 
-    {tab === "perfil" && <section className="simple-page"><span className="eyebrow">TU ESPACIO LUNI</span><h1>Hola, <em>bonita.</em></h1>{sessionEmail ? <div className="profile-panel"><div className="profile-avatar">{sessionEmail[0].toUpperCase()}</div><div><h3>{sessionEmail}</h3><p>Tu cuenta está conectada a Supabase.</p></div><button className="button-outline" onClick={async () => { setBusy(true); try { await signOut(); setAppointments([]); setSessionEmail(""); setNotice("Sesión cerrada."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cerrar sesión."); } finally { setBusy(false); } }} disabled={busy}>Cerrar sesión</button></div> : <div className="profile-panel auth-panel"><div className="profile-avatar">♡</div><div><h3>{authMode === "login" ? "Inicia sesión" : "Crea tu cuenta"}</h3><p>Accede a tus citas y preferencias desde cualquier dispositivo.</p></div><div className="auth-fields">{authMode === "signup" && <label className="field-label">Nombre<input value={displayName} onChange={e => setDisplayName(e.target.value)} autoComplete="name" /></label>}<label className="field-label">Correo electrónico<input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label><label className="field-label">Contraseña<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete={authMode === "login" ? "current-password" : "new-password"} /></label><button className="button-dark full-button" disabled={busy || !email.trim() || password.length < 6 || (authMode === "signup" && !displayName.trim())} onClick={() => void submitAuth()}>{busy ? "Procesando…" : authMode === "login" ? "Iniciar sesión" : "Crear cuenta"}</button><button className="button-outline auth-toggle" onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setError(""); }}>{authMode === "login" ? "No tengo cuenta · Registrarme" : "Ya tengo cuenta · Iniciar sesión"}</button></div></div>}<p className="muted offline-note">El catálogo público requiere conexión para actualizarse. La sincronización y las reservas sin conexión se integrarán en la siguiente etapa.</p></section>}
+    {tab === "perfil" && <section className="simple-page"><span className="eyebrow">TU ESPACIO LUNI</span><h1>Hola, <em>bonita.</em></h1>{sessionEmail ? <div className="profile-panel"><div className="profile-avatar">{sessionEmail[0].toUpperCase()}</div><div><h3>{sessionEmail}</h3><p>Tu cuenta está conectada a Supabase.</p></div><button className="button-outline" onClick={async () => { setBusy(true); try { await signOut(); setAppointments([]); setSessionEmail(""); setNotice("Sesión cerrada."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cerrar sesión."); } finally { setBusy(false); } }} disabled={busy}>Cerrar sesión</button></div> : <AuthPanel onError={setError} onNotice={setNotice} onSignedIn={async kind => { await refreshAppointments(); if (kind === "signup") setTab("inicio"); }} />}<p className="muted offline-note">El catálogo público requiere conexión para actualizarse. La sincronización y las reservas sin conexión se integrarán en la siguiente etapa.</p></section>}
 
     <footer className="client-footer"><div className="brand-lockup"><div className="brand-mark small-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div><span>Hecho con cariño ♡</span></footer>
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AuthPanel from "./AuthPanel";
 import {
   createMyProviderProfile,
   getCurrentSession,
@@ -9,9 +10,7 @@ import {
   onAuthStateChange,
   saveProviderService,
   setProviderAppointmentStatus,
-  signInWithEmail,
   signOut,
-  signUpWithEmail,
   type ProviderAppointment,
   type ProviderProfile,
   type ProviderService,
@@ -35,10 +34,6 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
   const [showServiceForm, setShowServiceForm] = useState(false);
@@ -85,28 +80,6 @@ export default function App() {
   const filteredAppointments = useMemo(() => appointments.filter(a => a.starts_at.slice(0, 10) === day), [appointments, day]);
   const activeServices = services.filter(s => s.is_active);
   const pendingCount = appointments.filter(a => a.status === "pending_confirmation").length;
-
-  const submitAuth = async () => {
-    setBusy(true); setError(""); setNotice("");
-    try {
-      if (authMode === "signup") {
-        const { session } = await signUpWithEmail(email, password, displayName);
-        if (session) {
-          await refresh();
-          setNotice("Cuenta creada. Registra tu estudio para empezar.");
-        } else {
-          setNotice("Cuenta creada. Confirma tu correo y después inicia sesión para registrar tu estudio.");
-          setAuthMode("login");
-        }
-      } else {
-        await signInWithEmail(email, password);
-        await refresh();
-        setNotice("Sesión iniciada.");
-      }
-      setPassword("");
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo completar la autenticación."); }
-    finally { setBusy(false); }
-  };
 
   const createProfile = async () => {
     setBusy(true); setError(""); setNotice("");
@@ -173,7 +146,7 @@ export default function App() {
     <aside className="provider-sidebar"><div className="provider-brand"><div className="provider-mark">l<span>✦</span></div><div><b>luni</b><small>STUDIO</small></div></div><div className="studio-switch"><div className="studio-avatar">{profile?.business_name?.[0]?.toUpperCase() ?? "♡"}</div><div><b>{profile?.business_name ?? "Mi estudio"}</b><small>{sessionEmail || "Espacio de belleza"}</small></div><span>⌄</span></div><div className="side-label">ESPACIO DE TRABAJO</div><nav className="side-nav"><button className={tab==="agenda"?"selected":""} onClick={()=>setTab("agenda")}><span>▦</span> Agenda</button><button className={tab==="servicios"?"selected":""} onClick={()=>setTab("servicios")}><span>✧</span> Mis servicios</button><button className={tab==="clientes"?"selected":""} onClick={()=>setTab("clientes")}><span>♙</span> Clientas</button><button className={tab==="perfil"?"selected":""} onClick={()=>setTab("perfil")}><span>⚙</span> Mi negocio</button></nav><div className="sidebar-bottom"><div className="help-mark">♡</div><b>Un espacio para crecer</b><p>Organiza tu tiempo. Cuida cada detalle.</p>{profile && <span className="trial-pill">LICENCIA: {profile.license_status.toUpperCase()}</span>}<div className="user-mini"><div className="studio-avatar">{sessionEmail ? sessionEmail[0].toUpperCase() : "♡"}</div><div><b>{sessionEmail || "Sin sesión"}</b><small>Mi cuenta</small></div><span>···</span></div></div></aside>
     <section className="provider-main"><header className="provider-header"><div className="mobile-brand"><div className="provider-mark">l<span>✦</span></div><b>luni studio</b></div><div className="breadcrumb">Mi estudio <span>/</span> <b>{tab==="agenda"?"Agenda":tab==="servicios"?"Mis servicios":tab==="clientes"?"Clientas":"Mi negocio"}</b></div><div className="header-actions"><span className="connection-dot" style={{background:loading?"#c3a56c":error?"#c65c5c":"#79a77a"}}></span><span className="connection-label">{loading ? "Conectando…" : error ? "Revisar conexión" : sessionEmail ? "Conectado a Supabase" : "Inicia sesión"}</span><button className="header-avatar" onClick={()=>setTab("perfil")}>{sessionEmail ? sessionEmail[0].toUpperCase() : "A"}</button></div></header>
       {(error || notice) && <div role={error ? "alert" : "status"} className="provider-notice">{error || notice}<button onClick={()=>{setError("");setNotice("");}}>×</button></div>}
-      {!sessionEmail ? <div className="workspace"><span className="eyebrow">BIENVENIDA A LUNI STUDIO</span><h1>Tu negocio, <em>en buenas manos.</em></h1><div className="settings-card auth-provider-card"><div className="settings-avatar">♡</div><div><h3>{authMode === "login" ? "Iniciar sesión" : "Crear cuenta profesional"}</h3><p>Accede a tu agenda, servicios y configuración del estudio.</p></div><div className="provider-auth-fields">{authMode === "signup" && <label>Tu nombre<input value={displayName} onChange={e=>setDisplayName(e.target.value)} autoComplete="name"/></label>}<label>Correo electrónico<input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></label><label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==="login"?"current-password":"new-password"}/></label><button className="provider-primary full-provider-button" disabled={busy||!email.trim()||password.length<6||(authMode==="signup"&&!displayName.trim())} onClick={()=>void submitAuth()}>{busy?"Procesando…":authMode==="login"?"Iniciar sesión":"Crear cuenta"}</button><button className="provider-secondary" onClick={()=>{setAuthMode(authMode==="login"?"signup":"login");setError("");}}>{authMode==="login"?"No tengo cuenta · Registrarme":"Ya tengo cuenta · Iniciar sesión"}</button></div></div></div>
+      {!sessionEmail ? <div className="workspace"><span className="eyebrow">BIENVENIDA A LUNI STUDIO</span><h1>Tu negocio, <em>en buenas manos.</em></h1><AuthPanel onError={setError} onNotice={setNotice} onSignedIn={() => refresh()} /></div>
       : !profile ? <div className="workspace"><span className="eyebrow">PRIMER PASO</span><h1>Registra tu <em>estudio.</em></h1><p className="setup-description">Completa los datos básicos para empezar a administrar tus servicios.</p><div className="settings-card provider-setup-card"><label>Nombre del estudio<input value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="Ej. Studio Ana"/></label><label>Descripción breve<textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Qué servicios ofreces y qué te distingue"/></label><button className="provider-primary" disabled={busy||!businessName.trim()} onClick={()=>void createProfile()}>{busy?"Guardando…":"Registrar estudio"}</button></div></div>
       : <>
         {tab==="agenda" && <div className="workspace"><div className="welcome-row"><div><span className="eyebrow">TU AGENDA REAL</span><h1>Tu día, <em>a tu manera.</em></h1><p>Las citas se cargan desde tu cuenta de Luni.</p></div><label className="date-filter">Fecha<input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label></div>

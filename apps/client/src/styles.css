@@ -32,3 +32,7 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .time-chip{min-height:var(--tap-size);padding:0 14px}
 .button-dark,.button-outline{min-height:var(--tap-size)}
 .search-box{height:48px}
+
+/* ---- Enlace de texto (recuperar contraseña) ---- */
+.auth-link{display:block;margin:6px auto 0;min-height:var(--tap-size);padding:0 8px;border:0;background:none;color:var(--rose-text);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.auth-link:hover{color:var(--ink)}
