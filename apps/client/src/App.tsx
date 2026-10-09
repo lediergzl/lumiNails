@@ -4,11 +4,14 @@ import {
   createAppointment,
   getCurrentSession,
   isSupabaseConfigured,
+  listAvailableDays,
+  listAvailableSlots,
   listMyAppointments,
   listPublicServices,
   listPublishedProviders,
   onAuthStateChange,
   signOut,
+  type AvailableDay,
   type PublicProvider,
   type PublicService,
   type RemoteAppointment,
@@ -18,11 +21,21 @@ type Tab = "inicio" | "citas" | "perfil";
 type Service = PublicService & { providerName: string; tone: string; tag: string };
 const money = (amount: number, currency = "CUP") =>
   new Intl.NumberFormat("es-CU", { maximumFractionDigits: 2 }).format(amount / 100) + " " + currency;
-const todayLocal = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const localDateString = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const dayParts = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return {
+    weekday: date.toLocaleDateString("es-CU", { weekday: "short" }).replace(".", ""),
+    number: d,
+    month: date.toLocaleDateString("es-CU", { month: "short" }).replace(".", ""),
+  };
 };
+const timeFormat = new Intl.DateTimeFormat("es-CU", { hour: "2-digit", minute: "2-digit", hour12: false });
+const formatSlot = (iso: string) => timeFormat.format(new Date(iso));
+const formatChosen = (iso: string) =>
+  `${new Date(iso).toLocaleDateString("es-CU", { weekday: "long", day: "numeric", month: "long" })} · ${formatSlot(iso)}`;
 const makeId = () => typeof crypto !== "undefined" && "randomUUID" in crypto
   ? crypto.randomUUID()
   : `luni-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -35,8 +48,13 @@ export default function App() {
   const [sessionEmail, setSessionEmail] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Service | null>(null);
-  const [day, setDay] = useState(todayLocal());
-  const [time, setTime] = useState("10:00");
+  const [day, setDay] = useState("");
+  const [days, setDays] = useState<AvailableDay[]>([]);
+  const [slots, setSlots] = useState<string[]>([]);
+  const [slot, setSlot] = useState("");
+  const [loadingDays, setLoadingDays] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [availabilityKey, setAvailabilityKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -87,18 +105,51 @@ export default function App() {
     `${s.name} ${s.description} ${s.providerName}`.toLowerCase().includes(search.toLowerCase())
   ), [services, search]);
 
+  // Al abrir o cambiar de servicio se reinicia la selección.
+  useEffect(() => {
+    setDays([]); setSlots([]); setSlot(""); setDay("");
+  }, [selected]);
+
+  // Días con horas libres (calculadas por el servidor).
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    setLoadingDays(true);
+    listAvailableDays(selected.provider_id, selected.id, localDateString(new Date()), 21)
+      .then(rows => {
+        if (cancelled) return;
+        setDays(rows);
+        setDay(prev => rows.some(r => r.day === prev && r.slots > 0) ? prev : (rows.find(r => r.slots > 0)?.day ?? ""));
+      })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : "No se pudo cargar la disponibilidad."); })
+      .finally(() => { if (!cancelled) setLoadingDays(false); });
+    return () => { cancelled = true; };
+  }, [selected, availabilityKey]);
+
+  // Horas libres del día elegido.
+  useEffect(() => {
+    if (!selected || !day) { setSlots([]); return; }
+    let cancelled = false;
+    setLoadingSlots(true);
+    setSlot("");
+    listAvailableSlots(selected.provider_id, selected.id, day)
+      .then(rows => { if (!cancelled) setSlots(rows); })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : "No se pudieron cargar los horarios."); })
+      .finally(() => { if (!cancelled) setLoadingSlots(false); });
+    return () => { cancelled = true; };
+  }, [selected, day, availabilityKey]);
+
   const submitBooking = async () => {
     if (!selected) return;
     setBusy(true); setError(""); setNotice("");
     try {
       if (!sessionEmail) throw new Error("Inicia sesión antes de solicitar una cita.");
-      const start = new Date(`${day}T${time}:00`);
-      if (!Number.isFinite(start.getTime()) || start.getTime() <= Date.now()) throw new Error("Selecciona una fecha y hora futuras.");
+      if (!slot) throw new Error("Elige un horario disponible.");
       await createAppointment({
         id: makeId(),
         providerId: selected.provider_id,
         serviceId: selected.id,
-        startsAt: start.toISOString(),
+        startsAt: slot,
         idempotencyKey: makeId(),
       });
       await refreshAppointments();
@@ -107,6 +158,7 @@ export default function App() {
       setNotice("Solicitud enviada. La cita queda pendiente hasta que el estudio la confirme.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo enviar la solicitud.");
+      setAvailabilityKey(k => k + 1); // otra persona pudo ocupar la hora: refrescar
     } finally { setBusy(false); }
   };
 
@@ -130,7 +182,7 @@ export default function App() {
       <section className="trust-row"><div><span className="trust-icon">♡</span><span><b>A tu ritmo</b><small>Reserva cuando quieras</small></span></div><div><span className="trust-icon">✧</span><span><b>Tu estilo</b><small>Servicios para ti</small></span></div><div><span className="trust-icon">⌁</span><span><b>Sin sorpresas</b><small>Precios transparentes</small></span></div></section>
       <section id="catalogo" className="catalog-section"><div className="section-heading"><div><span className="eyebrow">ELIGE TU FAVORITO</span><h2>Pequeños detalles,<br/><em>gran diferencia.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
         <label className="search-box"><span>⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar servicio o estudio..." /></label>
-        {loading ? <p className="empty-state">Cargando catálogo desde Luni…</p> : <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}><span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setDay(todayLocal()); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>}
+        {loading ? <p className="empty-state">Cargando catálogo desde Luni…</p> : <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}><span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>}
         {!loading && visible.length === 0 && <p className="empty-state">{services.length === 0 ? "Todavía no hay estudios publicados con servicios activos." : "No encontramos servicios con ese nombre."}</p>}
       </section>
       <section className="salon-note"><span className="note-star">✳</span><div><span className="eyebrow">UN ESPACIO PARA TI</span><h2>La belleza está<br/>en los detalles.</h2><p>Guarda un ratito para ti. Te lo mereces.</p></div><span className="note-flower">✿</span></section>
@@ -142,6 +194,17 @@ export default function App() {
 
     <footer className="client-footer"><div className="brand-lockup"><div className="brand-mark small-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div><span>Hecho con cariño ♡</span></footer>
 
-    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setSelected(null)}>×</button><span className="eyebrow">TU PRÓXIMO MOMENTO</span><h2 id="booking-title">Reserva tu <em>espacio.</em></h2><div className="selected-service"><div className={"mini-service-art " + selected.tone}>✿</div><div><b>{selected.name}</b><small>{selected.providerName} · {selected.duration_minutes} min</small><small>{money(selected.price_cents, selected.currency)}</small></div></div><label className="field-label">Día preferido<input type="date" min={todayLocal()} value={day} onChange={e => setDay(e.target.value)} /></label><label className="field-label">Hora preferida<div className="time-options">{["09:00","10:00","11:30","14:00","16:00"].map(t => <button type="button" key={t} className={time === t ? "time-chip chosen" : "time-chip"} onClick={() => setTime(t)}>{t}</button>)}</div></label><p className="booking-disclaimer">La hora se validará contra el horario real del estudio. La solicitud solo queda aceptada si el servidor confirma el registro.</p><button className="button-dark full-button" disabled={busy} onClick={() => void submitBooking()}>{busy ? "Enviando…" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
+    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setSelected(null)}>×</button><span className="eyebrow">TU PRÓXIMO MOMENTO</span><h2 id="booking-title">Reserva tu <em>espacio.</em></h2><div className="selected-service"><div className={"mini-service-art " + selected.tone}>✿</div><div><b>{selected.name}</b><small>{selected.providerName} · {selected.duration_minutes} min</small><small>{money(selected.price_cents, selected.currency)}</small></div></div><div className="field-label" role="group" aria-labelledby="day-label"><span id="day-label">Elige un día</span>
+          {loadingDays && days.length === 0 ? <p className="muted availability-note">Buscando horarios disponibles…</p>
+          : days.every(d => d.slots === 0) ? <p className="muted availability-note">Este estudio aún no tiene horarios disponibles en los próximos días. Vuelve a intentarlo pronto.</p>
+          : <div className="day-strip">{days.map(d => { const p = dayParts(d.day); return <button type="button" key={d.day} className={d.day === day ? "day-chip chosen" : "day-chip"} disabled={d.slots === 0} aria-pressed={d.day === day} aria-label={`${p.weekday} ${p.number} de ${p.month}${d.slots === 0 ? ", sin horarios" : ""}`} onClick={() => setDay(d.day)}><small>{p.weekday}</small><b>{p.number}</b><small>{p.month}</small></button>; })}</div>}
+        </div>
+        {day && <div className="field-label" role="group" aria-labelledby="time-label"><span id="time-label">Horarios disponibles</span>
+          {loadingSlots ? <p className="muted availability-note">Buscando horarios…</p>
+          : slots.length === 0 ? <p className="muted availability-note">No quedan horarios libres este día. Prueba con otro.</p>
+          : <div className="time-options">{slots.map(iso => <button type="button" key={iso} className={slot === iso ? "time-chip chosen" : "time-chip"} aria-pressed={slot === iso} onClick={() => setSlot(iso)}>{formatSlot(iso)}</button>)}</div>}
+        </div>}
+        {slot && <p className="chosen-summary" role="status">Tu cita: <b>{formatChosen(slot)}</b></p>}
+        <p className="booking-disclaimer">Solo ves horarios que están libres ahora mismo. Tu solicitud queda pendiente hasta que el estudio la confirme.</p><button className="button-dark full-button" disabled={busy || !slot} onClick={() => void submitBooking()}>{busy ? "Enviando…" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
   </main>;
 }

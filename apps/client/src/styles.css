@@ -36,3 +36,15 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 /* ---- Enlace de texto (recuperar contraseña) ---- */
 .auth-link{display:block;margin:6px auto 0;min-height:var(--tap-size);padding:0 8px;border:0;background:none;color:var(--rose-text);font-size:13px;text-decoration:underline;text-underline-offset:3px}
 .auth-link:hover{color:var(--ink)}
+
+/* ---- Selector de día y horas reales ---- */
+.field-label>span{display:block}
+.day-strip{display:flex;gap:8px;overflow-x:auto;padding:10px 2px 8px;margin:0 -2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.day-chip{flex:0 0 58px;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 0;border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);scroll-snap-align:start}
+.day-chip small{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.day-chip b{font:600 19px var(--serif);line-height:1.1}
+.day-chip.chosen{background:#5a3d40;border-color:#5a3d40;color:#fff}
+.day-chip.chosen small{color:#f1dcd8}
+.day-chip:disabled{opacity:.4;background:#f8eeea;text-decoration:line-through}
+.availability-note{font-size:13px;font-weight:400;margin:10px 0 0}
+.chosen-summary{margin:4px 0 14px;padding:10px 12px;background:#f1f6ef;border-left:3px solid #79a77a;font-size:13px;color:#3f5a3a}
