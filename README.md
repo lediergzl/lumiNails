@@ -22,6 +22,22 @@ npm install
 npm run build
 ```
 
+La primera vez, genera el proyecto Android de cada app. Esto crea `apps/<app>/android` y también el **ícono y el splash** a partir de `apps/<app>/assets/` (con `@capacitor/assets`):
+
+```powershell
+npm run cap:add:client
+npm run cap:add:provider
+```
+
+Cliente usa rosa empolvado y Studio ciruela con dorado, para distinguirlas de un vistazo. Si cambias la marca, regenera las imágenes y vuelve a ejecutar `npm run assets:android` dentro de la app:
+
+```powershell
+pip install pillow fonttools
+npm run brand:generate
+```
+
+Los scripts de Gradle funcionan en Windows, macOS y Linux (`scripts/gradle.mjs`).
+
 ### Cliente
 
 ```powershell
