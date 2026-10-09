@@ -50,3 +50,5 @@ export async function closeLocalDatabase(): Promise<void> {
   connection = null;
   opening = null;
 }
+
+export * from "./repository";
