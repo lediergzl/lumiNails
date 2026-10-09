@@ -277,4 +277,51 @@ grant execute on function public.luni_create_appointment(uuid, uuid, uuid, times
 grant execute on function public.luni_available_slots(uuid, uuid, date) to anon, authenticated;
 grant execute on function public.luni_available_days(uuid, uuid, date, integer) to anon, authenticated;
 
+
+-- Provider-only contact view: exposes client contact data only to the owner of this studio.
+create or replace function public.luni_provider_appointments_with_contacts(p_provider_id uuid)
+returns table (
+  id uuid,
+  provider_id uuid,
+  client_id uuid,
+  service_id uuid,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  status text,
+  notes text,
+  client_service_name text,
+  client_price_cents bigint,
+  client_currency text,
+  cancellation_reason text,
+  client_display_name text,
+  client_phone text
+)
+language plpgsql
+stable
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+begin
+  if auth.uid() is null or not exists (
+    select 1 from public.provider_profiles p
+    where p.id = p_provider_id and p.user_id = auth.uid()
+  ) then
+    raise exception 'PROVIDER_ACCESS_DENIED' using errcode = '42501';
+  end if;
+
+  return query
+  select a.id, a.provider_id, a.client_id, a.service_id, a.starts_at, a.ends_at,
+         a.status, a.notes, a.client_service_name, a.client_price_cents,
+         a.client_currency, a.cancellation_reason, pr.display_name, pr.phone
+  from public.appointments a
+  join public.profiles pr on pr.id = a.client_id
+  where a.provider_id = p_provider_id and a.deleted_at is null
+  order by a.starts_at;
+end;
+$function$;
+
+revoke all on function public.luni_provider_appointments_with_contacts(uuid) from public, anon;
+grant execute on function public.luni_provider_appointments_with_contacts(uuid) to authenticated;
+
+
 commit;
