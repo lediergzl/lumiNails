@@ -63,7 +63,7 @@ export async function createAppointment(
 export async function listMyAppointments(): Promise<RemoteAppointment[]> {
   const { data, error } = await getSupabaseClient()
     .from("appointments")
-    .select("id,provider_id,client_id,service_id,starts_at,ends_at,status,notes,client_service_name,client_price_cents,client_currency")
+    .select("id,provider_id,client_id,service_id,starts_at,ends_at,status,notes,client_service_name,client_price_cents,client_currency,cancellation_reason")
     .order("starts_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as RemoteAppointment[];
