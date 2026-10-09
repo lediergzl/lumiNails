@@ -1,47 +1,184 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createMyProviderProfile,
+  getCurrentSession,
+  getMyProviderProfile,
+  isSupabaseConfigured,
+  listMyProviderServices,
+  listProviderAppointments,
+  onAuthStateChange,
+  saveProviderService,
+  setProviderAppointmentStatus,
+  signInWithEmail,
+  signOut,
+  signUpWithEmail,
+  type ProviderAppointment,
+  type ProviderProfile,
+  type ProviderService,
+} from "@lumi/api";
 
 type Tab = "agenda" | "servicios" | "clientes" | "perfil";
-const appointments = [
-  { time: "09:00", name: "Valentina Pérez", service: "Manicura clásica", duration: "45 min", color: "pink", status: "Confirmada" },
-  { time: "10:30", name: "Camila Rodríguez", service: "Uñas acrílicas", duration: "90 min", color: "sand", status: "Confirmada" },
-  { time: "13:00", name: "Sofía Martínez", service: "Gel con diseño", duration: "60 min", color: "lilac", status: "Por confirmar" },
-  { time: "15:00", name: "Isabella Díaz", service: "Retirada + manicura", duration: "45 min", color: "pink", status: "Confirmada" }
-];
-const week = [{d:"LUN",n:"06"},{d:"MAR",n:"07"},{d:"MIÉ",n:"08"},{d:"JUE",n:"09"},{d:"VIE",n:"10"},{d:"SÁB",n:"11"},{d:"DOM",n:"12"}];
-const serviceList = [{name:"Manicura clásica",desc:"Cuidado y acabado natural",duration:"45 min",price:"800 CUP",symbol:"✿"},{name:"Uñas acrílicas",desc:"Extensión y forma personalizada",duration:"90 min",price:"1 800 CUP",symbol:"✧"},{name:"Gel con diseño",desc:"Color duradero y detalles",duration:"60 min",price:"1 400 CUP",symbol:"❀"}];
+const money = (amount: number, currency = "CUP") =>
+  new Intl.NumberFormat("es-CU", { maximumFractionDigits: 2 }).format(amount / 100) + " " + currency;
+const statusText: Record<string, string> = {
+  pending_confirmation: "Por confirmar", confirmed: "Confirmada", cancelled: "Cancelada",
+  rejected: "Rechazada", completed: "Completada"
+};
 
 export default function App() {
- const [tab,setTab] = useState<Tab>("agenda");
- const [day,setDay] = useState("09");
- const [showNew,setShowNew] = useState(false);
- const [newName,setNewName] = useState("");
- const [newService,setNewService] = useState("Manicura clásica");
- const [newTime,setNewTime] = useState("16:30");
- const [extra,setExtra] = useState<{name:string;service:string;time:string}[]>([]);
- const [notice,setNotice] = useState("");
- const list = [...appointments.filter(a => day !== "09" ? false : true), ...extra.map(a => ({time:a.time,name:a.name,service:a.service,duration:"Por definir",color:"pink",status:"Pendiente local"}))].sort((a,b)=>a.time.localeCompare(b.time));
+  const [tab, setTab] = useState<Tab>("agenda");
+  const [sessionEmail, setSessionEmail] = useState("");
+  const [profile, setProfile] = useState<ProviderProfile | null>(null);
+  const [services, setServices] = useState<ProviderService[]>([]);
+  const [appointments, setAppointments] = useState<ProviderAppointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [bio, setBio] = useState("");
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [serviceName, setServiceName] = useState("");
+  const [serviceDescription, setServiceDescription] = useState("");
+  const [servicePrice, setServicePrice] = useState("800");
+  const [serviceDuration, setServiceDuration] = useState("45");
+  const [day, setDay] = useState(new Date().toISOString().slice(0, 10));
 
- const addAppointment = () => {
-   if (!newName.trim()) { setNotice("Escribe el nombre de la clienta para continuar."); return; }
-   setExtra(prev => [...prev,{name:newName.trim(),service:newService,time:newTime}].sort((a,b)=>a.time.localeCompare(b.time)));
-   setShowNew(false); setNotice("Cita añadida a esta vista como pendiente local. Aún no se ha guardado en la base de datos."); setNewName("");
- };
+  const refresh = useCallback(async () => {
+    const session = await getCurrentSession();
+    setSessionEmail(session?.user.email ?? "");
+    if (!session) {
+      setProfile(null); setServices([]); setAppointments([]);
+      return;
+    }
+    const currentProfile = await getMyProviderProfile();
+    setProfile(currentProfile);
+    if (!currentProfile) {
+      setServices([]); setAppointments([]);
+      return;
+    }
+    const [serviceRows, appointmentRows] = await Promise.all([
+      listMyProviderServices(currentProfile.id),
+      listProviderAppointments(currentProfile.id),
+    ]);
+    setServices(serviceRows);
+    setAppointments(appointmentRows);
+  }, []);
 
- return <main className="provider-shell">
-  <aside className="provider-sidebar"><div className="provider-brand"><div className="provider-mark">l<span>✦</span></div><div><b>luni</b><small>STUDIO</small></div></div><div className="studio-switch"><div className="studio-avatar">A</div><div><b>Mi estudio</b><small>Espacio de belleza</small></div><span>⌄</span></div><div className="side-label">ESPACIO DE TRABAJO</div><nav className="side-nav"><button className={tab==="agenda"?"selected":""} onClick={()=>setTab("agenda")}><span>▦</span> Agenda</button><button className={tab==="servicios"?"selected":""} onClick={()=>setTab("servicios")}><span>✧</span> Mis servicios</button><button className={tab==="clientes"?"selected":""} onClick={()=>setTab("clientes")}><span>♙</span> Clientas</button><button className={tab==="perfil"?"selected":""} onClick={()=>setTab("perfil")}><span>⚙</span> Mi negocio</button></nav><div className="sidebar-bottom"><div className="help-mark">♡</div><b>Un espacio para crecer</b><p>Organiza tu tiempo. Cuida cada detalle.</p><span className="trial-pill">PRUEBA GRATUITA · 14 DÍAS</span><div className="user-mini"><div className="studio-avatar">A</div><div><b>Administradora</b><small>Mi cuenta</small></div><span>···</span></div></div></aside>
-  <section className="provider-main"><header className="provider-header"><div className="mobile-brand"><div className="provider-mark">l<span>✦</span></div><b>luni studio</b></div><div className="breadcrumb">Mi estudio <span>/</span> <b>{tab==="agenda"?"Agenda":tab==="servicios"?"Mis servicios":tab==="clientes"?"Clientas":"Mi negocio"}</b></div><div className="header-actions"><span className="connection-dot"></span><span className="connection-label">Vista de demostración</span><button className="header-avatar" onClick={()=>setTab("perfil")}>A</button></div></header>
-   {tab==="agenda" && <div className="workspace"><div className="welcome-row"><div><span className="eyebrow">JUEVES, 9 DE OCTUBRE</span><h1>Tu día, <em>a tu manera.</em></h1><p>Un paso a la vez, una clienta a la vez.</p></div><button className="provider-primary" onClick={()=>{setShowNew(true);setNotice("");}}>＋ Nueva cita</button></div>
-    <div className="metric-grid"><article className="metric-card"><span>CITAS DE HOY</span><div><b>{day==="09"?4+extra.length:0}</b><i>▦</i></div><small>En tu agenda</small></article><article className="metric-card"><span>INGRESOS PREVISTOS</span><div><b>{day==="09"?"5 400":"0"} <small>CUP</small></b><i>♧</i></div><small>Según citas de hoy</small></article><article className="metric-card"><span>POR CONFIRMAR</span><div><b>{day==="09"?1:0}</b><i>◷</i></div><small>Requieren seguimiento</small></article></div>
-    <section className="agenda-panel"><div className="agenda-heading"><div><h2>Agenda</h2><p>Organiza tus citas con calma.</p></div><button className="today-button" onClick={()=>setDay("09")}>Hoy <span>⌄</span></button></div><div className="week-strip">{week.map(w=><button key={w.n} onClick={()=>setDay(w.n)} className={day===w.n?"day active-day":"day"}><span>{w.d}</span><b>{w.n}</b>{day===w.n&&<i/>}</button>)}</div><div className="agenda-date"><b>{day==="09"?"Jueves, 9 de octubre":week.find(w=>w.n===day)?.d+", "+day+" de octubre"}</b><span>{day==="09"?"4 citas programadas":"Agenda del día"}</span></div>
-    <div className="appointment-list">{(day==="09"?list:[]).map((a,i)=><article className="provider-appointment" key={a.time+a.name}><div className="appointment-time"><b>{a.time}</b><span>{a.duration}</span></div><div className={"appointment-color "+a.color}></div><div className="appointment-details"><b>{a.name}</b><span>{a.service}</span></div><span className={a.status==="Confirmada"?"appointment-status confirmed":"appointment-status waiting"}>{a.status}</span><button className="more-button" aria-label={"Opciones de cita de "+a.name} onClick={()=>setNotice("Las acciones de cita se conectarán al backend en la siguiente fase.")}>···</button></article>)}{day!=="09"&&<div className="provider-empty"><span>✧</span><b>Un día para crear espacio</b><p>No hay citas en esta vista de demostración.</p><button className="provider-secondary" onClick={()=>setShowNew(true)}>Añadir cita</button></div>}</div>
-    </section>{notice&&<div className="provider-notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
-    <div className="bottom-tip"><span>✧</span><div><b>Un pequeño recordatorio</b><p>Deja unos minutos entre citas para preparar tu espacio y disfrutar el proceso.</p></div></div>
-   </div>}
-   {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Cuida cada detalle de lo que ofreces.</p></div><button className="provider-primary" onClick={()=>setNotice("El formulario para crear servicios se habilitará al conectar la base de datos.")}>＋ Añadir servicio</button></div><div className="provider-service-grid">{serviceList.map((s,i)=><article className="provider-service-card" key={s.name}><div className={"provider-service-art art-"+i}>{s.symbol}<span>0{i+1}</span></div><div className="provider-service-content"><h3>{s.name}</h3><p>{s.desc}</p><div><span>◷ {s.duration}</span><b>{s.price}</b></div><button className="provider-secondary" onClick={()=>setNotice("La edición de servicios se conectará a Supabase en la siguiente fase.")}>Editar detalles ↗</button></div></article>)}</div>{notice&&<div className="provider-notice">{notice}<button onClick={()=>setNotice("")}>×</button></div>}</div>}
-   {tab==="clientes"&&<div className="workspace"><span className="eyebrow">RELACIONES QUE IMPORTAN</span><h1>Tus <em>clientas.</em></h1><div className="provider-empty large-empty"><span>♡</span><b>Tu comunidad empieza aquí</b><p>Cuando conectemos la agenda, aquí encontrarás el historial y las preferencias de tus clientas.</p></div></div>}
-   {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="settings-card"><div className="settings-avatar">A</div><div><h3>Mi estudio de belleza</h3><p>Personaliza el nombre, la información pública y tus horarios.</p></div><span className="trial-pill">PRUEBA · 14 DÍAS</span></div><div className="settings-card"><div className="settings-icon">◷</div><div><h3>Horario de atención</h3><p>Configura días laborables, pausas y excepciones.</p></div><button className="provider-secondary" onClick={()=>setNotice("La configuración de horarios se implementará con el modelo de disponibilidad.")}>Configurar</button></div>{notice&&<div className="provider-notice">{notice}<button onClick={()=>setNotice("")}>×</button></div>}</div>}
-   <footer className="provider-footer"><span>luni studio</span><span>Hecho con cuidado, para quienes cuidan. ♡</span></footer>
-  </section>
-  {showNew&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="new-title"><button className="modal-close" onClick={()=>setShowNew(false)} aria-label="Cerrar">×</button><span className="eyebrow">HAZLE ESPACIO</span><h2 id="new-title">Añadir una <em>cita.</em></h2><label>Nombre de la clienta<input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Ej. Ana Rodríguez"/></label><label>Servicio<select value={newService} onChange={e=>setNewService(e.target.value)}>{serviceList.map(s=><option key={s.name}>{s.name}</option>)}</select></label><label>Hora preferida<input type="time" value={newTime} onChange={e=>setNewTime(e.target.value)}/></label><p>Se añadirá únicamente a esta vista de demostración. La persistencia local y la sincronización se implementarán después.</p><button className="provider-primary full-provider-button" onClick={addAppointment}>Añadir a la vista</button></section></div>}
- </main>;
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setError("Falta configurar la URL y la clave pública de Supabase en apps/provider/.env.");
+      setLoading(false);
+      return;
+    }
+    void refresh().catch(e => setError(e instanceof Error ? e.message : "No se pudo conectar con Supabase."))
+      .finally(() => setLoading(false));
+    return onAuthStateChange(() => {
+      void refresh().catch(e => setError(e instanceof Error ? e.message : "No se pudo actualizar la cuenta."));
+    });
+  }, [refresh]);
+
+  const filteredAppointments = useMemo(() => appointments.filter(a => a.starts_at.slice(0, 10) === day), [appointments, day]);
+  const activeServices = services.filter(s => s.is_active);
+  const pendingCount = appointments.filter(a => a.status === "pending_confirmation").length;
+
+  const submitAuth = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      if (authMode === "signup") {
+        await signUpWithEmail(email, password, displayName);
+        setNotice("Cuenta creada. Si Supabase exige confirmar el correo, confirma el mensaje y después inicia sesión para registrar tu estudio.");
+        setAuthMode("login");
+      } else {
+        await signInWithEmail(email, password);
+        await refresh();
+        setNotice("Sesión iniciada.");
+      }
+      setPassword("");
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo completar la autenticación."); }
+    finally { setBusy(false); }
+  };
+
+  const createProfile = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const created = await createMyProviderProfile(businessName, bio);
+      setProfile(created);
+      setNotice("Estudio registrado. Añade servicios para completar tu catálogo.");
+      await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo registrar el estudio."); }
+    finally { setBusy(false); }
+  };
+
+  const createService = async () => {
+    if (!profile) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const price = Number(servicePrice.replace(",", "."));
+      const duration = Number(serviceDuration);
+      if (!Number.isFinite(price) || price < 0) throw new Error("Escribe un precio válido.");
+      await saveProviderService({
+        providerId: profile.id,
+        name: serviceName,
+        description: serviceDescription,
+        priceCents: Math.round(price * 100),
+        currency: "CUP",
+        durationMinutes: duration,
+      });
+      setShowServiceForm(false); setServiceName(""); setServiceDescription("");
+      await refresh();
+      setNotice("Servicio guardado en Supabase.");
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo guardar el servicio."); }
+    finally { setBusy(false); }
+  };
+
+  const changeAppointment = async (appointmentId: string, status: "confirmed" | "rejected" | "completed") => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await setProviderAppointmentStatus(appointmentId, status);
+      await refresh();
+      setNotice("Estado de la cita actualizado.");
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo actualizar la cita."); }
+    finally { setBusy(false); }
+  };
+
+  const publishProfile = async () => {
+    if (!profile) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const { getSupabaseClient } = await import("@lumi/api");
+      const { error: updateError } = await getSupabaseClient()
+        .from("provider_profiles")
+        .update({ is_published: !profile.is_published, business_name: profile.business_name, bio: profile.bio })
+        .eq("id", profile.id);
+      if (updateError) throw new Error(updateError.message);
+      await refresh();
+      setNotice(profile.is_published ? "Estudio ocultado del catálogo público." : "Estudio publicado en el catálogo público.");
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cambiar la publicación."); }
+    finally { setBusy(false); }
+  };
+
+  return <main className="provider-shell">
+    <aside className="provider-sidebar"><div className="provider-brand"><div className="provider-mark">l<span>✦</span></div><div><b>luni</b><small>STUDIO</small></div></div><div className="studio-switch"><div className="studio-avatar">{profile?.business_name?.[0]?.toUpperCase() ?? "♡"}</div><div><b>{profile?.business_name ?? "Mi estudio"}</b><small>{sessionEmail || "Espacio de belleza"}</small></div><span>⌄</span></div><div className="side-label">ESPACIO DE TRABAJO</div><nav className="side-nav"><button className={tab==="agenda"?"selected":""} onClick={()=>setTab("agenda")}><span>▦</span> Agenda</button><button className={tab==="servicios"?"selected":""} onClick={()=>setTab("servicios")}><span>✧</span> Mis servicios</button><button className={tab==="clientes"?"selected":""} onClick={()=>setTab("clientes")}><span>♙</span> Clientas</button><button className={tab==="perfil"?"selected":""} onClick={()=>setTab("perfil")}><span>⚙</span> Mi negocio</button></nav><div className="sidebar-bottom"><div className="help-mark">♡</div><b>Un espacio para crecer</b><p>Organiza tu tiempo. Cuida cada detalle.</p>{profile && <span className="trial-pill">LICENCIA: {profile.license_status.toUpperCase()}</span>}<div className="user-mini"><div className="studio-avatar">{sessionEmail ? sessionEmail[0].toUpperCase() : "♡"}</div><div><b>{sessionEmail || "Sin sesión"}</b><small>Mi cuenta</small></div><span>···</span></div></div></aside>
+    <section className="provider-main"><header className="provider-header"><div className="mobile-brand"><div className="provider-mark">l<span>✦</span></div><b>luni studio</b></div><div className="breadcrumb">Mi estudio <span>/</span> <b>{tab==="agenda"?"Agenda":tab==="servicios"?"Mis servicios":tab==="clientes"?"Clientas":"Mi negocio"}</b></div><div className="header-actions"><span className="connection-dot" style={{background:loading?"#c3a56c":error?"#c65c5c":"#79a77a"}}></span><span className="connection-label">{loading ? "Conectando…" : error ? "Revisar conexión" : sessionEmail ? "Conectado a Supabase" : "Inicia sesión"}</span><button className="header-avatar" onClick={()=>setTab("perfil")}>{sessionEmail ? sessionEmail[0].toUpperCase() : "A"}</button></div></header>
+      {(error || notice) && <div role={error ? "alert" : "status"} className="provider-notice">{error || notice}<button onClick={()=>{setError("");setNotice("");}}>×</button></div>}
+      {!sessionEmail ? <div className="workspace"><span className="eyebrow">BIENVENIDA A LUNI STUDIO</span><h1>Tu negocio, <em>en buenas manos.</em></h1><div className="settings-card auth-provider-card"><div className="settings-avatar">♡</div><div><h3>{authMode === "login" ? "Iniciar sesión" : "Crear cuenta profesional"}</h3><p>Accede a tu agenda, servicios y configuración del estudio.</p></div><div className="provider-auth-fields">{authMode === "signup" && <label>Tu nombre<input value={displayName} onChange={e=>setDisplayName(e.target.value)} autoComplete="name"/></label>}<label>Correo electrónico<input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></label><label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==="login"?"current-password":"new-password"}/></label><button className="provider-primary full-provider-button" disabled={busy||!email.trim()||password.length<6||(authMode==="signup"&&!displayName.trim())} onClick={()=>void submitAuth()}>{busy?"Procesando…":authMode==="login"?"Iniciar sesión":"Crear cuenta"}</button><button className="provider-secondary" onClick={()=>{setAuthMode(authMode==="login"?"signup":"login");setError("");}}>{authMode==="login"?"No tengo cuenta · Registrarme":"Ya tengo cuenta · Iniciar sesión"}</button></div></div></div>
+      : !profile ? <div className="workspace"><span className="eyebrow">PRIMER PASO</span><h1>Registra tu <em>estudio.</em></h1><p className="setup-description">Completa los datos básicos para empezar a administrar tus servicios.</p><div className="settings-card provider-setup-card"><label>Nombre del estudio<input value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="Ej. Studio Ana"/></label><label>Descripción breve<textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Qué servicios ofreces y qué te distingue"/></label><button className="provider-primary" disabled={busy||!businessName.trim()} onClick={()=>void createProfile()}>{busy?"Guardando…":"Registrar estudio"}</button></div></div>
+      : <>
+        {tab==="agenda" && <div className="workspace"><div className="welcome-row"><div><span className="eyebrow">TU AGENDA REAL</span><h1>Tu día, <em>a tu manera.</em></h1><p>Las citas se cargan desde tu cuenta de Luni.</p></div><label className="date-filter">Fecha<input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label></div>
+          <div className="metric-grid"><article className="metric-card"><span>CITAS DEL DÍA</span><div><b>{filteredAppointments.length}</b><i>▦</i></div><small>En la agenda</small></article><article className="metric-card"><span>INGRESOS PREVISTOS</span><div><b>{money(filteredAppointments.filter(a=>a.status==="confirmed"||a.status==="pending_confirmation").reduce((sum,a)=>sum+a.client_price_cents,0))}</b><i>♧</i></div><small>Confirmadas y pendientes</small></article><article className="metric-card"><span>POR CONFIRMAR</span><div><b>{filteredAppointments.filter(a=>a.status==="pending_confirmation").length}</b><i>◷</i></div><small>Requieren seguimiento</small></article></div>
+          <section className="agenda-panel"><div className="agenda-heading"><div><h2>Agenda</h2><p>{profile.business_name}</p></div><button className="today-button" onClick={()=>setDay(new Date().toISOString().slice(0,10))}>Hoy ↗</button></div><div className="agenda-date"><b>{new Date(day+"T12:00:00").toLocaleDateString("es-CU",{weekday:"long",day:"numeric",month:"long"})}</b><span>{filteredAppointments.length} citas</span></div><div className="appointment-list">{filteredAppointments.map(a=><article className="provider-appointment" key={a.id}><div className="appointment-time"><b>{new Date(a.starts_at).toLocaleTimeString("es-CU",{hour:"2-digit",minute:"2-digit"})}</b><span>{Math.max(1,Math.round((Date.parse(a.ends_at)-Date.parse(a.starts_at))/60000))} min</span></div><div className={"appointment-color "+(a.status==="confirmed"?"pink":a.status==="pending_confirmation"?"sand":"lilac")}></div><div className="appointment-details"><b>{a.client_service_name}</b><span>{money(a.client_price_cents,a.client_currency)} · {statusText[a.status] ?? a.status}</span><small>{a.notes || "Sin notas"}</small></div><div className="appointment-actions">{a.status==="pending_confirmation"&&<><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"confirmed")}>Confirmar</button><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"rejected")}>Rechazar</button></>}{a.status==="confirmed"&&<button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"completed")}>Completar</button>}</div></article>)}{filteredAppointments.length===0&&<div className="provider-empty"><span>✧</span><b>Tu agenda está despejada</b><p>No hay citas registradas para esta fecha.</p></div>}</div></section>
+        </div>}
+        {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Los cambios se guardan en Supabase.</p></div><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>＋ Añadir servicio</button></div><div className="provider-service-grid">{activeServices.map((s,i)=><article className="provider-service-card" key={s.id}><div className={"provider-service-art art-"+(i%3)}>{["✿","✧","❀"][i%3]}<span>{String(i+1).padStart(2,"0")}</span></div><div className="provider-service-content"><h3>{s.name}</h3><p>{s.description}</p><div><span>◷ {s.duration_minutes} min</span><b>{money(s.price_cents,s.currency)}</b></div><span className="service-saved-label">Guardado en Supabase</span></div></article>)}</div>{activeServices.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes servicios</b><p>Añade tu primer servicio para completar el catálogo del estudio.</p><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>Añadir servicio</button></div>}</div>}
+        {tab==="clientes"&&<div className="workspace"><span className="eyebrow">RELACIONES QUE IMPORTAN</span><h1>Tus <em>clientas.</em></h1><div className="provider-empty large-empty"><span>♡</span><b>Historial de clientas</b><p>La lista se mostrará a medida que recibas reservas. Ahora tienes {new Set(appointments.map(a=>a.client_id)).size} clientas con citas registradas.</p></div></div>}
+        {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="settings-card"><div className="settings-avatar">{profile.business_name[0]?.toUpperCase()}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}</p></div><span className="trial-pill">{profile.is_published?"PUBLICADO":"NO PUBLICADO"}</span></div><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Catálogo público</h3><p>{profile.is_published?"Tu estudio aparece en el catálogo de clientes.":"Publica tu estudio cuando hayas añadido los servicios que deseas ofrecer."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Ocultar estudio":"Publicar estudio"}</button></div><div className="settings-card"><div className="settings-icon">⌁</div><div><h3>Cuenta</h3><p>{sessionEmail}</p></div><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await signOut();setProfile(null);setServices([]);setAppointments([]);setSessionEmail("");setNotice("Sesión cerrada.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión.");}finally{setBusy(false);}}}>Cerrar sesión</button></div></div>}
+      </>}
+      <footer className="provider-footer"><span>luni studio</span><span>Hecho con cuidado, para quienes cuidan. ♡</span></footer>
+    </section>
+    {showServiceForm&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="new-service-title"><button className="modal-close" onClick={()=>setShowServiceForm(false)} aria-label="Cerrar">×</button><span className="eyebrow">AMPLÍA TU CATÁLOGO</span><h2 id="new-service-title">Nuevo <em>servicio.</em></h2><label>Nombre del servicio<input value={serviceName} onChange={e=>setServiceName(e.target.value)} placeholder="Ej. Manicura clásica"/></label><label>Descripción<input value={serviceDescription} onChange={e=>setServiceDescription(e.target.value)} placeholder="Describe brevemente el servicio"/></label><label>Precio (CUP)<input inputMode="decimal" value={servicePrice} onChange={e=>setServicePrice(e.target.value)} /></label><label>Duración en minutos<input type="number" min="1" max="1440" value={serviceDuration} onChange={e=>setServiceDuration(e.target.value)} /></label><p>El precio se guarda en centavos en la base de datos. Ejemplo: 800 CUP se guarda como 80000.</p><button className="provider-primary full-provider-button" disabled={busy||!serviceName.trim()} onClick={()=>void createService()}>{busy?"Guardando…":"Guardar servicio"}</button></section></div>}
+  </main>;
 }
