@@ -9,7 +9,14 @@
 - Rosa principal: rosa empolvado (#e9c8c8); acento más oscuro (#b8797e).
 - Dorado suave: (#b59a68), solo para detalles.
 - Bordes: cálidos y discretos (#eee5e0).
+- Texto de apoyo: #6f615d (`--muted`). Rosa para texto pequeño: #8a5a5f (`--rose-text`). El rosa #b8797e y el dorado quedan para titulares grandes y detalles decorativos.
 - Botones principales: marrón ciruela, alto contraste y radios pequeños.
+
+## Tokens y fuentes compartidos
+- Viven en `packages/ui` (`@lumi/ui`) y se cargan en `main.tsx` de cada app con `import "@lumi/ui/index.css"`.
+- `tokens.css`: colores, tipografías, tamaño táctil (`--tap-size`) y áreas seguras (`--safe-top/right/bottom/left`).
+- `fonts.css`: DM Sans y Playfair Display empaquetadas con Fontsource (subset latino). No se usa Google Fonts, así que la tipografía funciona sin conexión.
+- Cambia un color en un solo sitio: no lo redefinas en el `styles.css` de cada app.
 
 ## Cliente
 - Descubrimiento de servicios con catálogo visual.
