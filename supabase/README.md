@@ -51,6 +51,29 @@ Para que funcione hay que cambiar la plantilla del correo en Supabase:
 
 Importante: el servicio de correo integrado de Supabase tiene límites estrictos y está pensado para pruebas. Para producción configura tu propio SMTP en **Authentication → Emails → SMTP Settings**, o los códigos no llegarán de forma fiable.
 
+## Horario y disponibilidad real
+
+La segunda migración (`20261010000000_weekly_availability.sql`) añade el horario semanal y el cálculo de horas libres. **Aplícala antes de publicar las apps nuevas**: el cliente llama a funciones que no existen en la primera migración y, sin ella, no se podrá reservar.
+
+1. En el SQL Editor de Supabase (o con `supabase db push`), ejecuta las migraciones en orden. Es seguro repetirla.
+2. Cada manicurista define su horario en la app **Studio → Mi negocio → Horario de atención**. Sin horario guardado, nadie puede reservar con ella.
+
+Cómo funciona:
+
+- El horario son tramos por día de la semana en la **hora local del estudio** (`provider_profiles.timezone`, por defecto `America/Havana`).
+- Las horas de inicio salen **cada 30 minutos** dentro de cada tramo, y se descartan las que se solapan con una cita pendiente o confirmada, las que caen en un día bloqueado y las que empiezan en menos de 1 hora. Se puede reservar hasta 90 días hacia adelante.
+- `luni_available_days` y `luni_available_slots` calculan esto en el servidor y `luni_create_appointment` valida con las mismas reglas, así que lo que se muestra es lo que se acepta. Una cita cancelada o rechazada libera la hora.
+- Bloquear un día no cancela las citas ya reservadas ese día; la app avisa para que las revises.
+- Las filas antiguas `availability.kind = 'working_hours'` se siguen aceptando al reservar, pero la interfaz usa el horario semanal.
+
+### Probar la base de datos
+
+`supabase/tests/run.sh` aplica las migraciones sobre un PostgreSQL local (con `btree_gist` y `pgcrypto`) y ejecuta 58 comprobaciones: validación del horario, horas libres, solapes, bloqueos, licencia, huso horario y privacidad entre cuentas (RLS). Falla si algo no pasa.
+
+```bash
+supabase/tests/run.sh          # usa la base luni_test y las variables PG* habituales
+```
+
 ## Reservas
 
 La aplicación debe invocar la función RPC `luni_create_appointment` con:
