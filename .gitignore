@@ -11,3 +11,4 @@ android/.idea/
 android/app/build/
 android/build/
 ios/App/Pods/
+tsconfig.tsbuildinfo

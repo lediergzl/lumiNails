@@ -1,1 +1,1 @@
-import type {CapacitorConfig} from "@capacitor/cli";const config:CapacitorConfig={appId:"com.luni.cliente",appName:"Luni Cliente",webDir:"dist",bundledWebRuntime:false};export default config;
+import type {CapacitorConfig} from "@capacitor/cli";const config:CapacitorConfig={appId:"com.luni.cliente",appName:"Luni Cliente",webDir:"dist"};export default config;

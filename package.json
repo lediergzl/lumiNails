@@ -14,6 +14,8 @@
     "build:provider": "npm --workspace @lumi/provider run build",
     "cap:sync:client": "npm --workspace @lumi/client run cap:sync",
     "cap:sync:provider": "npm --workspace @lumi/provider run cap:sync",
+    "cap:add:client": "npm --workspace @lumi/client run cap:add",
+    "cap:add:provider": "npm --workspace @lumi/provider run cap:add",
     "android:debug:client": "npm --workspace @lumi/client run android:debug",
     "android:debug:provider": "npm --workspace @lumi/provider run android:debug",
     "android:release:client": "npm --workspace @lumi/client run android:release",

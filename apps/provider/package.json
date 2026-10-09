@@ -7,8 +7,9 @@
     "dev": "vite --host 0.0.0.0 --port 5174",
     "build": "tsc -b && vite build",
     "cap:sync": "npx cap sync android",
-    "android:debug": "npm run build && npm run cap:sync && cd android && gradlew.bat assembleDebug",
-    "android:release": "npm run build && npm run cap:sync && cd android && gradlew.bat assembleRelease"
+    "android:debug": "npm run build && npm run cap:sync && node ../../scripts/gradle.mjs assembleDebug",
+    "android:release": "npm run build && npm run cap:sync && node ../../scripts/gradle.mjs assembleRelease",
+    "cap:add": "npx cap add android"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^7.0.3",
