@@ -90,9 +90,14 @@ export default function App() {
     setBusy(true); setError(""); setNotice("");
     try {
       if (authMode === "signup") {
-        await signUpWithEmail(email, password, displayName);
-        setNotice("Cuenta creada. Si Supabase exige confirmar el correo, confirma el mensaje y después inicia sesión para registrar tu estudio.");
-        setAuthMode("login");
+        const { session } = await signUpWithEmail(email, password, displayName);
+        if (session) {
+          await refresh();
+          setNotice("Cuenta creada. Registra tu estudio para empezar.");
+        } else {
+          setNotice("Cuenta creada. Confirma tu correo y después inicia sesión para registrar tu estudio.");
+          setAuthMode("login");
+        }
       } else {
         await signInWithEmail(email, password);
         await refresh();

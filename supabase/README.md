@@ -16,6 +16,21 @@ La migración inicial crea perfiles, perfiles de profesional, catálogo de servi
 
 La migración usa `IF NOT EXISTS` y recrea algunos triggers/policies; aun así, hazla primero en un proyecto de prueba si ya existen tablas propias con esos nombres. No pegues claves `service_role` en la aplicación ni en el repositorio.
 
+## Registro sin confirmación de correo
+
+Para que una persona cree su cuenta y entre directamente, **sin confirmar el correo**, hay que desactivarlo en tu proyecto de Supabase. Es un ajuste del panel, no de la migración ni del código:
+
+1. Abre tu proyecto en Supabase.
+2. Ve a **Authentication → Sign In / Providers → Email** (el nombre exacto puede variar según la versión del panel).
+3. Desactiva **Confirm email** y guarda.
+
+Con eso, `signUp` devuelve la sesión de inmediato y las dos apps dejan al usuario dentro (`signUpWithEmail` devuelve `session`). Si el ajuste sigue activado, las apps lo detectan (la sesión llega vacía) y muestran un aviso para confirmar el correo.
+
+Ten en cuenta que sin verificación:
+
+- Una persona puede registrarse con un correo que no es suyo o con un error de escritura, y no podrá recuperar la cuenta por correo. Todavía no existe flujo de «olvidé mi contraseña».
+- Es más fácil crear cuentas falsas. Revisa los límites de **Authentication → Rate Limits** y valora activar CAPTCHA.
+
 ## Reservas
 
 La aplicación debe invocar la función RPC `luni_create_appointment` con:

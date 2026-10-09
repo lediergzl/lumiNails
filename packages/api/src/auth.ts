@@ -6,10 +6,41 @@ export type AuthResult = {
   session: Session | null;
 };
 
-function throwAuthError(error: AuthError | null): void {
-  if (error) throw new Error(error.message);
+const AUTH_MESSAGES_BY_CODE: Record<string, string> = {
+  user_already_exists: "Ya existe una cuenta con ese correo. Inicia sesión.",
+  email_exists: "Ya existe una cuenta con ese correo. Inicia sesión.",
+  invalid_credentials: "Correo o contraseña incorrectos.",
+  email_not_confirmed: "Este correo aún no está confirmado. Revisa tu bandeja de entrada.",
+  weak_password: "La contraseña es demasiado débil. Usa al menos 6 caracteres.",
+  email_address_invalid: "Escribe un correo electrónico válido.",
+  over_request_rate_limit: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+  over_email_send_rate_limit: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+  signup_disabled: "El registro de cuentas nuevas no está disponible en este momento.",
+};
+
+const AUTH_MESSAGES_BY_TEXT: Array<[RegExp, string]> = [
+  [/user already registered/i, "Ya existe una cuenta con ese correo. Inicia sesión."],
+  [/invalid login credentials/i, "Correo o contraseña incorrectos."],
+  [/email not confirmed/i, "Este correo aún no está confirmado. Revisa tu bandeja de entrada."],
+  [/password should be at least/i, "La contraseña es demasiado corta. Usa al menos 6 caracteres."],
+  [/unable to validate email|invalid format/i, "Escribe un correo electrónico válido."],
+  [/rate limit|too many requests/i, "Demasiados intentos. Espera unos minutos e inténtalo de nuevo."],
+];
+
+export function friendlyAuthMessage(error: Pick<AuthError, "message"> & { code?: string }): string {
+  if (error.code && AUTH_MESSAGES_BY_CODE[error.code]) return AUTH_MESSAGES_BY_CODE[error.code];
+  return AUTH_MESSAGES_BY_TEXT.find(([pattern]) => pattern.test(error.message))?.[1] ?? error.message;
 }
 
+function throwAuthError(error: AuthError | null): void {
+  if (error) throw new Error(friendlyAuthMessage(error));
+}
+
+/**
+ * Crea la cuenta. Si el proyecto de Supabase tiene desactivado "Confirm email",
+ * `session` viene informada y el usuario ya está dentro. Si sigue activado,
+ * `session` es null hasta que confirme el correo.
+ */
 export async function signUpWithEmail(
   email: string,
   password: string,

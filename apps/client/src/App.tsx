@@ -96,9 +96,15 @@ export default function App() {
     setBusy(true); setError(""); setNotice("");
     try {
       if (authMode === "signup") {
-        await signUpWithEmail(email, password, displayName);
-        setNotice("Cuenta creada. Si Supabase solicita confirmar el correo, revisa tu bandeja antes de iniciar sesión.");
-        setAuthMode("login");
+        const { session } = await signUpWithEmail(email, password, displayName);
+        if (session) {
+          await refreshAppointments();
+          setTab("inicio");
+          setNotice("Cuenta creada. Ya puedes reservar tu primera cita.");
+        } else {
+          setNotice("Cuenta creada. Confirma tu correo para poder iniciar sesión.");
+          setAuthMode("login");
+        }
       } else {
         await signInWithEmail(email, password);
         await refreshAppointments();
