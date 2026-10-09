@@ -19,9 +19,11 @@
     "android:debug:client": "npm --workspace @lumi/client run android:debug",
     "android:debug:provider": "npm --workspace @lumi/provider run android:debug",
     "android:release:client": "npm --workspace @lumi/client run android:release",
-    "android:release:provider": "npm --workspace @lumi/provider run android:release"
+    "android:release:provider": "npm --workspace @lumi/provider run android:release",
+    "brand:generate": "python scripts/brand/generate_assets.py"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^7.4.3",
     "typescript": "^5.9.3",
     "vite": "^7.1.7"

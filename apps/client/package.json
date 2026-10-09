@@ -9,7 +9,8 @@
     "cap:sync": "npx cap sync android",
     "android:debug": "npm run build && npm run cap:sync && node ../../scripts/gradle.mjs assembleDebug",
     "android:release": "npm run build && npm run cap:sync && node ../../scripts/gradle.mjs assembleRelease",
-    "cap:add": "npx cap add android"
+    "cap:add": "npx cap add android && npm run assets:android",
+    "assets:android": "npx @capacitor/assets generate --android"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^7.0.3",
