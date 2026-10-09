@@ -252,6 +252,27 @@ begin
 
   v_end := p_starts_at + make_interval(mins => v_service.duration_minutes);
 
+  if not exists (
+    select 1 from public.availability a
+    where a.provider_id = v_provider.id
+      and a.kind = 'working_hours'
+      and a.status = 'active'
+      and a.starts_at <= p_starts_at
+      and a.ends_at >= v_end
+  ) then
+    raise exception 'OUTSIDE_WORKING_HOURS' using errcode = 'P0001';
+  end if;
+
+  if exists (
+    select 1 from public.availability a
+    where a.provider_id = v_provider.id
+      and a.kind = 'block'
+      and a.status = 'active'
+      and tstzrange(a.starts_at, a.ends_at, '[)') && tstzrange(p_starts_at, v_end, '[)')
+  ) then
+    raise exception 'SLOT_BLOCKED' using errcode = 'P0001';
+  end if;
+
   -- Locking the provider row serializes slot creation attempts for that provider.
   -- The exclusion constraint is the final guard against overlapping appointments.
   insert into public.appointments (
