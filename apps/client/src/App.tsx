@@ -3,6 +3,8 @@ import AuthPanel from "./AuthPanel";
 import {
   createAppointment,
   getCurrentSession,
+  getMyProfilePhone,
+  saveMyProfilePhone,
   isSupabaseConfigured,
   listAvailableDays,
   listAvailableSlots,
@@ -46,6 +48,7 @@ export default function App() {
   const [servicesRaw, setServicesRaw] = useState<PublicService[]>([]);
   const [appointments, setAppointments] = useState<RemoteAppointment[]>([]);
   const [sessionEmail, setSessionEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Service | null>(null);
   const [day, setDay] = useState("");
@@ -63,8 +66,14 @@ export default function App() {
   const refreshAppointments = useCallback(async () => {
     const session = await getCurrentSession();
     setSessionEmail(session?.user.email ?? "");
-    if (session) setAppointments(await listMyAppointments());
-    else setAppointments([]);
+    if (session) {
+      const [rows, phone] = await Promise.all([listMyAppointments(), getMyProfilePhone()]);
+      setAppointments(rows);
+      setClientPhone(phone);
+    } else {
+      setAppointments([]);
+      setClientPhone("");
+    }
   }, []);
 
   const loadCatalog = useCallback(async () => {
@@ -145,6 +154,7 @@ export default function App() {
     try {
       if (!sessionEmail) throw new Error("Inicia sesión antes de solicitar una cita.");
       if (!slot) throw new Error("Elige un horario disponible.");
+      await saveMyProfilePhone(clientPhone);
       await createAppointment({
         id: makeId(),
         providerId: selected.provider_id,
@@ -188,7 +198,7 @@ export default function App() {
       <section className="salon-note"><span className="note-star">✳</span><div><span className="eyebrow">UN ESPACIO PARA TI</span><h2>La belleza está<br/>en los detalles.</h2><p>Guarda un ratito para ti. Te lo mereces.</p></div><span className="note-flower">✿</span></section>
     </>}
 
-    {tab === "citas" && <section className="simple-page"><span className="eyebrow">TU AGENDA PERSONAL</span><h1>Mis <em>citas.</em></h1>{!sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Inicia sesión para ver tus citas</h3><p>Las reservas se guardan en tu cuenta de Luni.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div> : appointments.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Tu próximo momento empieza aquí</h3><p>Aún no tienes citas. Explora los servicios disponibles.</p><button className="button-dark" onClick={() => setTab("inicio")}>Descubrir servicios <span>↗</span></button></div> : appointments.map(a => <article className="appointment-card" key={a.id}><span className="pending-pill">{a.status === "pending_confirmation" ? "Pendiente de confirmar" : a.status === "confirmed" ? "Confirmada" : a.status === "cancelled" ? "Cancelada" : a.status}</span><h3>{a.client_service_name}</h3><p>{new Date(a.starts_at).toLocaleString("es-CU", { dateStyle: "medium", timeStyle: "short" })}</p><b>{money(a.client_price_cents, a.client_currency)}</b></article>)}</section>}
+    {tab === "citas" && <section className="simple-page"><span className="eyebrow">TU AGENDA PERSONAL</span><h1>Mis <em>citas.</em></h1>{!sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Inicia sesión para ver tus citas</h3><p>Las reservas se guardan en tu cuenta de Luni.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div> : appointments.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Tu próximo momento empieza aquí</h3><p>Aún no tienes citas. Explora los servicios disponibles.</p><button className="button-dark" onClick={() => setTab("inicio")}>Descubrir servicios <span>↗</span></button></div> : appointments.map(a => <article className="appointment-card" key={a.id}><span className="pending-pill">{a.status === "pending_confirmation" ? "Pendiente de confirmar" : a.status === "confirmed" ? "Confirmada" : a.status === "cancelled" ? "Cancelada" : a.status}</span><h3>{a.client_service_name}</h3><p>{new Date(a.starts_at).toLocaleString("es-CU", { dateStyle: "medium", timeStyle: "short" })}</p><b>{money(a.client_price_cents, a.client_currency)}</b>{a.status === "cancelled" && a.cancellation_reason && <p className="muted">Motivo del estudio: {a.cancellation_reason}</p>}</article>)}</section>}
 
     {tab === "perfil" && <section className="simple-page"><span className="eyebrow">TU ESPACIO LUNI</span><h1>Hola, <em>bonita.</em></h1>{sessionEmail ? <div className="profile-panel"><div className="profile-avatar">{sessionEmail[0].toUpperCase()}</div><div><h3>{sessionEmail}</h3><p>Tu cuenta está conectada a Supabase.</p></div><button className="button-outline" onClick={async () => { setBusy(true); try { await signOut(); setAppointments([]); setSessionEmail(""); setNotice("Sesión cerrada."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cerrar sesión."); } finally { setBusy(false); } }} disabled={busy}>Cerrar sesión</button></div> : <AuthPanel onError={setError} onNotice={setNotice} onSignedIn={async kind => { await refreshAppointments(); if (kind === "signup") setTab("inicio"); }} />}<p className="muted offline-note">El catálogo público requiere conexión para actualizarse. La sincronización y las reservas sin conexión se integrarán en la siguiente etapa.</p></section>}
 
@@ -205,6 +215,6 @@ export default function App() {
           : <div className="time-options">{slots.map(iso => <button type="button" key={iso} className={slot === iso ? "time-chip chosen" : "time-chip"} aria-pressed={slot === iso} onClick={() => setSlot(iso)}>{formatSlot(iso)}</button>)}</div>}
         </div>}
         {slot && <p className="chosen-summary" role="status">Tu cita: <b>{formatChosen(slot)}</b></p>}
-        <p className="booking-disclaimer">Solo ves horarios que están libres ahora mismo. Tu solicitud queda pendiente hasta que el estudio la confirme.</p><button className="button-dark full-button" disabled={busy || !slot} onClick={() => void submitBooking()}>{busy ? "Enviando…" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
+        <label className="field-label">Teléfono de contacto <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="Ej. +53 5XXXXXXX" autoComplete="tel" required /></label><p className="muted">La manicurista utilizará este número para contactarte sobre tu cita.</p><p className="booking-disclaimer">Solo ves horarios que están libres ahora mismo. Tu solicitud queda pendiente hasta que el estudio la confirme.</p><button className="button-dark full-button" disabled={busy || !slot || clientPhone.trim().replace(/[^0-9]/g, "").length < 7} onClick={() => void submitBooking()}>{busy ? "Enviando…" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
   </main>;
 }
