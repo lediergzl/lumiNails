@@ -15,6 +15,7 @@
     "@capacitor/core": "^7.4.3",
     "@capacitor/filesystem": "^7.0.2",
     "@capacitor/network": "^7.0.2",
+    "@lumi/api": "0.1.0",
     "@lumi/core": "0.1.0",
     "@lumi/database": "0.1.0",
     "@lumi/image-processor": "0.1.0",
