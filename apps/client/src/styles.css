@@ -15,3 +15,13 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .modal-backdrop{padding:max(18px,var(--safe-top)) max(18px,var(--safe-right)) max(18px,var(--safe-bottom)) max(18px,var(--safe-left))}
 @media(max-width:700px){.client-shell{padding-left:max(17px,var(--safe-left));padding-right:max(17px,var(--safe-right))}}
 @media(max-width:370px){.client-shell{padding-left:max(12px,var(--safe-left));padding-right:max(12px,var(--safe-right))}}
+
+/* ---- Navegación inferior en móvil ---- */
+.tab-icon{display:none}
+@media(max-width:700px){
+  .client-tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;height:calc(60px + var(--safe-bottom));padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);gap:0;justify-content:space-around;background:var(--cream);border-top:1px solid var(--line);border-bottom:0;box-shadow:0 -6px 20px #4436370d}
+  .client-tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:var(--tap-size);padding:0;border-bottom:0;border-top:2px solid transparent}
+  .client-tabs button.active{border-top-color:var(--rose-deep)}
+  .tab-icon{display:block;font-size:19px;line-height:1}
+  .client-shell{padding-bottom:calc(76px + var(--safe-bottom))}
+}

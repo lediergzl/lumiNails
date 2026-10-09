@@ -139,9 +139,8 @@ export default function App() {
       <button className="avatar-button" aria-label="Perfil" onClick={() => setTab("perfil")}>{sessionEmail ? sessionEmail[0].toUpperCase() : "A"}</button>
     </header>
     <nav className="client-tabs" aria-label="Navegación principal">
-      <button className={tab === "inicio" ? "active" : ""} onClick={() => setTab("inicio")}>Descubrir</button>
-      <button className={tab === "citas" ? "active" : ""} onClick={() => setTab("citas")}>Mis citas</button>
-      <button className={tab === "perfil" ? "active" : ""} onClick={() => setTab("perfil")}>Mi perfil</button>
+      {([["inicio", "Descubrir", "✧"], ["citas", "Mis citas", "▦"], ["perfil", "Mi perfil", "♡"]] as const).map(([id, label, icon]) =>
+        <button key={id} className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><span className="tab-icon" aria-hidden="true">{icon}</span><span>{label}</span></button>)}
     </nav>
     {error && <div role="alert" className="provider-notice">{error}<button onClick={() => setError("")}>×</button></div>}
     {notice && <div role="status" className="provider-notice">{notice}<button onClick={() => setNotice("")}>×</button></div>}
