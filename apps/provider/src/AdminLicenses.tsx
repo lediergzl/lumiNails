@@ -29,6 +29,7 @@ export default function AdminLicenses() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [adminSection, setAdminSection] = useState<"plans" | "methods" | "requests" | "assign">("plans");
 
   const refresh = useCallback(async () => {
     const db = getSupabaseClient();
@@ -90,8 +91,14 @@ export default function AdminLicenses() {
     <div className="license-renewal-content">
       <span className="eyebrow">SOLO ADMINISTRADORES</span><h3>Administración de licencias</h3>
       <p>Gestiona renovaciones, precios, métodos de pago y licencias desde esta misma APK.</p>
+      <div className="admin-license-tabs" role="tablist" aria-label="Gestión de licencias">
+        <button type="button" role="tab" aria-selected={adminSection === "plans"} className={adminSection === "plans" ? "admin-license-tab active" : "admin-license-tab"} onClick={() => setAdminSection("plans")}>Planes y precios</button>
+        <button type="button" role="tab" aria-selected={adminSection === "methods"} className={adminSection === "methods" ? "admin-license-tab active" : "admin-license-tab"} onClick={() => setAdminSection("methods")}>Métodos de pago</button>
+        <button type="button" role="tab" aria-selected={adminSection === "requests"} className={adminSection === "requests" ? "admin-license-tab active" : "admin-license-tab"} onClick={() => setAdminSection("requests")}>Renovaciones</button>
+        <button type="button" role="tab" aria-selected={adminSection === "assign"} className={adminSection === "assign" ? "admin-license-tab active" : "admin-license-tab"} onClick={() => setAdminSection("assign")}>Asignar licencia</button>
+      </div>
       {error && <p role="alert" className="photo-error">{error}</p>}{notice && <p role="status">{notice}</p>}
-      <div className="license-admin-section"><h4>Planes y precios (CUP)</h4>
+      {adminSection === "plans" && <div className="license-admin-section"><h4>Planes y precios (CUP)</h4>
         {plans.map((p, i) => <div className="license-admin-plan" key={p.code}>
           <b>{p.label}</b>
           <label>Duración (días)<input type="number" min="1" max="3650" step="1" value={p.duration_days} onChange={e => setPlans(old => old.map((x, j) => i === j ? { ...x, duration_days: Math.max(1, Math.min(3650, Math.floor(Number(e.target.value || 1)))) } : x))}/></label>
@@ -99,25 +106,25 @@ export default function AdminLicenses() {
           <label className="license-admin-check"><input type="checkbox" checked={p.active} onChange={e => setPlans(old => old.map((x, j) => i === j ? { ...x, active: e.target.checked } : x))}/> Disponible para renovación</label>
         </div>)}
         <button className="provider-primary" disabled={busy} onClick={() => void savePlans()}>Guardar precios</button>
-      </div>
-      <div className="license-admin-section"><h4>Métodos de pago</h4>
+      </div>}
+      {adminSection === "methods" && <div className="license-admin-section"><h4>Métodos de pago</h4>
         {methods.map((m, i) => <div className="license-admin-method" key={m.code}><label>Nombre<input value={m.label} onChange={e => setMethods(old => old.map((x,j) => i===j ? {...x,label:e.target.value} : x))}/></label><label className="license-admin-check"><input type="checkbox" checked={m.active} onChange={e => setMethods(old => old.map((x,j) => i===j ? {...x,active:e.target.checked} : x))}/> Activo</label><button className="provider-secondary" disabled={busy} onClick={() => setMethods(old => old.filter((_,j) => j!==i))}>Quitar</button></div>)}
         <div className="license-admin-method"><label>Código<input value={newMethod.code} onChange={e => setNewMethod(x=>({...x,code:e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g,"_")}))} placeholder="transferencia"/></label><label>Nombre visible<input value={newMethod.label} onChange={e => setNewMethod(x=>({...x,label:e.target.value}))} placeholder="Transferencia bancaria"/></label><button className="provider-secondary" onClick={() => { if (!newMethod.code.trim() || !newMethod.label.trim() || methods.some(m=>m.code===newMethod.code)) { setError("Completa un código único y un nombre."); return; } setMethods(old=>[...old,{...newMethod,active:true}]); setNewMethod({code:"",label:""}); setError(""); }}>Añadir</button></div>
         <button className="provider-primary" disabled={busy} onClick={() => void saveMethods()}>Guardar métodos de pago</button>
-      </div>
-      <div className="license-admin-section"><h4>Solicitudes de renovación</h4>
+      </div>}
+      {adminSection === "requests" && <div className="license-admin-section"><h4>Solicitudes de renovación</h4>
         {requests.length===0 ? <p>No hay solicitudes todavía.</p> : requests.map(r => <article className="license-admin-request" key={r.id}>
           <b>{providers.find(p=>p.id===r.provider_id)?.business_name ?? "Estudio"} · {r.plan_label}</b><small>{cash(r.amount_cents,r.currency)} · {r.duration_days} días · {new Date(r.created_at).toLocaleString("es-CU")}</small><small>Método: {r.payment_method} · Referencia: {r.payment_reference || "No indicada"}</small><span className={"trial-pill license-status-"+r.status}>{r.status==="pending"?"Pendiente":r.status==="approved"?"Aprobada":"Rechazada"}</span>
           {r.status==="pending" && <><label>Nota (opcional)<input value={notes[r.id] ?? ""} maxLength={300} onChange={e=>setNotes(old=>({...old,[r.id]:e.target.value}))} placeholder="Motivo o comprobación"/></label><div className="license-admin-actions"><button className="provider-primary" disabled={busy} onClick={()=>void processRequest(r,true)}>Confirmar pago y renovar</button><button className="provider-secondary" disabled={busy} onClick={()=>void processRequest(r,false)}>Rechazar</button></div></>}
           {r.admin_note && <small>Nota del administrador: {r.admin_note}</small>}
         </article>)}
-      </div>
-      <div className="license-admin-section"><h4>Asignar o modificar una licencia</h4>
+      </div>}
+      {adminSection === "assign" && <div className="license-admin-section"><h4>Asignar o modificar una licencia</h4>
         <label>Estudio<select value={selectedProvider} onChange={e=>setSelectedProvider(e.target.value)}><option value="">Seleccionar estudio…</option>{providers.map(p=><option key={p.id} value={p.id}>{p.business_name} · {p.license_status} · vence {date(p.license_expires_at)}</option>)}</select></label>
         <label>Estado<select value={licenseStatus} onChange={e=>setLicenseStatus(e.target.value)}><option value="active">Activa</option><option value="grace">Gracia</option><option value="suspended">Suspendida</option><option value="expired">Vencida</option></select></label>
         {(licenseStatus==="active"||licenseStatus==="grace") && <label>Vence el<input type="date" value={expiresAt} onChange={e=>setExpiresAt(e.target.value)}/></label>}
         <button className="provider-primary" disabled={busy||!selectedProvider} onClick={()=>void saveProviderLicense()}>Guardar licencia</button>
-      </div>
+      </div>}
       <button className="provider-secondary" disabled={busy} onClick={()=>void run(async()=>{}, "Datos actualizados.")}>Actualizar datos</button>
     </div>
   </section>;
