@@ -264,6 +264,15 @@ $fn$;
 -- Replace anonymous/public discovery policies. A client may read only studios/services
 -- explicitly linked to their own account; a provider can always manage their own records.
 drop policy if exists "published providers are public" on public.provider_profiles;
+drop policy if exists "active availability is public" on public.availability;
+drop policy if exists "linked clients read provider availability" on public.availability;
+create policy "linked clients read provider availability"
+  on public.availability for select to authenticated
+  using (
+    public.luni_is_provider_owner(provider_id)
+    or public.luni_client_linked_to_provider(provider_id, auth.uid())
+  );
+
 drop policy if exists "active services are public" on public.services;
 
 drop policy if exists "linked clients read provider profiles" on public.provider_profiles;
@@ -428,8 +437,109 @@ $function$;
 
 revoke all on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) from public, anon;
 grant execute on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) to authenticated;
-revoke execute on function public.luni_available_slots(uuid, uuid, date) from anon;
-revoke execute on function public.luni_available_days(uuid, uuid, date, integer) from anon;
+-- Los horarios se calculan solo para clientas vinculadas o la propia manicurista.
+create or replace function public.luni_available_slots(
+  p_provider_id uuid,
+  p_service_id uuid,
+  p_day date
+)
+returns table(starts_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+declare
+  v_service public.services%rowtype;
+  v_provider public.provider_profiles%rowtype;
+  v_step constant interval := interval '30 minutes';
+  v_lead constant interval := interval '1 hour';
+  v_duration interval;
+  v_today date;
+  v_count integer;
+  w record;
+  v_cursor timestamp;
+  v_start timestamptz;
+  v_end timestamptz;
+begin
+  select * into v_service
+  from public.services
+  where id = p_service_id and is_active and deleted_at is null;
+  if not found then return; end if;
+
+  select * into v_provider
+  from public.provider_profiles
+  where id = p_provider_id and id = v_service.provider_id
+    and is_published and deleted_at is null;
+  if not found then return; end if;
+
+  -- No se revelan horarios a cuentas anónimas ni a clientas fuera de esta cartera.
+  if auth.uid() is null or not (
+    public.luni_is_provider_owner(v_provider.id)
+    or public.luni_client_linked_to_provider(v_provider.id, auth.uid())
+  ) then
+    return;
+  end if;
+
+  if not public.luni_provider_license_ok(v_provider) then return; end if;
+
+  v_today := (now() at time zone v_provider.timezone)::date;
+  if p_day is null or p_day < v_today or p_day > v_today + 90 then return; end if;
+
+  select count(*)::integer into v_count
+  from public.appointments a
+  where a.provider_id = v_provider.id
+    and a.status in ('pending_confirmation','confirmed')
+    and a.deleted_at is null
+    and (a.starts_at at time zone v_provider.timezone)::date = p_day;
+
+  if v_count >= v_provider.daily_appointment_limit then return; end if;
+
+  v_duration := make_interval(mins => v_service.duration_minutes);
+
+  for w in
+    select ws.start_time, ws.end_time
+    from public.weekly_schedule ws
+    where ws.provider_id = v_provider.id
+      and ws.weekday = extract(isodow from p_day)::int
+    order by ws.start_time
+  loop
+    v_cursor := p_day + w.start_time;
+    while v_cursor + v_duration <= p_day + w.end_time loop
+      v_start := v_cursor at time zone v_provider.timezone;
+      v_end := v_start + v_duration;
+
+      if v_start > now() + v_lead
+         and not exists (
+           select 1 from public.appointments a
+           where a.provider_id = v_provider.id
+             and a.status in ('pending_confirmation','confirmed')
+             and a.deleted_at is null
+             and tstzrange(a.starts_at, a.ends_at, '[)') && tstzrange(v_start, v_end, '[)')
+         )
+         and not exists (
+           select 1 from public.availability b
+           where b.provider_id = v_provider.id
+             and b.kind = 'block'
+             and b.status = 'active'
+             and tstzrange(b.starts_at, b.ends_at, '[)') && tstzrange(v_start, v_end, '[)')
+         )
+      then
+        starts_at := v_start;
+        return next;
+      end if;
+
+      v_cursor := v_cursor + v_step;
+    end loop;
+  end loop;
+end;
+$function$;
+
+-- Day-strip counts use the exact same server-side slot and capacity rules.
+revoke all on function public.luni_available_slots(uuid, uuid, date) from public, anon;
+revoke all on function public.luni_available_days(uuid, uuid, date, integer) from public, anon;
+grant execute on function public.luni_available_slots(uuid, uuid, date) to authenticated;
+grant execute on function public.luni_available_days(uuid, uuid, date, integer) to authenticated;
 
 revoke all on function public.luni_create_provider_invite(uuid) from public;
 revoke all on function public.luni_preview_provider_invite(text) from public;
