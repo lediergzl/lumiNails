@@ -71,7 +71,7 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [windows, blockRows, limit] = await Promise.all([getMyWeeklySchedule(), listMyDayBlocks(providerId), getMyDailyAppointmentLimit(providerId)]);
+      const [windows, blockRows, limit] = await Promise.all([legacyScheduleHidden ? Promise.resolve([] as WeeklyWindow[]) : getMyWeeklySchedule(), listMyDayBlocks(providerId), getMyDailyAppointmentLimit(providerId)]);
       setIsNew(windows.length === 0);
       setRows(windows.length === 0 ? DEFAULT_ROWS : rowsFromWindows(windows));
       setBlocks(blockRows);
@@ -83,7 +83,7 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
     } finally {
       setLoading(false);
     }
-  }, [providerId]);
+  }, [providerId, legacyScheduleHidden]);
 
   useEffect(() => { void load(); }, [load]);
 
