@@ -48,3 +48,9 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .day-chip:disabled{opacity:.4;background:#f8eeea;text-decoration:line-through}
 .availability-note{font-size:13px;font-weight:400;margin:10px 0 0}
 .chosen-summary{margin:4px 0 14px;padding:10px 12px;background:#f1f6ef;border-left:3px solid #79a77a;font-size:13px;color:#3f5a3a}
+
+
+.portfolio-provider-info{min-width:0;flex:1}
+.portfolio-remove{flex:0 0 auto;min-height:40px;padding:0 12px;border:1px solid var(--line);background:#fff;color:var(--muted);font-size:12px}
+.portfolio-remove:hover{border-color:#b98b8f;color:#67474a}
+.portfolio-remove:disabled{opacity:.5}
