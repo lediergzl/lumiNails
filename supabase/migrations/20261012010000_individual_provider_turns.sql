@@ -29,6 +29,8 @@ create policy "provider manages own individual turns"
     where p.id = provider_id and p.user_id = auth.uid()
   ));
 
+grant select, insert, update, delete on public.provider_turns to authenticated;
+
 -- Do not edit or delete a turn while it has a pending or confirmed appointment.
 create or replace function public.luni_guard_provider_turn_change()
 returns trigger
