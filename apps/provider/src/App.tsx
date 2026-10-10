@@ -45,6 +45,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("agenda");
   const [sessionEmail, setSessionEmail] = useState("");
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [services, setServices] = useState<ProviderService[]>([]);
   const [appointments, setAppointments] = useState<ProviderAppointment[]>([]);
   const [clients, setClients] = useState<ProviderClient[]>([]);
@@ -84,11 +85,15 @@ export default function App() {
     const session = await getCurrentSession();
     setSessionEmail(session?.user.email ?? "");
     if (!session) {
-      setProfile(null); setServices([]); setAppointments([]); setClients([]); setPortfolioItems([]); setInviteLink("");
+      setProfile(null); setIsAdmin(false); setServices([]); setAppointments([]); setClients([]); setPortfolioItems([]); setInviteLink("");
       return;
     }
     const currentProfile = await getMyProviderProfile();
     setProfile(currentProfile);
+    try {
+      const { data: adminRole, error: adminRoleError } = await getSupabaseClient().rpc("luni_is_admin");
+      setIsAdmin(!adminRoleError && adminRole === true);
+    } catch { setIsAdmin(false); }
     if (!currentProfile) {
       setServices([]); setAppointments([]); setClients([]); setPortfolioItems([]);
       return;
@@ -323,8 +328,8 @@ export default function App() {
           {clients.length===0?<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes clientas vinculadas</b><p>Crea un código y compártelo por WhatsApp o muéstralo a la clienta para que lo introduzca en Luni Cliente. No existe un directorio público de clientas ni de estudios.</p><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>Crear mi primer código</button></div>
           :<div className="client-portfolio-list">{clients.map(client=><article className="client-portfolio-card" key={client.client_id}><div className="client-portfolio-avatar">{(client.display_name||"C").trim()[0]?.toUpperCase()}</div><div className="client-portfolio-main"><h3>{client.display_name||"Clienta de Luni"}</h3><p>{client.phone?<a href={"tel:"+client.phone}>{client.phone}</a>:"Sin teléfono registrado"}</p><small>Conectada desde {new Date(client.linked_at).toLocaleDateString("es-CU")}</small></div><div className="client-portfolio-stats"><b>{client.appointment_count}</b><span>{client.appointment_count===1?"cita":"citas"}</span><small>{client.last_appointment_at?"Última: "+new Date(client.last_appointment_at).toLocaleDateString("es-CU"):"Sin citas todavía"}</small></div></article>)}</div>}
         </div>}
-        {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="settings-card"><div className="settings-avatar">{profile.business_name[0]?.toUpperCase()}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}{profile.license_expires_at ? " · Vence: " + new Date(profile.license_expires_at).toLocaleDateString("es-CU") : ""}</p></div><span className="trial-pill">{profile.is_published?"RESERVAS ACTIVAS":"RESERVAS PAUSADAS"}</span></div><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Reservas por invitación</h3><p>{profile.is_published?"Tu estudio puede aceptar reservas de clientas vinculadas por invitación.":"Activa las reservas cuando tengas servicios y horarios listos. Tu estudio no aparecerá en un directorio público."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Pausar reservas":"Activar reservas"}</button></div><LicenseRenewal providerId={profile.id} />
-          <AdminLicenses />
+        {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="settings-card"><div className="settings-avatar">{profile.business_name[0]?.toUpperCase()}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}{profile.license_expires_at ? " · Vence: " + new Date(profile.license_expires_at).toLocaleDateString("es-CU") : ""}</p></div><span className="trial-pill">{profile.is_published?"RESERVAS ACTIVAS":"RESERVAS PAUSADAS"}</span></div><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Reservas por invitación</h3><p>{profile.is_published?"Tu estudio puede aceptar reservas de clientas vinculadas por invitación.":"Activa las reservas cuando tengas servicios y horarios listos. Tu estudio no aparecerá en un directorio público."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Pausar reservas":"Activar reservas"}</button></div>{!isAdmin && <LicenseRenewal providerId={profile.id} />}
+          {isAdmin && <AdminLicenses />}
           <ManualTurnsEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} /><ScheduleEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} legacyScheduleHidden /><div className="settings-card"><div className="settings-icon">⌁</div><div><h3>Cuenta</h3><p>{sessionEmail}</p></div><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await signOut();setProfile(null);setServices([]);setAppointments([]);setSessionEmail("");setNotice("Sesión cerrada.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión.");}finally{setBusy(false);}}}>Cerrar sesión</button></div></div>}
       </>}
       <footer className="provider-footer"><span>luni studio</span><span>Hecho con cuidado, para quienes cuidan. ♡</span></footer>
