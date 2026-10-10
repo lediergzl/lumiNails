@@ -307,3 +307,18 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .admin-main-tabs,.admin-license-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:5px}
   .admin-main-tab,.admin-license-tab{padding:10px 8px;font-size:12px;min-width:0}
 }
+
+
+/* Vista previa visible de los planes configurados por el administrador */
+.license-plan-preview{margin-top:24px;padding-top:20px;border-top:1px solid #eadbd4}
+.license-plan-preview h4{margin:0 0 7px;font:italic 22px var(--serif);color:#70474b}
+.license-plan-preview-help{margin:0 0 14px;color:var(--muted);font-size:12px;line-height:1.6}
+.license-plan-preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
+.license-plan-preview-card{min-width:0;border:1px solid #eadbd4;background:#fffdf9;padding:14px;border-radius:4px}
+.license-plan-preview-card h5{font-size:14px;margin:12px 0 7px;color:#70474b}
+.license-plan-preview-card strong{display:block;font-size:20px;color:#3f3534;overflow-wrap:anywhere}
+.license-plan-preview-card p{font-size:12px;color:var(--muted);margin:6px 0 0}
+.license-plan-state{display:inline-block;padding:5px 7px;border-radius:3px;font-size:10px;font-weight:700}
+.license-plan-state.is-active{background:#e4f2e8;color:#28653e}
+.license-plan-state.is-inactive{background:#f8e8e4;color:#994d43}
+.license-plan-save-confirmation{margin:14px 0 0;padding:10px 12px;background:#eaf4eb;color:#28653e;font-size:12px;border-radius:3px}
