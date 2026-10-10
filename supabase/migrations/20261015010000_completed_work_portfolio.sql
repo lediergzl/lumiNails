@@ -57,6 +57,7 @@ as $fn$
   from public.provider_portfolio_items i
   join public.provider_profiles p on p.id = i.provider_id
   where i.is_published
+    and cardinality(i.image_paths) > 0
     and i.deleted_at is null
     and p.deleted_at is null
   order by i.created_at desc
