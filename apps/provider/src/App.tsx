@@ -177,7 +177,7 @@ export default function App() {
         const variant = processed.variants.find(v => v.variant === "detail") ?? processed.variants.find(v => v.variant === "card") ?? processed.variants[0];
         if (!variant) throw new Error("No se pudo preparar una de las fotos.");
         const ext = variant.file.type === "image/webp" ? "webp" : "jpg";
-        const path = profile.id + "/" + itemId + "/" + variant.sha256.slice(0, 16) + "-work." + ext;
+        const path = profile.id + "/" + itemId + "/" + variant.sha256.slice(0, 12) + "-" + crypto.randomUUID().slice(0, 8) + "-work." + ext;
         const { error: uploadError } = await getSupabaseClient().storage.from("service-images").upload(path, variant.file, { upsert: false, contentType: variant.file.type, cacheControl: "31536000" });
         if (uploadError && !/already exists|duplicate/i.test(uploadError.message)) throw new Error("No se pudo subir una foto: " + uploadError.message);
         uploadedPaths.push(path);
