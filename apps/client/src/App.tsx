@@ -214,7 +214,7 @@ export default function App() {
   };
 
   const checkInviteCode = () => {
-    const token = inviteCodeInput.trim();
+    const token = inviteCodeInput.trim().toUpperCase();
     if (!token) {
       setError("Introduce el código que te compartió tu manicurista.");
       return;
@@ -251,9 +251,9 @@ export default function App() {
         <p>Introduce el código que te dio tu manicurista para añadirla a tu cartera.</p>
         <div className="invite-code-entry-row">
           <input aria-label="Código de invitación" value={inviteCodeInput}
-            onChange={e => setInviteCodeInput(e.target.value)}
+            onChange={e => setInviteCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 9))}
             onKeyDown={e => { if (e.key === "Enter") checkInviteCode(); }}
-            placeholder="Pega aquí el código de invitación" autoCapitalize="none"
+            placeholder="Ej. ABCD-EFGH" maxLength={9} autoCapitalize="characters"
             autoCorrect="off" spellCheck={false} />
           <button className="button-dark" disabled={busy || !inviteCodeInput.trim()} onClick={checkInviteCode}>Validar código</button>
         </div>
