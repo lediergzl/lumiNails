@@ -51,9 +51,9 @@ const blockLabel = (iso: string) =>
 const liveInRange = (appointments: ProviderAppointment[], startIso: string, endIso: string) =>
   appointments.filter(a => LIVE.has(a.status) && a.starts_at < endIso && a.ends_at > startIso).length;
 
-type Props = { providerId: string; appointments: ProviderAppointment[]; timezone: string };
+type Props = { providerId: string; appointments: ProviderAppointment[]; timezone: string; legacyScheduleHidden?: boolean };
 
-export default function ScheduleEditor({ providerId, appointments, timezone }: Props) {
+export default function ScheduleEditor({ providerId, appointments, timezone, legacyScheduleHidden = false }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState<Rows>(DEFAULT_ROWS);
@@ -200,8 +200,7 @@ export default function ScheduleEditor({ providerId, appointments, timezone }: P
 
   return (
     <section className="schedule-card" aria-labelledby="schedule-title">
-      <h3 id="schedule-title">Horario de atención</h3>
-      <p>Las citas pueden empezar cada 30 minutos dentro de cada tramo. Los clientes solo ven horas libres.</p>
+      {!legacyScheduleHidden && <><h3 id="schedule-title">Horario semanal antiguo</h3><p>Este horario ya no genera turnos reservables. La disponibilidad nueva se define en «Turnos individuales».</p></>}
       <div className="block-form">
         <label className="date-filter">Máximo de citas por día
           <input type="number" min="1" max="50" step="1" value={limitDraft} onChange={e => setLimitDraft(e.target.value)} />
@@ -211,13 +210,13 @@ export default function ScheduleEditor({ providerId, appointments, timezone }: P
       <p className="schedule-hint">Actualmente: máximo {dailyLimit} citas pendientes o confirmadas al día.</p>
 
       {loading ? <p className="schedule-hint">Cargando tu horario…</p> : <>
-        {isNew && (
+        {!legacyScheduleHidden && isNew && (
           <p className="schedule-banner" role="note">
             Aún no has guardado tu horario: mientras tanto, nadie puede reservar contigo. Revisa los días y pulsa «Guardar horario».
           </p>
         )}
 
-        <div className="schedule-rows">
+        {!legacyScheduleHidden && <div className="schedule-rows">
           {WEEKDAYS.map(d => {
             const row = rows[d];
             const error = rowError(row);
@@ -247,14 +246,14 @@ export default function ScheduleEditor({ providerId, appointments, timezone }: P
           })}
         </div>
 
-        <div className="schedule-actions">
+        {!legacyScheduleHidden && <div className="schedule-actions">
           <button type="button" className="provider-primary" disabled={saving || hasErrors || (!dirty && !isNew)} onClick={() => void save()}>
             {saving ? "Guardando…" : "Guardar horario"}
           </button>
           <button type="button" className="provider-secondary" disabled={saving || !WEEKDAYS.some(d => rows[d].on)} onClick={copyToActive}>
             Copiar el primer día a los demás activos
           </button>
-        </div>
+        </div>}
 
         <h4 className="schedule-subtitle">Días bloqueados</h4>
         <p className="schedule-hint">Vacaciones, festivos o emergencias. Antes de completar el bloqueo tendrás que revisar cada cita afectada y decidir si la mantienes o la cancelas.</p>
