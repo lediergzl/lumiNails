@@ -54,10 +54,9 @@ begin
     where a.provider_id = new.provider_id
       and a.starts_at = ((new.turn_date + new.start_time) at time zone
         (select p.timezone from public.provider_profiles p where p.id = new.provider_id))
-      and a.status in ('pending_confirmation','confirmed')
       and a.deleted_at is null
   ) then
-    raise exception 'TURN_HAS_ACTIVE_APPOINTMENT' using errcode = 'P0001';
+    raise exception 'TURN_HAS_APPOINTMENT' using errcode = 'P0001';
   end if;
   return new;
 end;
