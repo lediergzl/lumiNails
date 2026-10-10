@@ -36,6 +36,10 @@ from public.appointments a
 where a.deleted_at is null
 on conflict (client_id, provider_id) do nothing;
 
+-- Limpieza defensiva si se ejecutó una versión preliminar de esta migración.
+drop trigger if exists appointments_link_client_provider on public.appointments;
+drop function if exists public.luni_link_client_after_appointment();
+
 -- SECURITY DEFINER helpers avoid recursive RLS checks between relationship and profile policies.
 create or replace function public.luni_is_provider_owner(p_provider_id uuid)
 returns boolean
