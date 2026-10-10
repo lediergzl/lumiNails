@@ -111,7 +111,7 @@ create or replace function public.luni_available_days(
   p_provider_id uuid,
   p_service_id uuid,
   p_from date,
-  p_days integer
+  p_days integer default 14
 )
 returns table(day date, slots integer)
 language plpgsql

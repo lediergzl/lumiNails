@@ -146,5 +146,5 @@ export async function setProviderAppointmentStatus(
       cancellation_reason: status === "cancelled" || status === "rejected" ? reason.trim() : "",
     })
     .eq("id", appointmentId);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN") ? "Esa cita ya no admite este cambio. Actualiza la lista." : error.message);
 }

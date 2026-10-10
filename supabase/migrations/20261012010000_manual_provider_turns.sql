@@ -39,6 +39,11 @@ begin
   return new;
 end;
 $fn$;
+-- Limpieza: una versión previa de esta migración (individual_provider_turns) instalaba otro guard,
+-- más estricto, que convivía con este y bloqueaba también turnos con citas canceladas o completadas.
+drop trigger if exists provider_turn_change_guard on public.provider_turns;
+drop trigger if exists provider_turn_delete_guard on public.provider_turns;
+drop function if exists public.luni_guard_provider_turn_change();
 drop trigger if exists provider_turns_guard on public.provider_turns;
 create trigger provider_turns_guard before update or delete on public.provider_turns
 for each row execute function public.luni_guard_turn_changes();

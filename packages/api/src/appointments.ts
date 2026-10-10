@@ -79,6 +79,6 @@ export async function cancelMyAppointment(appointmentId: string, reason = ""): P
     .eq("id", appointmentId)
     .in("status", ["pending_confirmation", "confirmed"])
     .select("id");
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN") ? "Esa cita ya no admite este cambio. Actualiza la lista." : error.message);
   if (!data?.length) throw new Error("Esta cita ya no se puede cancelar.");
 }
