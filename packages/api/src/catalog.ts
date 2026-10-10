@@ -5,6 +5,8 @@ export type PublicProvider = {
   slug: string;
   business_name: string;
   bio: string;
+  business_phone: string | null;
+  business_location: string | null;
   avatar_path: string | null;
   brand_icon: string;
 };
@@ -26,7 +28,7 @@ export type PublicService = {
 export async function listPublishedProviders(): Promise<PublicProvider[]> {
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
-    .select("id,slug,business_name,bio,avatar_path,brand_icon")
+    .select("id,slug,business_name,bio,business_phone,business_location,avatar_path,brand_icon")
     .eq("is_published", true)
     .is("deleted_at", null)
     .order("business_name");
