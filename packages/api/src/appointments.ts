@@ -21,6 +21,7 @@ export type RemoteAppointment = {
   client_service_name: string;
   client_price_cents: number;
   client_currency: string;
+  cancellation_reason?: string;
 };
 
 export async function createAppointment(
@@ -39,7 +40,11 @@ export async function createAppointment(
   if (error) {
     const knownMessages: Record<string, string> = {
       AUTH_REQUIRED: "Inicia sesión antes de solicitar una cita.",
-      INVALID_APPOINTMENT_TIME: "Selecciona una fecha y hora futuras.",
+      INVALID_APPOINTMENT_TIME: "Selecciona una hora con al menos una hora de anticipación.",
+      PHONE_REQUIRED: "Añade tu número de teléfono antes de reservar.",
+      DAILY_LIMIT_REACHED: "Este estudio ya alcanzó su límite de citas para ese día. Elige otra fecha.",
+      INVALID_APPOINTMENT_SLOT: "Ese horario no es válido. Selecciona uno de los horarios disponibles.",
+      INVALID_APPOINTMENT_DATE: "La fecha está fuera del período de reservas permitido.",
       SERVICE_NOT_AVAILABLE: "Este servicio ya no está disponible.",
       PROVIDER_NOT_AVAILABLE: "Este estudio no está disponible para reservas.",
       PROVIDER_LICENSE_INACTIVE: "Este estudio no puede aceptar reservas en este momento.",
@@ -58,7 +63,7 @@ export async function createAppointment(
 export async function listMyAppointments(): Promise<RemoteAppointment[]> {
   const { data, error } = await getSupabaseClient()
     .from("appointments")
-    .select("id,provider_id,client_id,service_id,starts_at,ends_at,status,notes,client_service_name,client_price_cents,client_currency")
+    .select("id,provider_id,client_id,service_id,starts_at,ends_at,status,notes,client_service_name,client_price_cents,client_currency,cancellation_reason")
     .order("starts_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as RemoteAppointment[];

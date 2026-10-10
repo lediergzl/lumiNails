@@ -11,6 +11,7 @@ export type ProviderProfile = {
   license_expires_at: string | null;
   license_status: "trial" | "active" | "grace" | "expired" | "suspended";
   is_published: boolean;
+  timezone: string;
 };
 
 export type ProviderService = {
@@ -36,6 +37,9 @@ export type ProviderAppointment = {
   client_service_name: string;
   client_price_cents: number;
   client_currency: string;
+  cancellation_reason?: string;
+  client_display_name?: string;
+  client_phone?: string | null;
 };
 
 export async function getMyProviderProfile(): Promise<ProviderProfile | null> {
@@ -44,7 +48,7 @@ export async function getMyProviderProfile(): Promise<ProviderProfile | null> {
   if (!user) return null;
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
-    .select("id,user_id,slug,business_name,bio,avatar_path,trial_started_at,license_expires_at,license_status,is_published")
+    .select("id,user_id,slug,business_name,bio,avatar_path,trial_started_at,license_expires_at,license_status,is_published,timezone")
     .eq("user_id", user.id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -111,22 +115,22 @@ export async function saveProviderService(input: {
 
 export async function listProviderAppointments(providerId: string): Promise<ProviderAppointment[]> {
   const { data, error } = await getSupabaseClient()
-    .from("appointments")
-    .select("id,provider_id,client_id,service_id,starts_at,ends_at,status,notes,client_service_name,client_price_cents,client_currency")
-    .eq("provider_id", providerId)
-    .is("deleted_at", null)
-    .order("starts_at", { ascending: true });
+    .rpc("luni_provider_appointments_with_contacts", { p_provider_id: providerId });
   if (error) throw new Error(error.message);
   return (data ?? []) as ProviderAppointment[];
 }
 
 export async function setProviderAppointmentStatus(
   appointmentId: string,
-  status: "confirmed" | "rejected" | "completed"
+  status: "confirmed" | "rejected" | "completed" | "cancelled",
+  reason = ""
 ): Promise<void> {
   const { error } = await getSupabaseClient()
     .from("appointments")
-    .update({ status })
+    .update({
+      status,
+      cancellation_reason: status === "cancelled" || status === "rejected" ? reason.trim() : "",
+    })
     .eq("id", appointmentId);
   if (error) throw new Error(error.message);
 }

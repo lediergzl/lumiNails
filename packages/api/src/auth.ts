@@ -124,3 +124,35 @@ export function onAuthStateChange(
   });
   return () => data.subscription.unsubscribe();
 }
+
+
+/** Teléfono de contacto del cliente autenticado. */
+export async function getMyProfilePhone(): Promise<string> {
+  const { data: { user }, error: userError } = await getSupabaseClient().auth.getUser();
+  if (userError) throw new Error(userError.message);
+  if (!user) return "";
+  const { data, error } = await getSupabaseClient()
+    .from("profiles")
+    .select("phone")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return String(data?.phone ?? "");
+}
+
+/** Guarda el teléfono propio; nunca modifica el perfil de otra persona. */
+export async function saveMyProfilePhone(phone: string): Promise<void> {
+  const clean = phone.trim();
+  const digits = clean.replace(/[^0-9]/g, "");
+  if (digits.length < 7 || digits.length > 15) {
+    throw new Error("Introduce un teléfono válido con entre 7 y 15 dígitos.");
+  }
+  const { data: { user }, error: userError } = await getSupabaseClient().auth.getUser();
+  if (userError) throw new Error(userError.message);
+  if (!user) throw new Error("Inicia sesión para guardar tu teléfono.");
+  const { error } = await getSupabaseClient()
+    .from("profiles")
+    .update({ phone: clean })
+    .eq("id", user.id);
+  if (error) throw new Error(error.message);
+}

@@ -102,3 +102,26 @@ export async function unblockDay(blockId: string): Promise<void> {
     .eq("kind", "block");
   if (error) fail(error);
 }
+
+
+/** Límite diario configurable de citas activas para el estudio autenticado. */
+export async function getMyDailyAppointmentLimit(providerId: string): Promise<number> {
+  const { data, error } = await getSupabaseClient()
+    .from("provider_profiles")
+    .select("daily_appointment_limit")
+    .eq("id", providerId)
+    .maybeSingle();
+  if (error) fail(error);
+  return Number(data?.daily_appointment_limit ?? 8);
+}
+
+export async function saveMyDailyAppointmentLimit(providerId: string, limit: number): Promise<void> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+    throw new Error("El límite diario debe estar entre 1 y 50 citas.");
+  }
+  const { error } = await getSupabaseClient()
+    .from("provider_profiles")
+    .update({ daily_appointment_limit: limit })
+    .eq("id", providerId);
+  if (error) fail(error);
+}
