@@ -125,6 +125,7 @@ export default function App() {
       ]);
       const publishedById = new Map(publishedProviders.map(p => [p.id, p]));
       const brandIconById = new Map(linkedBrandIcons.map(p => [p.provider_id, p.brand_icon]));
+      const brandLogoById = new Map(linkedBrandIcons.map(p => [p.provider_id, p.avatar_path]));
       const providerRows: PublicProvider[] = linked.map(p => {
         const publicProfile = publishedById.get(p.provider_id);
         return {
@@ -132,7 +133,7 @@ export default function App() {
           slug: p.slug,
           business_name: p.business_name,
           bio: p.bio,
-          avatar_path: publicProfile?.avatar_path ?? null,
+          avatar_path: brandLogoById.get(p.provider_id) ?? publicProfile?.avatar_path ?? null,
           brand_icon: brandIconById.get(p.provider_id) || publicProfile?.brand_icon || "💅",
         };
       });
