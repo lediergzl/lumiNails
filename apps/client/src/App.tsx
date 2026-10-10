@@ -66,7 +66,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get("invite") ?? "");
+  const [inviteToken, setInviteToken] = useState(() => new URLSearchParams(window.location.search).get("invite") ?? "");
+  const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [invitePreview, setInvitePreview] = useState<ProviderInvitePreview | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
 
@@ -195,6 +196,17 @@ export default function App() {
     } finally { setBusy(false); }
   };
 
+  const checkInviteCode = () => {
+    const token = inviteCodeInput.trim();
+    if (!token) {
+      setError("Introduce el código que te compartió tu manicurista.");
+      return;
+    }
+    setError("");
+    setNotice("");
+    setInviteToken(token);
+  };
+
   return <main className="client-shell">
     <header className="client-top">
       <div className="brand-lockup"><div className="brand-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div>
@@ -210,6 +222,18 @@ export default function App() {
     {tab === "inicio" && <section className="simple-page">
       <span className="eyebrow">TU CÍRCULO DE CONFIANZA</span>
       <h1>Mis <em>manicuristas.</em></h1>
+      <article className="invite-code-entry">
+        <span className="eyebrow">¿TIENES UNA INVITACIÓN?</span>
+        <p>Introduce el código que te dio tu manicurista para añadirla a tu cartera.</p>
+        <div className="invite-code-entry-row">
+          <input aria-label="Código de invitación" value={inviteCodeInput}
+            onChange={e => setInviteCodeInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") checkInviteCode(); }}
+            placeholder="Pega aquí el código de invitación" autoCapitalize="none"
+            autoCorrect="off" spellCheck={false} />
+          <button className="button-dark" disabled={busy || !inviteCodeInput.trim()} onClick={checkInviteCode}>Validar código</button>
+        </div>
+      </article>
       {invitePreview && <article className="invite-preview-card">
         <span className="eyebrow">INVITACIÓN PERSONAL</span>
         <h2>{invitePreview.business_name}</h2>
