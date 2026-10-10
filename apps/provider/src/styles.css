@@ -138,3 +138,21 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .manual-turn-actions button { flex:1; }
   .manual-turn-add button { width:100%; }
 }
+
+/* Agenda diaria: los inicios los define la manicurista, no un generador de intervalos. */
+.individual-turns {
+  margin: 18px 0 26px;
+  padding: 18px;
+  border: 1px solid var(--border, #e8e0e5);
+  border-radius: 18px;
+  background: var(--card, #fff);
+}
+.individual-turns h3 { margin: 0 0 8px; }
+.individual-turns .schedule-hint { max-width: 760px; }
+.individual-turns .manual-turn-add { align-items: end; }
+.individual-turns .manual-turn-list { list-style: none; padding: 0; }
+.individual-turns .manual-turn-row { list-style: none; }
+@media (max-width: 600px) {
+  .individual-turns { padding: 14px; }
+  .individual-turns .manual-turn-add { align-items: stretch; }
+}
