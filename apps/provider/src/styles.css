@@ -251,3 +251,17 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .admin-license-workspace .license-admin-card{margin-top:0}
 .admin-account-card{margin-top:18px;border-radius:12px}
 @media(max-width:650px){.admin-shell{padding-bottom:0!important}.admin-license-workspace{padding:24px 14px}.admin-account-card{align-items:flex-start}.admin-account-card button{width:100%}}
+
+
+/* Gestión de roles: cuentas legibles, acciones claras y adaptación móvil. */
+.admin-roles-card{margin-bottom:20px}
+.admin-roles-search{display:flex;flex-direction:column;gap:7px;max-width:520px;margin:18px 0;color:#6f5758;font-size:12px;font-weight:700}
+.admin-roles-search input,.admin-role-row select{width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid #e5d7d1;border-radius:8px;background:#fff;color:#493839;font-size:13px;font-weight:400}
+.admin-roles-list{border-top:1px solid #eee2dc;margin:16px 0}
+.admin-role-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(155px,.8fr) auto;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid #f0e7e2}
+.admin-role-identity{display:flex;flex-direction:column;gap:5px;min-width:0}
+.admin-role-identity b{font-size:13px;color:#543f40;overflow-wrap:anywhere}
+.admin-role-identity span,.admin-role-identity small{font-size:11px;color:#8b7b7b;overflow-wrap:anywhere}
+.admin-role-row>label{display:flex;flex-direction:column;gap:7px;color:#6f5758;font-size:11px;font-weight:700}
+.admin-role-row>.provider-primary{min-height:42px;white-space:nowrap}
+@media(max-width:650px){.admin-role-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:15px 0}.admin-role-row>.provider-primary{width:100%}.admin-roles-search{max-width:none}}
