@@ -242,6 +242,46 @@ exception when exclusion_violation then
 end;
 $function$;
 
+create or replace function public.luni_set_turn_day_override(p_day date, p_enabled boolean)
+returns void
+language plpgsql security invoker set search_path = public, pg_temp
+as $fn$
+declare
+  v_provider_id uuid;
+begin
+  select p.id into v_provider_id
+  from public.provider_profiles p
+  where p.user_id = auth.uid() and p.deleted_at is null;
+  if v_provider_id is null then raise exception 'PROVIDER_REQUIRED' using errcode='P0002'; end if;
+  if p_day is null or p_day < (now() at time zone (select p.timezone from public.provider_profiles p where p.id=v_provider_id))::date
+     or p_day > (now() at time zone (select p.timezone from public.provider_profiles p where p.id=v_provider_id))::date + 90 then
+    raise exception 'INVALID_DAY' using errcode='22023';
+  end if;
+
+  if p_enabled then
+    insert into public.provider_turn_overrides(provider_id,turn_date)
+    values(v_provider_id,p_day) on conflict do nothing;
+    -- Copy the weekly template only the first time the date becomes an exception.
+    if not exists (select 1 from public.provider_turns t where t.provider_id=v_provider_id and t.turn_date=p_day) then
+      insert into public.provider_turns(provider_id,turn_date,start_time,buffer_after_minutes,status)
+      select v_provider_id,p_day,w.start_time,w.buffer_after_minutes,'active'
+      from public.provider_weekly_turns w
+      where w.provider_id=v_provider_id
+        and w.weekday=extract(isodow from p_day)::smallint
+      on conflict(provider_id,turn_date,start_time) do nothing;
+    end if;
+  else
+    delete from public.provider_turns t
+    where t.provider_id=v_provider_id and t.turn_date=p_day;
+    delete from public.provider_turn_overrides o
+    where o.provider_id=v_provider_id and o.turn_date=p_day;
+  end if;
+end;
+$fn$;
+
+revoke all on function public.luni_set_turn_day_override(date,boolean) from public, anon;
+grant execute on function public.luni_set_turn_day_override(date,boolean) to authenticated;
+
 revoke all on function public.luni_available_slots(uuid,uuid,date) from public,anon;
 grant execute on function public.luni_available_slots(uuid,uuid,date) to authenticated;
 revoke all on function public.luni_create_appointment(uuid,uuid,uuid,timestamptz,text,text) from public,anon;
