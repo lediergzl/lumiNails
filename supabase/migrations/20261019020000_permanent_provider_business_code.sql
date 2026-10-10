@@ -22,7 +22,7 @@ begin
     select id from public.provider_profiles where business_code is null
   loop
     loop
-      v_bytes := gen_random_bytes(4);
+      v_bytes := gen_random_bytes(6);
       select string_agg((get_byte(v_bytes, n) % 10)::text, '' order by n)
         into v_code
         from generate_series(0, 5) as g(n);
@@ -97,25 +97,24 @@ stable
 security definer
 set search_path = public, extensions, pg_temp
 as $fn$
-  select p.id, p.business_name, p.slug, p.bio, true
-  from public.provider_profiles p
-  where p.deleted_at is null
-    and p.business_code = regexp_replace(coalesce(btrim(p_token), ''), '[^0-9]', '', 'g')
-  limit 1
-
+  (select p.id, p.business_name, p.slug, p.bio, true
+   from public.provider_profiles p
+   where p.deleted_at is null
+     and p.business_code = regexp_replace(coalesce(btrim(p_token), ''), '[^0-9]', '', 'g')
+   limit 1)
   union all
-
-  select p.id, p.business_name, p.slug, p.bio, true
-  from public.provider_invites i
-  join public.provider_profiles p on p.id = i.provider_id
-  where p.deleted_at is null
-    and i.revoked_at is null
-    and i.expires_at > now()
-    and i.token_hash = public.luni_provider_invite_hash(p_token)
-    and not exists (
-      select 1 from public.provider_profiles p2
-      where p2.business_code = regexp_replace(coalesce(btrim(p_token), ''), '[^0-9]', '', 'g')
-    )
+  (select p.id, p.business_name, p.slug, p.bio, true
+   from public.provider_invites i
+   join public.provider_profiles p on p.id = i.provider_id
+   where p.deleted_at is null
+     and i.revoked_at is null
+     and i.expires_at > now()
+     and i.token_hash = public.luni_provider_invite_hash(p_token)
+     and not exists (
+       select 1 from public.provider_profiles p2
+       where p2.business_code = regexp_replace(coalesce(btrim(p_token), ''), '[^0-9]', '', 'g')
+     )
+   limit 1)
   limit 1;
 $fn$;
 
