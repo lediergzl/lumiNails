@@ -189,3 +189,58 @@ export async function deleteMyTurn(id: string, providerId: string): Promise<void
     fail(error);
   }
 }
+
+/** Turno individual configurado manualmente por la manicurista. */
+export type IndividualTurn = {
+  id: string;
+  turn_date: string;
+  start_time: string;
+  buffer_after_minutes: number;
+};
+
+/** Carga los turnos que el estudio definió para una fecha concreta. */
+export async function listMyTurns(providerId: string, day: string): Promise<IndividualTurn[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("provider_turns")
+    .select("id,turn_date,start_time,buffer_after_minutes")
+    .eq("provider_id", providerId)
+    .eq("turn_date", day)
+    .order("start_time");
+  if (error) fail(error);
+  return ((data ?? []) as IndividualTurn[]).map(t => ({ ...t, start_time: hhmm(t.start_time) }));
+}
+
+/** Crea un inicio manual; no genera otros turnos ni intervalos intermedios. */
+export async function addMyTurn(
+  providerId: string,
+  day: string,
+  startTime: string,
+  bufferAfterMinutes = 0
+): Promise<void> {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day)) throw new Error("Elige una fecha válida.");
+  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(startTime)) throw new Error("Elige una hora válida.");
+  if (!Number.isInteger(bufferAfterMinutes) || bufferAfterMinutes < 0 || bufferAfterMinutes > 180) {
+    throw new Error("El margen debe estar entre 0 y 180 minutos.");
+  }
+  const { error } = await getSupabaseClient().from("provider_turns").insert({
+    provider_id: providerId,
+    turn_date: day,
+    start_time: startTime,
+    buffer_after_minutes: bufferAfterMinutes,
+  });
+  if (error) {
+    if (error.code === "23505") throw new Error("Ya existe un turno a esa hora.");
+    fail(error);
+  }
+}
+
+/** Quita solo un turno sin citas asociadas; la base de datos protege el historial. */
+export async function removeMyTurn(turnId: string): Promise<void> {
+  const { error } = await getSupabaseClient().from("provider_turns").delete().eq("id", turnId);
+  if (error) {
+    if (error.message.includes("TURN_HAS_APPOINTMENT")) {
+      throw new Error("No puedes eliminar este turno porque tiene una cita asociada. El historial se conserva.");
+    }
+    fail(error);
+  }
+}
