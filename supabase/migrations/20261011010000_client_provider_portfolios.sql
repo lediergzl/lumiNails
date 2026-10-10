@@ -282,6 +282,155 @@ create policy "linked clients read provider services"
     or public.luni_client_linked_to_provider(services.provider_id, auth.uid())
   );
 
+-- Las reservas requieren una relación activa creada al aceptar una invitación personal.
+create or replace function public.luni_create_appointment(
+  p_id uuid,
+  p_provider_id uuid,
+  p_service_id uuid,
+  p_starts_at timestamptz,
+  p_idempotency_key text,
+  p_notes text default ''
+)
+returns public.appointments
+language plpgsql
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+declare
+  v_client_id uuid := auth.uid();
+  v_service public.services%rowtype;
+  v_provider public.provider_profiles%rowtype;
+  v_end timestamptz;
+  v_existing public.appointments%rowtype;
+  v_result public.appointments%rowtype;
+  v_phone text;
+  v_local_start timestamp;
+  v_local_end timestamp;
+  v_today date;
+  v_daily_count integer;
+begin
+  if v_client_id is null then
+    raise exception 'AUTH_REQUIRED' using errcode = '28000';
+  end if;
+  if p_idempotency_key is null or length(trim(p_idempotency_key)) < 8 then
+    raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = '22023';
+  end if;
+
+  select nullif(trim(phone), '') into v_phone
+  from public.profiles where id = v_client_id;
+  if v_phone is null then
+    raise exception 'PHONE_REQUIRED' using errcode = 'P0001';
+  end if;
+
+  if p_starts_at is null or p_starts_at <= now() + interval '1 hour' then
+    raise exception 'INVALID_APPOINTMENT_TIME' using errcode = '22023';
+  end if;
+
+  select * into v_existing
+  from public.appointments
+  where client_id = v_client_id and idempotency_key = p_idempotency_key;
+  if found then return v_existing; end if;
+
+  if not exists (
+    select 1 from public.client_provider_relationships r
+    where r.client_id = v_client_id
+      and r.provider_id = p_provider_id
+      and r.status = 'active'
+  ) then
+    raise exception 'CLIENT_PROVIDER_LINK_REQUIRED' using errcode = '42501';
+  end if;
+
+  select * into v_service
+  from public.services
+  where id = p_service_id and is_active and deleted_at is null;
+  if not found then
+    raise exception 'SERVICE_NOT_AVAILABLE' using errcode = 'P0002';
+  end if;
+
+  select * into v_provider
+  from public.provider_profiles
+  where id = p_provider_id and id = v_service.provider_id
+    and is_published and deleted_at is null
+  for update;
+  if not found then
+    raise exception 'PROVIDER_NOT_AVAILABLE' using errcode = 'P0002';
+  end if;
+
+  if not public.luni_provider_license_ok(v_provider) then
+    raise exception 'PROVIDER_LICENSE_INACTIVE' using errcode = 'P0001';
+  end if;
+
+  v_end := p_starts_at + make_interval(mins => v_service.duration_minutes);
+  v_local_start := p_starts_at at time zone v_provider.timezone;
+  v_local_end := v_end at time zone v_provider.timezone;
+  v_today := (now() at time zone v_provider.timezone)::date;
+
+  if v_local_start::date < v_today or v_local_start::date > v_today + 90 then
+    raise exception 'INVALID_APPOINTMENT_DATE' using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1
+    from public.weekly_schedule w
+    where w.provider_id = v_provider.id
+      and w.weekday = extract(isodow from v_local_start)::int
+      and v_local_start::date = v_local_end::date
+      and w.start_time <= v_local_start::time
+      and w.end_time >= v_local_end::time
+      and mod(extract(epoch from (v_local_start::time - w.start_time)), 1800) = 0
+  ) then
+    raise exception 'INVALID_APPOINTMENT_SLOT' using errcode = 'P0001';
+  end if;
+
+  if not public.luni_within_working_hours(v_provider.id, p_starts_at, v_end) then
+    raise exception 'OUTSIDE_WORKING_HOURS' using errcode = 'P0001';
+  end if;
+
+  if exists (
+    select 1 from public.availability a
+    where a.provider_id = v_provider.id
+      and a.kind = 'block'
+      and a.status = 'active'
+      and tstzrange(a.starts_at, a.ends_at, '[)') && tstzrange(p_starts_at, v_end, '[)')
+  ) then
+    raise exception 'SLOT_BLOCKED' using errcode = 'P0001';
+  end if;
+
+  select count(*)::integer into v_daily_count
+  from public.appointments a
+  where a.provider_id = v_provider.id
+    and a.status in ('pending_confirmation','confirmed')
+    and a.deleted_at is null
+    and (a.starts_at at time zone v_provider.timezone)::date = v_local_start::date;
+
+  if v_daily_count >= v_provider.daily_appointment_limit then
+    raise exception 'DAILY_LIMIT_REACHED' using errcode = 'P0001';
+  end if;
+
+  insert into public.appointments (
+    id, provider_id, client_id, service_id, starts_at, ends_at, status,
+    notes, idempotency_key, client_service_name, client_price_cents,
+    client_currency, cancellation_reason
+  ) values (
+    coalesce(p_id, gen_random_uuid()), v_provider.id, v_client_id, v_service.id,
+    p_starts_at, v_end, 'pending_confirmation', coalesce(p_notes, ''),
+    p_idempotency_key, v_service.name, v_service.price_cents, v_service.currency, ''
+  )
+  returning * into v_result;
+
+  return v_result;
+exception
+  when exclusion_violation then
+    raise exception 'SLOT_ALREADY_TAKEN' using errcode = '23P01';
+end;
+$function$;
+
+
+revoke all on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) from public, anon;
+grant execute on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) to authenticated;
+revoke execute on function public.luni_available_slots(uuid, uuid, date) from anon;
+revoke execute on function public.luni_available_days(uuid, uuid, date, integer) from anon;
+
 revoke all on function public.luni_create_provider_invite(uuid) from public;
 revoke all on function public.luni_preview_provider_invite(text) from public;
 revoke all on function public.luni_accept_provider_invite(text) from public;
