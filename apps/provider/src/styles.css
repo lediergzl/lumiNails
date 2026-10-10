@@ -453,3 +453,13 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* Los códigos cortos deben leerse de un vistazo y poder dictarse sin confusión. */
 @media(max-width:520px){.invite-link-row{flex-wrap:wrap}.invite-link-row input.invite-code-display{flex-basis:100%;height:54px;letter-spacing:.16em}.invite-link-row .provider-secondary{flex:1}}
+
+/* Personalización de identidad del estudio */
+.studio-brand-icon{display:grid;place-items:center;font-size:27px;line-height:1}
+.studio-brand-customizer{align-items:flex-start}
+.studio-brand-copy{min-width:0;flex:1}
+.studio-brand-copy p{font-size:12px;line-height:1.65;color:var(--muted);margin:7px 0 14px}
+.studio-brand-options{display:flex;gap:8px;flex-wrap:wrap}
+.studio-brand-options button{width:43px;height:43px;border:1px solid #eadbd5;border-radius:12px;background:#fffaf7;font-size:22px}
+.studio-brand-options button.selected{border:2px solid #9c6b70;background:#f4e2df;box-shadow:0 0 0 2px #f4e2df}
+.studio-brand-options button:disabled{opacity:.6}
