@@ -322,3 +322,62 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .license-plan-state.is-active{background:#e4f2e8;color:#28653e}
 .license-plan-state.is-inactive{background:#f8e8e4;color:#994d43}
 .license-plan-save-confirmation{margin:14px 0 0;padding:10px 12px;background:#eaf4eb;color:#28653e;font-size:12px;border-radius:3px}
+
+
+/* Modal adaptable: el formulario de servicio debe poder desplazarse en pantallas pequeñas. */
+.provider-modal-backdrop {
+  align-items: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+}
+.provider-modal {
+  max-height: calc(100vh - 20px);
+  max-height: calc(100dvh - max(20px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+.provider-modal .photo-preview,
+.provider-modal .photo-empty {
+  height: clamp(76px, 13vh, 120px);
+}
+.provider-modal h2 {
+  font-size: clamp(27px, 7vw, 34px);
+  line-height: 1.12;
+  margin: 8px 0 14px;
+}
+.provider-modal label {
+  margin: 10px 0;
+}
+.provider-modal input,
+.provider-modal select {
+  padding: 10px 11px;
+}
+.provider-modal .full-provider-button {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  box-shadow: 0 -8px 14px #fffdf9;
+}
+@media (max-width: 650px) {
+  .provider-modal-backdrop {
+    place-items: center;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+  }
+  .provider-modal {
+    width: 100%;
+    padding: 26px 18px 18px;
+  }
+  .provider-modal .photo-preview,
+  .provider-modal .photo-empty {
+    height: 76px;
+  }
+  .provider-modal .photo-field {
+    margin: 9px 0;
+  }
+  .provider-modal .provider-primary {
+    white-space: normal;
+  }
+}
