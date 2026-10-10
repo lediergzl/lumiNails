@@ -10,6 +10,8 @@ import {
   listAvailableSlots,
   listMyAppointments,
   listPublicServices,
+  listPublishedProviders,
+  getSupabaseClient,
   listMyClientProviders,
   previewProviderInvite,
   acceptProviderInvite,
@@ -100,18 +102,10 @@ export default function App() {
         setInvitePreview(null);
       }
       await refreshAppointments();
-      const session = await getCurrentSession();
-      if (!session) {
-        setProviders([]);
-        setServicesRaw([]);
-        return;
-      }
-      const linked = await listMyClientProviders();
-      const providerRows = linked.map(p => ({
-        id: p.provider_id, slug: p.slug, business_name: p.business_name, bio: p.bio, avatar_path: null,
-      }));
-      const serviceGroups = await Promise.all(linked.map(p => listPublicServices(p.provider_id)));
-      setProviders(providerRows);
+      // Catálogo público: no requiere sesión para consultar manicuristas publicadas.
+      const published = await listPublishedProviders();
+      const serviceGroups = await Promise.all(published.map(p => listPublicServices(p.id)));
+      setProviders(published);
       setServicesRaw(serviceGroups.flat());
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo conectar con Luni.");
@@ -257,7 +251,7 @@ export default function App() {
         : <>
           <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar">{p.business_name[0]?.toUpperCase() || "♡"}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p><small>Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>
           <div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
-          <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}><span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>
+          <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}>{service.thumb_path ? <div className={"service-art " + service.tone}><img className="service-photo" src={getSupabaseClient().storage.from("service-photos").getPublicUrl(service.thumb_path).data.publicUrl} alt={"Trabajo de " + service.name} loading="lazy"/><span className="art-number">{service.duration_minutes}′</span></div> : <div className={"service-art " + service.tone}><span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div>}<div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>
           {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p>}
         </>}
     </section>}
