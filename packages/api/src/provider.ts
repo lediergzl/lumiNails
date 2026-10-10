@@ -105,12 +105,26 @@ export async function saveProviderService(input: {
     price_cents: input.priceCents,
     currency: input.currency,
     duration_minutes: input.durationMinutes,
-    is_active: true,
   };
+  // Al editar no se toca is_active: así un servicio pausado no se reactiva solo.
   const result = input.id
-    ? await supabase.from("services").update(payload).eq("id", input.id).eq("provider_id", input.providerId)
-    : await supabase.from("services").insert(payload);
+    ? await supabase.from("services").update(payload).eq("id", input.id).eq("provider_id", input.providerId).select("id")
+    : await supabase.from("services").insert({ ...payload, is_active: true }).select("id");
   if (result.error) throw new Error(result.error.message);
+  if (!result.data?.length) throw new Error("No se pudo guardar el servicio. Es posible que ya no exista.");
+}
+
+/** Borrado lógico: las citas existentes conservan nombre y precio en su propia copia. */
+export async function deleteProviderService(providerId: string, serviceId: string): Promise<void> {
+  const { data, error } = await getSupabaseClient()
+    .from("services")
+    .update({ is_active: false, deleted_at: new Date().toISOString() })
+    .eq("id", serviceId)
+    .eq("provider_id", providerId)
+    .is("deleted_at", null)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error("No se pudo eliminar el servicio. Es posible que ya no exista.");
 }
 
 export async function listProviderAppointments(providerId: string): Promise<ProviderAppointment[]> {

@@ -70,3 +70,15 @@ export async function listMyAppointments(): Promise<RemoteAppointment[]> {
   if (error) throw new Error(error.message);
   return (data ?? []) as RemoteAppointment[];
 }
+
+/** La clienta cancela su propia cita (solo si sigue pendiente o confirmada). */
+export async function cancelMyAppointment(appointmentId: string, reason = ""): Promise<void> {
+  const { data, error } = await getSupabaseClient()
+    .from("appointments")
+    .update({ status: "cancelled", cancellation_reason: reason.trim() })
+    .eq("id", appointmentId)
+    .in("status", ["pending_confirmation", "confirmed"])
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error("Esta cita ya no se puede cancelar.");
+}
