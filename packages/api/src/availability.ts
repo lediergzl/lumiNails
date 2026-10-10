@@ -142,6 +142,7 @@ export async function listMyTurns(providerId: string, fromDay: string, toDay: st
     .from("provider_turns")
     .select("id,provider_id,turn_date,start_time,buffer_after_minutes,status")
     .eq("provider_id", providerId)
+    .eq("status", "active")
     .gte("turn_date", fromDay)
     .lte("turn_date", toDay)
     .order("turn_date")
