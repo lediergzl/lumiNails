@@ -244,7 +244,7 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
               </div>
             );
           })}
-        </div>
+        </div>}
 
         {!legacyScheduleHidden && <div className="schedule-actions">
           <button type="button" className="provider-primary" disabled={saving || hasErrors || (!dirty && !isNew)} onClick={() => void save()}>
