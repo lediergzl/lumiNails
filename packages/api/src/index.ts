@@ -5,3 +5,5 @@ export * from "./appointments";
 export * from "./availability";
 export * from "./provider";
 export * from "./relationships";
+
+export * from "./portfolio";
