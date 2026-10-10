@@ -4,6 +4,11 @@ import { createMyTurn, deleteMyTurn, listMyTurns, updateMyTurn, type ProviderApp
 const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const addDays = (date: Date, amount: number) => { const copy = new Date(date); copy.setDate(copy.getDate()+amount); return localDate(copy); };
 const hhmm = (value: string) => value.slice(0,5);
+const localDateTime = (iso: string, timezone: string) => {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+};
 
 type Props = { providerId: string; appointments: ProviderAppointment[]; timezone: string };
 
@@ -29,8 +34,7 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
 
   const activeAppointmentAt = (turn: ProviderTurn) => appointments.some(a =>
     (a.status === "pending_confirmation" || a.status === "confirmed") &&
-    new Intl.DateTimeFormat("en-CA",{timeZone:timezone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"})
-      .format(new Date(a.starts_at)).replace(", ","T").replace(" ","T").slice(0,16) === `${turn.turn_date}T${hhmm(turn.start_time)}`
+    localDateTime(a.starts_at, timezone) === `${turn.turn_date}T${hhmm(turn.start_time)}`
   );
 
   const add = async () => {
