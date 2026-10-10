@@ -9,7 +9,7 @@ type Props = {
   onSignedIn: (kind: "login" | "signup" | "reset") => Promise<void> | void;
 };
 
-const TITLES: Record<Mode, string> = {
+const normalizeLoginEmail = (value: string) => {\n  const input = value.trim().toLowerCase();\n  return input.includes("@") ? input : `${input}@gmail.com`;\n};\n\nconst TITLES: Record<Mode, string> = {
   login: "Iniciar sesión",
   signup: "Crear cuenta profesional",
   forgot: "Recupera tu contraseña",
@@ -28,7 +28,7 @@ export default function AuthPanel({ onError, onNotice, onSignedIn }: Props) {
     login: "Accede a tu agenda, servicios y configuración del estudio.",
     signup: "Accede a tu agenda, servicios y configuración del estudio.",
     forgot: "Escribe tu correo y te enviaremos un código para crear una contraseña nueva.",
-    reset: `Escribe el código que enviamos a ${email.trim()} y tu nueva contraseña.`,
+    reset: `Escribe el código que enviamos a ${normalizeLoginEmail(email)} y tu nueva contraseña.`,
   };
 
   const canSubmit =
@@ -50,7 +50,7 @@ export default function AuthPanel({ onError, onNotice, onSignedIn }: Props) {
     onNotice("");
     try {
       if (mode === "signup") {
-        const { session } = await signUpWithEmail(email, password, displayName, "provider");
+        const { session } = await signUpWithEmail(normalizeLoginEmail(email), password, displayName, "provider");
         if (session) {
           await onSignedIn("signup");
           onNotice("Cuenta creada. Registra tu estudio para empezar.");
@@ -59,15 +59,15 @@ export default function AuthPanel({ onError, onNotice, onSignedIn }: Props) {
           setMode("login");
         }
       } else if (mode === "login") {
-        await signInWithEmail(email, password);
+        await signInWithEmail(normalizeLoginEmail(email), password);
         await onSignedIn("login");
         onNotice("Sesión iniciada.");
       } else if (mode === "forgot") {
-        await requestPasswordReset(email);
+        await requestPasswordReset(normalizeLoginEmail(email));
         onNotice("Si ese correo tiene una cuenta, te enviamos un código. Puede tardar un minuto.");
         setMode("reset");
       } else {
-        await resetPasswordWithCode(email, code, password);
+        await resetPasswordWithCode(normalizeLoginEmail(email), code, password);
         await onSignedIn("reset");
         onNotice("Contraseña actualizada. Ya has iniciado sesión.");
       }
@@ -100,8 +100,9 @@ export default function AuthPanel({ onError, onNotice, onSignedIn }: Props) {
           </label>
         )}
         {mode !== "reset" && (
-          <label>Correo electrónico
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+          <label>Nombre de usuario
+            <input type="text" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="fulanito" />
+            <small>Se utilizará {email.trim() ? normalizeLoginEmail(email) : "tuusuario@gmail.com"}</small>
           </label>
         )}
         {mode === "reset" && (
