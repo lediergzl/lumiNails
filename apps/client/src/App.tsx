@@ -271,10 +271,10 @@ export default function App() {
         <p>Introduce el código que te dio tu manicurista para añadirla a tu cartera.</p>
         <div className="invite-code-entry-row">
           <input aria-label="Código de invitación" value={inviteCodeInput}
-            onChange={e => { const value = e.target.value; setInviteCodeInput(value.length > 9 ? value.slice(0, 48) : value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 9)); }}
+            onChange={e => setInviteCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 48))}
             onKeyDown={e => { if (e.key === "Enter") checkInviteCode(); }}
-            placeholder="Ej. ABCD-EFGH" maxLength={48} autoCapitalize="characters"
-            autoCorrect="off" spellCheck={false} />
+            placeholder="Ej. 48271536" maxLength={48} autoCapitalize="characters"
+            inputMode="numeric" autoCorrect="off" spellCheck={false} />
           <button className="button-dark" disabled={busy || !inviteCodeInput.trim()} onClick={checkInviteCode}>Validar código</button>
         </div>
       </article>
