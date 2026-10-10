@@ -214,7 +214,8 @@ export default function App() {
   };
 
   const checkInviteCode = () => {
-    const token = inviteCodeInput.trim().toUpperCase();
+    const rawToken = inviteCodeInput.trim();
+    const token = rawToken.length > 9 ? rawToken : rawToken.toUpperCase();
     if (!token) {
       setError("Introduce el código que te compartió tu manicurista.");
       return;
