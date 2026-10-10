@@ -59,6 +59,12 @@ select test.t('manicurista NO puede reabrir una cita completada', test.raises(fo
 select test.t('manicurista NO puede completar una cita pendiente', test.raises(format($q$update public.appointments set status='completed' where id=%L$q$, :'A5'), 'APPOINTMENT_STATUS_CHANGE_FORBIDDEN'));
 reset role;
 
+-- ===== regla global: una sola cita activa por clienta, incluso con otra inserción directa
+select test.t('rechaza una segunda cita activa para la misma clienta', test.raises(format($q$
+  insert into public.appointments(id, provider_id, client_id, service_id, starts_at, ends_at, status, idempotency_key, client_service_name, client_price_cents)
+  values ('51050000-0000-0000-0000-000000000201', %L, %L, %L, now()+interval '20 days', now()+interval '21 days', 'pending_confirmation', 'duplicate-active', 'Manicura', 80000)
+$q$, :'P', :'U5', :'S'), 'CLIENT_HAS_ACTIVE_APPOINTMENT'));
+
 -- ===== clienta
 set role authenticated; select test.sub(:'U5');
 select test.t('clienta NO puede confirmar su propia cita', test.raises(format($q$update public.appointments set status='confirmed' where id=%L$q$, :'A5'), 'APPOINTMENT_STATUS_CHANGE_FORBIDDEN'));
@@ -66,6 +72,10 @@ select test.t('clienta NO puede cambiar notas al cancelar', test.raises(format($
 select test.t('clienta NO puede cancelar una cita completada', test.raises(format($q$update public.appointments set status='cancelled' where id=%L$q$, :'A4'), 'APPOINTMENT_STATUS_CHANGE_FORBIDDEN'));
 select test.t('clienta cancela su cita pendiente', test.updates(format($q$update public.appointments set status='cancelled', cancellation_reason='Imprevisto' where id=%L$q$, :'A5')));
 reset role;
+select test.t('permite reservar otra cita tras cancelar la activa', test.updates(format($q$
+  insert into public.appointments(id, provider_id, client_id, service_id, starts_at, ends_at, status, idempotency_key, client_service_name, client_price_cents)
+  values ('51050000-0000-0000-0000-000000000202', %L, %L, %L, now()+interval '21 days', now()+interval '22 days', 'pending_confirmation', 'after-cancel', 'Manicura', 80000)
+$q$, :'P', :'U5', :'S')));
 set role authenticated; select test.sub(:'U7');
 select test.t('clienta cancela su cita confirmada', test.updates(format($q$update public.appointments set status='cancelled' where id=%L$q$, :'A7')));
 reset role;
