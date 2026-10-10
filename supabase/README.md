@@ -139,3 +139,20 @@ Aplica también la migración [20261018040000_fix_roles_rpc_and_custom_license_d
 Esta migración corrige el error PostgreSQL `42804` al listar cuentas (convierte explícitamente los campos `varchar` a `text`) y permite que el administrador establezca la duración de cada plan entre **1 y 3650 días**. La duración se guarda en el plan y se copia a cada solicitud de renovación; al aprobar el pago, la licencia suma exactamente esos días.
 
 **Importante:** ejecutar la migración SQL en Supabase es un paso separado de actualizar la APK o hacer `git pull`. Después, reinicia la app y pulsa **Actualizar cuentas** y **Actualizar datos**.
+
+
+## Una sola cita activa por clienta
+
+La migración [20261020010000_one_active_appointment_per_client.sql](https://github.com/lediergzl/lumiNails/blob/main/supabase/migrations/20261020010000_one_active_appointment_per_client.sql) refuerza la regla de negocio: cada cuenta de clienta puede tener como máximo una cita en estado `pending_confirmation` o `confirmed`, aunque sea con otra manicurista. La protección se valida en PostgreSQL, no solo en la interfaz.
+
+**Para activar esta regla en el proyecto Supabase real:**
+
+1. Abre el proyecto correcto en Supabase → **SQL Editor**.
+2. Abre el archivo SQL enlazado arriba en GitHub y copia su contenido completo.
+3. Pégalo en una consulta nueva y pulsa **Run**.
+4. No hace falta borrar las citas existentes. Si una clienta ya tiene más de una cita activa, revisa y resuelve esas citas antes de permitir nuevas reservas.
+5. Después de desplegar la web actualizada, recarga Luni con Ctrl+F5.
+
+La migración también añade `luni_reschedule_appointment`: cambia la fecha/hora de la cita existente, valida disponibilidad, horario y bloqueos, y conserva el mismo identificador y estado. Una cita cancelada, rechazada o completada deja de contar como activa. No se debe marcar una cita como completada solo para desbloquear otra: el estado debe reflejar lo que ocurrió realmente.
+
+**Importante:** el commit de GitHub no aplica SQL automáticamente en Supabase. Hasta ejecutar esta migración en el proyecto conectado a Luni, el bloqueo de base de datos no estará activo.
