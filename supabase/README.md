@@ -114,3 +114,10 @@ La migración `20261018010000_admin_role_management.sql` añade el bloque **Role
 **Importante:** guardar los archivos en GitHub no ejecuta SQL en Supabase. Abre **Supabase → SQL Editor**, copia el contenido completo de [la migración de roles](https://github.com/lediergzl/lumiNails/blob/main/supabase/migrations/20261018010000_admin_role_management.sql) y ejecútalo después de las migraciones anteriores, especialmente la de licencias y administración.
 
 La operación usa funciones RPC protegidas por `luni_is_admin()`; no expone la tabla interna de autenticación a la APK. El panel no permite cambiar el rol de la propia cuenta ni quitar el rol al último administrador. Hasta aplicar esta migración, el nuevo bloque no podrá cargar ni guardar roles.
+
+
+### Corrección del listado de cuentas
+
+La migración adicional `20261018020000_admin_role_management_robustness.sql` hace que el panel liste todas las cuentas de Supabase Auth, incluso si alguna cuenta antigua no tiene todavía una fila en `profiles`. Al guardar su rol, repara ese perfil de forma controlada.
+
+Si el panel de roles muestra «No se encontraron cuentas» o el mensaje de error, aplica primero `20261018010000_admin_role_management.sql` y después `20261018020000_admin_role_management_robustness.sql` desde **Supabase → SQL Editor**. La APK por sí sola no puede ejecutar migraciones de base de datos.
