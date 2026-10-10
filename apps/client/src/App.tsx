@@ -273,8 +273,8 @@ export default function App() {
           <input aria-label="Código de invitación" value={inviteCodeInput}
             onChange={e => setInviteCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 48))}
             onKeyDown={e => { if (e.key === "Enter") checkInviteCode(); }}
-            placeholder="Ej. 48271536" maxLength={48} autoCapitalize="characters"
-            inputMode="numeric" autoCorrect="off" spellCheck={false} />
+            placeholder="Ej. 482715" maxLength={48} autoCapitalize="characters"
+            autoCorrect="off" spellCheck={false} />
           <button className="button-dark" disabled={busy || !inviteCodeInput.trim()} onClick={checkInviteCode}>Validar código</button>
         </div>
       </article>
