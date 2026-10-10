@@ -8,6 +8,7 @@ export type ProviderProfile = {
   business_name: string;
   bio: string;
   avatar_path: string | null;
+  brand_icon: string;
   trial_started_at: string;
   license_expires_at: string | null;
   license_status: "trial" | "active" | "grace" | "expired" | "suspended";
@@ -51,7 +52,7 @@ export async function getMyProviderProfile(): Promise<ProviderProfile | null> {
   if (!user) return null;
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
-    .select("id,user_id,slug,business_name,bio,avatar_path,trial_started_at,license_expires_at,license_status,is_published,timezone")
+    .select("id,user_id,slug,business_name,bio,avatar_path,brand_icon,trial_started_at,license_expires_at,license_status,is_published,timezone")
     .eq("user_id", user.id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -70,7 +71,7 @@ export async function createMyProviderProfile(businessName: string, bio = ""): P
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
     .insert({ user_id: user.id, slug, business_name: cleanName, bio: bio.trim() })
-    .select("id,user_id,slug,business_name,bio,avatar_path,trial_started_at,license_expires_at,license_status,is_published")
+    .select("id,user_id,slug,business_name,bio,avatar_path,brand_icon,trial_started_at,license_expires_at,license_status,is_published,timezone")
     .single();
   if (error) throw new Error(error.message);
   return data as ProviderProfile;
