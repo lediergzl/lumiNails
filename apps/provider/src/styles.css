@@ -156,3 +156,11 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .individual-turns { padding: 14px; }
   .individual-turns .manual-turn-add { align-items: stretch; }
 }
+
+/* Catálogo de servicios: edición, estado y fotografía real. */
+.provider-service-photo { display:block; width:100%; height:190px; object-fit:cover; background:#f6edf1; }
+.service-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.service-actions button { flex:1; min-width:90px; }
+.service-inactive { opacity:.78; }
+.service-inactive .provider-service-content { background:#faf8f9; }
+.provider-modal input[type="file"] { padding:10px 0; max-width:100%; }
