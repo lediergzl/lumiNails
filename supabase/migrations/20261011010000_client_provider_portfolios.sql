@@ -270,7 +270,10 @@ create policy "linked clients read provider availability"
   on public.availability for select to authenticated
   using (
     public.luni_is_provider_owner(provider_id)
-    or public.luni_client_linked_to_provider(provider_id, auth.uid())
+    or (
+      status = 'active'
+      and public.luni_client_linked_to_provider(provider_id, auth.uid())
+    )
   );
 
 drop policy if exists "active services are public" on public.services;
@@ -288,7 +291,10 @@ create policy "linked clients read provider services"
   on public.services for select to authenticated
   using (
     public.luni_is_provider_owner(services.provider_id)
-    or public.luni_client_linked_to_provider(services.provider_id, auth.uid())
+    or (
+      is_active and deleted_at is null
+      and public.luni_client_linked_to_provider(services.provider_id, auth.uid())
+    )
   );
 
 -- Las reservas requieren una relación activa creada al aceptar una invitación personal.
