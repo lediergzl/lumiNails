@@ -2,6 +2,9 @@
 -- Ejecutar después de las migraciones de esquema, disponibilidad y gestión de citas.
 begin;
 
+-- pgcrypto provee gen_random_bytes() y digest() usados para los tokens de invitación.
+create extension if not exists pgcrypto with schema extensions;
+
 create table if not exists public.client_provider_relationships (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.profiles(id) on delete cascade,
@@ -101,7 +104,7 @@ create or replace function public.luni_create_provider_invite(p_provider_id uuid
 returns table (token text, expires_at timestamptz)
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $fn$
 declare
   v_token text;
@@ -139,7 +142,7 @@ returns table (
 language sql
 stable
 security definer
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $fn$
   select p.id, p.business_name, p.slug, p.bio, true
   from public.provider_invites i
@@ -155,7 +158,7 @@ create or replace function public.luni_accept_provider_invite(p_token text)
 returns table (provider_id uuid, business_name text, relationship_id uuid)
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $fn$
 declare
   v_client_id uuid := auth.uid();
