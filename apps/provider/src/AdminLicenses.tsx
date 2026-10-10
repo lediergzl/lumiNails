@@ -106,6 +106,19 @@ export default function AdminLicenses() {
           <label className="license-admin-check"><input type="checkbox" checked={p.active} onChange={e => setPlans(old => old.map((x, j) => i === j ? { ...x, active: e.target.checked } : x))}/> Disponible para renovación</label>
         </div>)}
         <button className="provider-primary" disabled={busy} onClick={() => void savePlans()}>Guardar precios</button>
+        <div className="license-plan-preview" aria-live="polite">
+          <h4>Vista previa de los planes guardados</h4>
+          <p className="license-plan-preview-help">Comprueba aquí el período, el precio y si cada plan estará disponible para los estudios.</p>
+          <div className="license-plan-preview-grid">
+            {plans.map(p => <article className="license-plan-preview-card" key={p.code}>
+              <span className={p.active && p.price_cents > 0 ? "license-plan-state is-active" : "license-plan-state is-inactive"}>{p.active && p.price_cents > 0 ? "Disponible" : p.active ? "Falta configurar el precio" : "Desactivado"}</span>
+              <h5>{p.label || p.code}</h5>
+              <strong>{cash(p.price_cents, "CUP")}</strong>
+              <p>{p.duration_days} días de licencia</p>
+            </article>)}
+          </div>
+          {notice === "Planes guardados." && !error && <p className="license-plan-save-confirmation" role="status">✓ Guardado correctamente. Los valores anteriores se han vuelto a cargar desde Supabase.</p>}
+        </div>
       </div>}
       {adminSection === "methods" && <div className="license-admin-section"><h4>Métodos de pago</h4>
         {methods.map((m, i) => <div className="license-admin-method" key={m.code}><label>Nombre<input value={m.label} onChange={e => setMethods(old => old.map((x,j) => i===j ? {...x,label:e.target.value} : x))}/></label><label className="license-admin-check"><input type="checkbox" checked={m.active} onChange={e => setMethods(old => old.map((x,j) => i===j ? {...x,active:e.target.checked} : x))}/> Activo</label><button className="provider-secondary" disabled={busy} onClick={() => setMethods(old => old.filter((_,j) => j!==i))}>Quitar</button></div>)}
