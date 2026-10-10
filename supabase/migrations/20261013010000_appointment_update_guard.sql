@@ -16,8 +16,15 @@ begin
      or new.provider_id is distinct from old.provider_id
      or new.client_id is distinct from old.client_id
      or new.service_id is distinct from old.service_id
-     or new.starts_at is distinct from old.starts_at
-     or new.ends_at is distinct from old.ends_at
+     or (
+       (new.starts_at is distinct from old.starts_at or new.ends_at is distinct from old.ends_at)
+       and not (
+         old.client_id = auth.uid()
+         and current_setting('luni.reschedule_appointment', true) = old.id::text
+         and old.status in ('pending_confirmation','confirmed')
+         and new.status = old.status
+       )
+     )
      or new.notes is distinct from old.notes
      or new.idempotency_key is distinct from old.idempotency_key
      or new.client_service_name is distinct from old.client_service_name
