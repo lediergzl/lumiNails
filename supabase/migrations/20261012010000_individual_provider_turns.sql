@@ -8,6 +8,7 @@ create table if not exists public.provider_turns (
   turn_date date not null,
   start_time time not null,
   buffer_after_minutes integer not null default 0 check (buffer_after_minutes between 0 and 180),
+  status text not null default 'active' check (status in ('active','inactive')),
   created_at timestamptz not null default now(),
   unique (provider_id, turn_date, start_time)
 );
@@ -28,8 +29,8 @@ create policy "provider manages own individual turns"
     where p.id = provider_id and p.user_id = auth.uid()
   ));
 
--- A turn already used by an appointment is part of the history and cannot be deleted.
-create or replace function public.luni_guard_provider_turn_delete()
+-- Do not edit or delete a turn while it has a pending or confirmed appointment.
+create or replace function public.luni_guard_provider_turn_change()
 returns trigger
 language plpgsql
 set search_path = public, pg_temp
@@ -40,16 +41,19 @@ begin
     where a.provider_id = old.provider_id
       and a.starts_at = ((old.turn_date + old.start_time) at time zone
         (select p.timezone from public.provider_profiles p where p.id = old.provider_id))
+      and a.status in ('pending_confirmation','confirmed')
       and a.deleted_at is null
   ) then
-    raise exception 'TURN_HAS_APPOINTMENT' using errcode = 'P0001';
+    raise exception 'TURN_HAS_ACTIVE_APPOINTMENT' using errcode = 'P0001';
   end if;
-  return old;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
 end;
 $fn$;
 drop trigger if exists provider_turn_delete_guard on public.provider_turns;
-create trigger provider_turn_delete_guard before delete on public.provider_turns
-for each row execute function public.luni_guard_provider_turn_delete();
+drop trigger if exists provider_turn_change_guard on public.provider_turns;
+create trigger provider_turn_change_guard before update or delete on public.provider_turns
+for each row execute function public.luni_guard_provider_turn_change();
 
 -- Availability is now generated ONLY from turn starts entered by the provider.
 create or replace function public.luni_available_slots(
@@ -100,7 +104,7 @@ begin
   for t in
     select pt.id, pt.start_time, pt.buffer_after_minutes
     from public.provider_turns pt
-    where pt.provider_id = v_provider.id and pt.turn_date = p_day
+    where pt.provider_id = v_provider.id and pt.turn_date = p_day and pt.status = 'active'
     order by pt.start_time
   loop
     v_local_start := p_day + t.start_time;
@@ -114,7 +118,7 @@ begin
        and not exists (
          select 1 from public.provider_turns next_turn
          where next_turn.provider_id = v_provider.id
-           and next_turn.turn_date = p_day
+           and next_turn.turn_date = p_day and next_turn.status = 'active'
            and next_turn.start_time > t.start_time
            and p_day + t.start_time + v_duration + make_interval(mins => t.buffer_after_minutes) > p_day + next_turn.start_time
        )
@@ -209,14 +213,14 @@ begin
 
   select * into v_turn from public.provider_turns pt
   where pt.provider_id = v_provider.id and pt.turn_date = v_local_start::date
-    and pt.start_time = v_local_start::time
+    and pt.start_time = v_local_start::time and pt.status = 'active'
   for update;
   if not found then raise exception 'INVALID_APPOINTMENT_SLOT' using errcode = 'P0001'; end if;
 
   if exists (
     select 1 from public.provider_turns next_turn
     where next_turn.provider_id = v_provider.id and next_turn.turn_date = v_local_start::date
-      and next_turn.start_time > v_local_start::time
+      and next_turn.status = 'active' and next_turn.start_time > v_local_start::time
       and v_local_end + make_interval(mins => v_turn.buffer_after_minutes) > (v_local_start::date + next_turn.start_time)
   ) then raise exception 'SERVICE_DOES_NOT_FIT_BEFORE_NEXT_TURN' using errcode = 'P0001'; end if;
 
