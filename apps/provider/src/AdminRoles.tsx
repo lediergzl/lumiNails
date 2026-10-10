@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@lumi/api";
 
 type AppRole = "client" | "provider" | "admin";
-type Account = { user_id: string; email: string; display_name: string; role: AppRole; created_at: string };
+type Account = { user_id: string; email: string; display_name: string; role: AppRole; created_at: string };\n\nfunction readableError(value: unknown): string {\n  if (value instanceof Error) return value.message;\n  if (value && typeof value === "object") {\n    const e = value as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };\n    const message = typeof e.message === "string" ? e.message : "Error desconocido de Supabase.";\n    const details = typeof e.details === "string" ? " " + e.details : "";\n    const hint = typeof e.hint === "string" ? " " + e.hint : "";\n    const code = typeof e.code === "string" ? " (código " + e.code + ")" : "";\n    return message + details + hint + code;\n  }\n  return String(value);\n}
 const roleLabel: Record<AppRole, string> = { client: "Clienta", provider: "Manicurista", admin: "Administrador" };
 
 export default function AdminRoles() {
@@ -26,7 +26,7 @@ export default function AdminRoles() {
     setDraftRoles(Object.fromEntries(rows.map(row => [row.user_id, row.role])));
   }, []);
 
-  useEffect(() => { void refresh().catch(e => setError(e instanceof Error ? e.message : String(e))).finally(() => setLoading(false)); }, [refresh]);
+  useEffect(() => { void refresh().catch(e => setError(readableError(e))).finally(() => setLoading(false)); }, [refresh]);
 
   const save = async (account: Account) => {
     const role = draftRoles[account.user_id] ?? account.role;
@@ -55,7 +55,7 @@ export default function AdminRoles() {
       {error && <p role="alert" className="photo-error">{error}</p>}
       {notice && <p role="status">{notice}</p>}
       <label className="admin-roles-search">Buscar cuenta<input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Correo o nombre"/></label>
-      {loading ? <p>Cargando cuentas…</p> : visible.length === 0 ? <p>No se encontraron cuentas.</p> :
+      {loading ? <p>Cargando cuentas…</p> : error ? <p>No se pudieron cargar las cuentas. Revisa el mensaje anterior y la migración SQL.</p> : visible.length === 0 ? <p>{filter.trim() ? "Ninguna cuenta coincide con la búsqueda." : "Supabase no devolvió cuentas. Comprueba que existan usuarios registrados y que la migración de roles esté aplicada."}</p> :
         <div className="admin-roles-list">{visible.map(account => {
           const draft = draftRoles[account.user_id] ?? account.role;
           return <article className="admin-role-row" key={account.user_id}>
