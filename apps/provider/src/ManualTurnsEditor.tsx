@@ -163,7 +163,7 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
           </div> : <>
             <div className="manual-turn-time"><b>{hhmm(turn.start_time)}</b><span>{isWeekly?"Se repite cada "+DAY_NAMES[weekday].toLowerCase():booked?"Cita pendiente o confirmada":hasHistory?"Conservado por historial de citas":"Turno de esta fecha"}</span></div>
             <div className="manual-turn-meta"><span>Margen: {turn.buffer_after_minutes} min</span><span className={booked||hasHistory?"turn-booked":"turn-available"}>{booked?"Ocupado":hasHistory?"Historial":isWeekly?"General":"Personalizado"}</span></div>
-            <div className="manual-turn-actions"><button className="provider-secondary" disabled={saving||booked||hasHistory} onClick={()=>beginEdit(turn)}>Editar</button><button className="provider-secondary" disabled={saving||booked||hasHistory} onClick={()=>void remove(turn)}>Eliminar</button></div>
+            <div className="manual-turn-actions"><button className="provider-secondary" disabled={saving||(mode==="day"&&!override)||booked||hasHistory} onClick={()=>beginEdit(turn)}>Editar</button><button className="provider-secondary" disabled={saving||(mode==="day"&&!override)||booked||hasHistory} onClick={()=>void remove(turn)}>Eliminar</button></div>
           </>}
         </article>;
       })}</div>}
