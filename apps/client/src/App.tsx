@@ -12,6 +12,7 @@ import {
   listAvailableSlots,
   listMyAppointments,
   listPublicServices,
+  listPublishedProviders,
   listMyClientProviders,
   listPublicPortfolio,
   previewProviderInvite,
@@ -28,7 +29,7 @@ import {
 } from "@lumi/api";
 
 type Tab = "inicio" | "citas" | "perfil";
-type Service = PublicService & { providerName: string; tone: string; tag: string };
+type Service = PublicService & { providerName: string; providerIcon: string; tone: string; tag: string };
 const money = (amount: number, currency = "CUP") =>
   new Intl.NumberFormat("es-CU", { maximumFractionDigits: 2 }).format(amount / 100) + " " + currency;
 const localDateString = (d: Date) =>
@@ -116,10 +117,22 @@ export default function App() {
         setServicesRaw([]);
         return;
       }
-      const linked = await listMyClientProviders();
-      const providerRows = linked.map(p => ({
-        id: p.provider_id, slug: p.slug, business_name: p.business_name, bio: p.bio, avatar_path: null,
-      }));
+      const [linked, publishedProviders] = await Promise.all([
+        listMyClientProviders(),
+        listPublishedProviders(),
+      ]);
+      const publishedById = new Map(publishedProviders.map(p => [p.id, p]));
+      const providerRows: PublicProvider[] = linked.map(p => {
+        const publicProfile = publishedById.get(p.provider_id);
+        return {
+          id: p.provider_id,
+          slug: p.slug,
+          business_name: p.business_name,
+          bio: p.bio,
+          avatar_path: publicProfile?.avatar_path ?? null,
+          brand_icon: publicProfile?.brand_icon ?? "💅",
+        };
+      });
       const serviceGroups = await Promise.all(linked.map(p => listPublicServices(p.provider_id)));
       setProviders(providerRows);
       setServicesRaw(serviceGroups.flat());
@@ -141,6 +154,7 @@ export default function App() {
   const services: Service[] = useMemo(() => servicesRaw.map((s, i) => ({
     ...s,
     providerName: providers.find(p => p.id === s.provider_id)?.business_name ?? "Estudio de belleza",
+    providerIcon: providers.find(p => p.id === s.provider_id)?.brand_icon || "💅",
     tone: ["rose", "peach", "lilac"][i % 3],
     tag: ["ESENCIAL", "FAVORITO", "TENDENCIA"][i % 3],
   })), [servicesRaw, providers]);
@@ -284,9 +298,9 @@ export default function App() {
         !sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Tu cartera empieza con una invitación</h3><p>Para proteger la privacidad, Luni no tiene un directorio público. Introduce el código de invitación que te comparta tu manicurista.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div>
         : providers.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Aún no tienes manicuristas conectadas</h3><p>Pide a cada profesional su código de invitación. Cada cartera y su historial se mantienen independientes.</p></div>
         : <>
-          {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar">{p.business_name[0]?.toUpperCase() || "♡"}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p><small>Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
+          {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar studio-client-icon" aria-label={"Icono de " + p.business_name}>{p.brand_icon || "💅"}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p><small><span className="studio-card-icon">{p.brand_icon || "💅"}</span> Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
           {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
-          <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}>{service.card_path && <img className="service-photo" src={serviceImageUrl(service.card_path) ?? ""} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}<span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>
+          <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}>{service.card_path && <img className="service-photo" src={serviceImageUrl(service.card_path) ?? ""} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}<span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b><span className="studio-card-icon">{service.providerIcon}</span> {service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>
           {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p>}</>}
         </>)}
     </section>}
@@ -297,7 +311,7 @@ export default function App() {
 
     <footer className="client-footer"><div className="brand-lockup"><div className="brand-mark small-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div><span>Hecho con cariño ♡</span></footer>
 
-    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setSelected(null)}>×</button><span className="eyebrow">TU PRÓXIMO MOMENTO</span><h2 id="booking-title">Reserva tu <em>espacio.</em></h2><div className="selected-service"><div className={"mini-service-art " + selected.tone}>{selected.thumb_path ? <img className="service-photo loaded" src={serviceImageUrl(selected.thumb_path) ?? ""} alt="" /> : "✿"}</div><div><b>{selected.name}</b><small>{selected.providerName} · {selected.duration_minutes} min</small><small>{money(selected.price_cents, selected.currency)}</small></div></div><div className="field-label" role="group" aria-labelledby="day-label"><span id="day-label">Elige un día</span>
+    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setSelected(null)}>×</button><span className="eyebrow">TU PRÓXIMO MOMENTO</span><h2 id="booking-title">Reserva tu <em>espacio.</em></h2><div className="selected-service"><div className={"mini-service-art " + selected.tone}>{selected.thumb_path ? <img className="service-photo loaded" src={serviceImageUrl(selected.thumb_path) ?? ""} alt="" /> : "✿"}</div><div><b>{selected.name}</b><small><span className="studio-card-icon">{selected.providerIcon}</span> {selected.providerName} · {selected.duration_minutes} min</small><small>{money(selected.price_cents, selected.currency)}</small></div></div><div className="field-label" role="group" aria-labelledby="day-label"><span id="day-label">Elige un día</span>
           {loadingDays && days.length === 0 ? <p className="muted availability-note">Buscando horarios disponibles…</p>
           : days.every(d => d.slots === 0) ? <p className="muted availability-note">Este estudio aún no tiene horarios disponibles en los próximos días. Vuelve a intentarlo pronto.</p>
           : <div className="day-strip">{days.map(d => { const p = dayParts(d.day); return <button type="button" key={d.day} className={d.day === day ? "day-chip chosen" : "day-chip"} disabled={d.slots === 0} aria-pressed={d.day === day} aria-label={`${p.weekday} ${p.number} de ${p.month}${d.slots === 0 ? ", sin horarios" : ""}`} onClick={() => setDay(d.day)}><small>{p.weekday}</small><b>{p.number}</b><small>{p.month}</small></button>; })}</div>}
