@@ -24,8 +24,11 @@ function normalizePlans(value: unknown): Plan[] {
     }
   }
   return defaultPlans.map((fallback, index) => {
-    const raw = byCode.get(fallback.code) ??
+    const candidate = byCode.get(fallback.code) ??
       (value[index] && typeof value[index] === "object" ? value[index] as Record<string, unknown> : {});
+    const hasPlanFields = ["label", "duration_days", "durationDays", "price_cents", "priceCents", "price_cup", "priceCUP", "price"]
+      .some(key => candidate[key] !== undefined && candidate[key] !== null);
+    const raw = hasPlanFields ? candidate : {};
     const durationValue = Number(raw.duration_days ?? raw.durationDays ?? fallback.duration_days);
     const priceInCents = raw.price_cents ?? raw.priceCents;
     const priceInUnits = raw.price_cup ?? raw.priceCUP ?? raw.price;
