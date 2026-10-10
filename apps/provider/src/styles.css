@@ -168,3 +168,18 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .provider-modal .photo-pick{display:inline-block;margin:0;color:inherit;font-size:inherit;cursor:pointer}
 .photo-field small{display:block;margin-top:6px;font-weight:400}
 .photo-error{color:#a64343}
+
+
+/* Portafolio de trabajos terminados */
+.portfolio-work-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:18px;margin-top:22px}
+.portfolio-work-card{min-width:0;overflow:hidden;border:1px solid var(--line,#eadfe0);border-radius:18px;background:#fff}
+.portfolio-work-images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;aspect-ratio:1.15;background:#f8f2f2;overflow:hidden}
+.portfolio-work-images img{width:100%;height:100%;min-height:0;object-fit:cover}
+.portfolio-work-images img:first-child:nth-last-child(1){grid-column:1/-1}
+.portfolio-work-images img:first-child:nth-last-child(3){grid-row:span 2}
+.portfolio-work-body{padding:16px}
+.portfolio-work-category{display:inline-block;color:#986d79;background:#f8edf0;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700;letter-spacing:.04em}
+.portfolio-work-body h3{margin:10px 0 6px;font-size:17px}
+.portfolio-work-body p{margin:0 0 10px;color:var(--muted,#7b6c70);font-size:13px;line-height:1.55}
+.portfolio-work-body small{display:block;color:var(--muted,#7b6c70);margin:10px 0}
+.service-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
