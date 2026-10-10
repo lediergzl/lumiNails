@@ -106,7 +106,6 @@ export async function saveProviderService(input: {
     price_cents: input.priceCents,
     currency: input.currency,
     duration_minutes: input.durationMinutes,
-    is_active: true,
   };
   if (input.id) {
     const { error } = await supabase.from("services").update(payload)
@@ -114,7 +113,7 @@ export async function saveProviderService(input: {
     if (error) throw new Error(error.message);
     return input.id;
   }
-  const { data, error } = await supabase.from("services").insert(payload).select("id").single();
+  const { data, error } = await supabase.from("services").insert({ ...payload, is_active: true }).select("id").single();
   if (error) throw new Error(error.message);
   return data.id as string;
 }
