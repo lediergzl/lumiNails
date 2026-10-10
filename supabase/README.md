@@ -101,3 +101,16 @@ Las reservas que el servidor acepta inicialmente quedan como `pending_confirmati
 - Implementar el cliente RPC y el proceso de sincronización incremental/offline.
 - Definir y probar el proceso administrativo para confirmar/rechazar citas y gestionar licencias.
 - Revisar esta migración en un proyecto Supabase de prueba antes de producción; no se ha ejecutado contra tu instancia desde este repositorio.
+
+
+## Asignación de roles desde el panel de administración
+
+La migración `20261018010000_admin_role_management.sql` añade el bloque **Roles de usuarios** al panel exclusivo del administrador en Luni Studio. Permite buscar las cuentas registradas y asignar uno de estos roles:
+
+- `client`: Clienta.
+- `provider`: Manicurista.
+- `admin`: Administrador.
+
+**Importante:** guardar los archivos en GitHub no ejecuta SQL en Supabase. Abre **Supabase → SQL Editor**, copia el contenido completo de [la migración de roles](https://github.com/lediergzl/lumiNails/blob/main/supabase/migrations/20261018010000_admin_role_management.sql) y ejecútalo después de las migraciones anteriores, especialmente la de licencias y administración.
+
+La operación usa funciones RPC protegidas por `luni_is_admin()`; no expone la tabla interna de autenticación a la APK. El panel no permite cambiar el rol de la propia cuenta ni quitar el rol al último administrador. Hasta aplicar esta migración, el nuevo bloque no podrá cargar ni guardar roles.
