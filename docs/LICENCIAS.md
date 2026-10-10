@@ -32,9 +32,9 @@ Los importes se expresan en unidades menores de la moneda: por ejemplo, 1250 CUP
 ```sql
 select public.luni_admin_set_license_plans(
   '[
-    {"code":"monthly","label":"Mensual","duration_days":30,"price_cents":0,"currency":"CUP","active":true},
-    {"code":"quarterly","label":"Trimestral","duration_days":90,"price_cents":0,"currency":"CUP","active":true},
-    {"code":"annual","label":"Anual","duration_days":365,"price_cents":0,"currency":"CUP","active":true}
+    {"code":"monthly","label":"Mensual","duration_days":30,"price_cents":10000,"currency":"CUP","active":true},
+    {"code":"quarterly","label":"Trimestral","duration_days":90,"price_cents":25000,"currency":"CUP","active":true},
+    {"code":"annual","label":"Anual","duration_days":365,"price_cents":80000,"currency":"CUP","active":true}
   ]'::jsonb
 );
 ```
