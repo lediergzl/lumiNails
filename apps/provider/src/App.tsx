@@ -326,7 +326,7 @@ export default function App() {
       <footer className="provider-footer"><span>luni studio</span><span>Hecho con cuidado, para quienes cuidan. ♡</span></footer>
     </section>
     {showMobileNav && <nav className="mobile-nav" aria-label="Navegación principal">
-      {([["agenda", "Agenda", "▦"], ["servicios", "Servicios", "✧"], ["clientes", "Clientas", "♙"], ["perfil", "Negocio", "⚙"]] as const).map(([id, label, icon]) =>
+      {([["agenda", "Agenda", "▦"], ["servicios", "Servicios", "✧"], ["trabajos", "Trabajos", "▧"], ["clientes", "Clientas", "♙"], ["perfil", "Negocio", "⚙"]] as const).map(([id, label, icon]) =>
         <button key={id} className={tab === id ? "selected" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><span aria-hidden="true">{icon}</span>{label}</button>)}
     </nav>}
     {deleteTarget&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="delete-service-title"><button className="modal-close" onClick={()=>setDeleteTarget(null)} aria-label="Cerrar">×</button><span className="eyebrow">ELIMINAR SERVICIO</span><h2 id="delete-service-title">¿Eliminar <em>{deleteTarget.name}</em>?</h2><p>Dejará de mostrarse a tus clientas. Las citas ya reservadas conservan su nombre y precio.</p><button className="provider-primary full-provider-button" disabled={busy} onClick={()=>void removeService()}>{busy?"Eliminando…":"Sí, eliminar"}</button><button className="provider-secondary full-provider-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>No, conservar</button></section></div>}
