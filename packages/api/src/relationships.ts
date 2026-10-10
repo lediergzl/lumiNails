@@ -66,6 +66,18 @@ export async function listMyClientProviderBrandIcons(): Promise<Array<{ provider
   return (data ?? []) as Array<{ provider_id: string; brand_icon: string; avatar_path: string | null }>;
 }
 
+export type ClientProviderBusinessDetails = {
+  provider_id: string;
+  business_phone: string | null;
+  business_location: string | null;
+};
+
+export async function listMyClientProviderBusinessDetails(): Promise<ClientProviderBusinessDetails[]> {
+  const { data, error } = await getSupabaseClient().rpc("luni_my_client_provider_business_details");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClientProviderBusinessDetails[];
+}
+
 export async function removeClientProvider(providerId: string): Promise<void> {
   const { error } = await getSupabaseClient()
     .rpc("luni_remove_client_provider", { p_provider_id: providerId });
