@@ -9,7 +9,12 @@ type Props = {
   onSignedIn: (kind: "login" | "signup" | "reset") => Promise<void> | void;
 };
 
-const normalizeLoginEmail = (value: string) => {\n  const input = value.trim().toLowerCase();\n  return input.includes("@") ? input : `${input}@gmail.com`;\n};\n\nconst TITLES: Record<Mode, string> = {
+const normalizeLoginEmail = (value: string) => {
+  const input = value.trim().toLowerCase();
+  return input.includes("@") ? input : `${input}@gmail.com`;
+};
+
+const TITLES: Record<Mode, string> = {
   login: "Iniciar sesión",
   signup: "Crear cuenta profesional",
   forgot: "Recupera tu contraseña",
