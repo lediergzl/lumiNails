@@ -265,3 +265,45 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .admin-role-row>label{display:flex;flex-direction:column;gap:7px;color:#6f5758;font-size:11px;font-weight:700}
 .admin-role-row>.provider-primary{min-height:42px;white-space:nowrap}
 @media(max-width:650px){.admin-role-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:15px 0}.admin-role-row>.provider-primary{width:100%}.admin-roles-search{max-width:none}}
+
+
+/* Navegación por pestañas del panel de administración. */
+.admin-main-tabs,.admin-license-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:22px 0 18px;
+  padding:6px;
+  border:1px solid #eadbd5;
+  border-radius:14px;
+  background:#f8f1ed;
+}
+.admin-main-tab,.admin-license-tab{
+  appearance:none;
+  flex:1 1 auto;
+  min-height:44px;
+  padding:10px 16px;
+  border:1px solid transparent;
+  border-radius:10px;
+  background:transparent;
+  color:#775e5d;
+  font:inherit;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease;
+}
+.admin-main-tab:hover,.admin-license-tab:hover{background:#fff8f5;color:#573e3f}
+.admin-main-tab.active,.admin-license-tab.active{
+  border-color:#ead7cf;
+  background:#fff;
+  color:#563b3b;
+  box-shadow:0 2px 8px rgba(79,48,43,.07);
+}
+.admin-tab-panel{min-width:0}
+.admin-tab-panel>.settings-card,.admin-tab-panel>.license-admin-card{margin-top:0}
+.admin-license-card .license-admin-section{margin-top:0}
+@media(max-width:600px){
+  .admin-main-tabs,.admin-license-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:5px}
+  .admin-main-tab,.admin-license-tab{padding:10px 8px;font-size:12px;min-width:0}
+}
