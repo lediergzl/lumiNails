@@ -156,3 +156,15 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .individual-turns { padding: 14px; }
   .individual-turns .manual-turn-add { align-items: stretch; }
 }
+
+.provider-service-art{overflow:hidden}
+.service-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
+.service-photo.loaded{opacity:1}
+.provider-service-art:has(.service-photo) span{z-index:1;text-shadow:0 1px 4px #0006}
+.photo-field{margin:14px 0;color:#735c58;font-size:12px;font-weight:700}
+.photo-field>span{display:block;margin-bottom:8px}
+.photo-preview,.photo-empty{width:100%;height:150px;object-fit:cover;background:#efd3d0;display:grid;place-items:center;color:#bb9276;font-weight:400}
+.photo-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.provider-modal .photo-pick{display:inline-block;margin:0;color:inherit;font-size:inherit;cursor:pointer}
+.photo-field small{display:block;margin-top:6px;font-weight:400}
+.photo-error{color:#a64343}

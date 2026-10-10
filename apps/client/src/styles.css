@@ -66,3 +66,10 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .invite-preview-card h2{font:500 27px var(--serif);color:#463536;margin:12px 0}
 .invite-preview-card p{font-size:13px;line-height:1.7;color:var(--muted)}
 @media(max-width:520px){.invite-code-entry{padding:16px}.invite-code-entry-row{flex-direction:column}.invite-code-entry-row .button-dark{width:100%}}
+
+.mini-service-art{position:relative;overflow:hidden}
+.service-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
+.service-photo.loaded{opacity:1}
+.service-art:has(.service-photo.loaded) .nail-art{display:none}
+.service-art .service-tag,.service-art .art-number{z-index:1}
+.service-art:has(.service-photo.loaded) .art-number{text-shadow:0 1px 4px #0007}

@@ -1,1 +1,1 @@
-{"name":"@lumi/image-processor","private":true,"version":"0.1.0","type":"module","main":"index.ts","types":"index.ts","dependencies":{"blurhash":"^2.0.5","browser-image-compression":"^2.0.2"}}
+{"name":"@lumi/image-processor","private":true,"version":"0.1.0","type":"module","main":"index.ts","types":"index.ts","dependencies":{"blurhash":"^2.0.5"}}

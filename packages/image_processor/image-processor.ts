@@ -1,85 +1,107 @@
 import { encode } from "blurhash";
-import imageCompression from "browser-image-compression";
 import { IMAGE_LIMITS, type ProcessedImage, type ProcessedImageSet, type ProcessedImageVariant } from "./image-types";
 
-const VARIANTS: ProcessedImageVariant[] = ["thumb", "card", "detail", "original"];
+/**
+ * Solo se suben miniatura y tarjeta (~70 KB en total): pensado para conexiones lentas.
+ * La foto original del teléfono nunca sale del dispositivo.
+ */
+const DEFAULT_VARIANTS: ProcessedImageVariant[] = ["thumb", "card"];
+const QUALITIES = [0.8, 0.7, 0.6, 0.5, 0.4];
+// Por debajo de este tamaño decodificar completa es barato; por encima se reduce al decodificar.
+const BIG_FILE_BYTES = 400 * 1024;
 
 async function sha256(blob: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function readDimensions(blob: Blob): Promise<{ width: number; height: number }> {
-  const bitmap = await createImageBitmap(blob);
-  const dimensions = { width: bitmap.width, height: bitmap.height };
-  bitmap.close();
-  return dimensions;
-}
-
-async function createBlurhash(blob: Blob): Promise<string> {
-  const bitmap = await createImageBitmap(blob);
-  const canvas = document.createElement("canvas");
-  const width = 32;
-  const height = Math.max(1, Math.round((bitmap.height / bitmap.width) * width));
-  canvas.width = width;
-  canvas.height = Math.min(height, 32);
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) {
-    bitmap.close();
-    throw new Error("No se pudo inicializar el procesador de imágenes.");
+  if (globalThis.crypto?.subtle) {
+    const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
   }
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-  return encode(new Uint8ClampedArray(pixels.data), canvas.width, canvas.height, 4, 3);
+  // Contexto sin crypto.subtle: nombre único igualmente válido (no se deduplica por contenido).
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Decodifica UNA sola vez, ya reducida y con la orientación EXIF aplicada. */
+async function decode(file: File, maxDimension: number): Promise<ImageBitmap> {
+  if (file.size > BIG_FILE_BYTES) {
+    try {
+      return await createImageBitmap(file, { imageOrientation: "from-image", resizeWidth: maxDimension, resizeQuality: "medium" });
+    } catch { /* navegador sin soporte de resize: se intenta sin él */ }
+  }
+  try {
+    return await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    throw new Error("No se pudo leer la foto. Prueba con otra imagen.");
+  }
+}
+
+function drawScaled(source: CanvasImageSource & { width: number; height: number }, maxDimension: number): HTMLCanvasElement {
+  const scale = Math.min(1, maxDimension / Math.max(source.width, source.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(source.width * scale));
+  canvas.height = Math.max(1, Math.round(source.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("No se pudo inicializar el procesador de imágenes.");
+  context.imageSmoothingQuality = "high";
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+const toBlob = (canvas: HTMLCanvasElement, type: string, quality: number) =>
+  new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+
+/** WebP si el dispositivo lo soporta (si no, JPEG); baja la calidad hasta entrar en el objetivo. */
+async function encodeWithin(canvas: HTMLCanvasElement, targetBytes: number): Promise<Blob> {
+  for (const type of ["image/webp", "image/jpeg"]) {
+    let last: Blob | null = null;
+    for (const quality of QUALITIES) {
+      const blob = await toBlob(canvas, type, quality);
+      if (!blob || blob.type !== type) { last = null; break; }
+      last = blob;
+      if (blob.size <= targetBytes) return blob;
+    }
+    if (last) return last;
+  }
+  throw new Error("No se pudo comprimir la foto en este dispositivo.");
+}
+
+function createBlurhash(canvas: HTMLCanvasElement): string {
+  const small = drawScaled(canvas, 32);
+  const context = small.getContext("2d", { willReadFrequently: true });
+  if (!context) return "";
+  const pixels = context.getImageData(0, 0, small.width, small.height);
+  return encode(new Uint8ClampedArray(pixels.data), small.width, small.height, 4, 3);
 }
 
 /**
- * Creates WebP variants locally before any upload.
- * Target byte sizes are goals, not guarantees; compression quality is lowered
- * progressively when a variant exceeds its target.
+ * Genera las variantes en el teléfono antes de subir nada.
+ * Los tamaños objetivo son metas: la calidad baja progresivamente hasta alcanzarlas.
  */
-export async function processImageLocally(source: File): Promise<ProcessedImageSet> {
+export async function processImageLocally(
+  source: File,
+  variants: ProcessedImageVariant[] = DEFAULT_VARIANTS
+): Promise<ProcessedImageSet> {
   if (!source.type.startsWith("image/")) throw new Error("Selecciona un archivo de imagen.");
-  const sourceBitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
-  if (sourceBitmap.width < 1 || sourceBitmap.height < 1) {
-    sourceBitmap.close();
+  const largest = Math.max(...variants.map((v) => IMAGE_LIMITS.variants[v].maxDimension));
+  const bitmap = await decode(source, largest);
+  if (bitmap.width < 1 || bitmap.height < 1) {
+    bitmap.close();
     throw new Error("La imagen no tiene dimensiones válidas.");
   }
-  sourceBitmap.close();
 
-  const variants: ProcessedImage[] = [];
-  let blurhash = "";
+  let base: HTMLCanvasElement;
+  try { base = drawScaled(bitmap, largest); } finally { bitmap.close(); }
 
-  for (const variant of VARIANTS) {
+  const processed: ProcessedImage[] = [];
+  for (const variant of variants) {
     const settings = IMAGE_LIMITS.variants[variant];
-    let output: File | Blob | null = null;
-
-    for (const quality of [0.85, 0.8, 0.75, 0.7]) {
-      output = await imageCompression(source, {
-        maxWidthOrHeight: settings.maxDimension,
-        maxSizeMB: settings.targetBytes / (1024 * 1024),
-        initialQuality: quality,
-        fileType: "image/webp",
-        useWebWorker: true,
-        preserveExif: false
-      });
-      if (output.size <= settings.targetBytes || quality === 0.7) break;
-    }
-
-    if (!output) throw new Error(`No se pudo generar la variante ${variant}.`);
-    const dimensions = await readDimensions(output);
-    const processed: ProcessedImage = {
-      variant,
-      file: output,
-      width: dimensions.width,
-      height: dimensions.height,
-      sizeBytes: output.size,
-      sha256: await sha256(output)
-    };
-    variants.push(processed);
-    if (variant === "thumb") blurhash = await createBlurhash(output);
+    const canvas = drawScaled(base, settings.maxDimension); // todas salen de la misma imagen ya reducida
+    const file = await encodeWithin(canvas, settings.targetBytes);
+    processed.push({ variant, file, width: canvas.width, height: canvas.height, sizeBytes: file.size, sha256: await sha256(file) });
   }
 
-  return { blurhash, variants };
+  return {
+    blurhash: createBlurhash(base),
+    originalBytes: source.size,
+    totalBytes: processed.reduce((sum, p) => sum + p.sizeBytes, 0),
+    variants: processed
+  };
 }

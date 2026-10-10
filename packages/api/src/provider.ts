@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "./client";
+import { clearServiceImage } from "./serviceImages";
 
 export type ProviderProfile = {
   id: string;
@@ -23,6 +24,8 @@ export type ProviderService = {
   currency: string;
   duration_minutes: number;
   is_active: boolean;
+  thumb_path: string | null;
+  card_path: string | null;
 };
 
 export type ProviderAppointment = {
@@ -76,7 +79,7 @@ export async function createMyProviderProfile(businessName: string, bio = ""): P
 export async function listMyProviderServices(providerId: string): Promise<ProviderService[]> {
   const { data, error } = await getSupabaseClient()
     .from("services")
-    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,is_active")
+    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
     .eq("provider_id", providerId)
     .is("deleted_at", null)
     .order("name");
@@ -92,7 +95,7 @@ export async function saveProviderService(input: {
   priceCents: number;
   currency: string;
   durationMinutes: number;
-}): Promise<void> {
+}): Promise<string> {
   const name = input.name.trim();
   if (!name) throw new Error("El nombre del servicio es obligatorio.");
   if (!Number.isInteger(input.priceCents) || input.priceCents < 0) throw new Error("El precio debe ser un número válido.");
@@ -112,10 +115,12 @@ export async function saveProviderService(input: {
     : await supabase.from("services").insert({ ...payload, is_active: true }).select("id");
   if (result.error) throw new Error(result.error.message);
   if (!result.data?.length) throw new Error("No se pudo guardar el servicio. Es posible que ya no exista.");
+  return String(result.data[0].id);
 }
 
 /** Borrado lógico: las citas existentes conservan nombre y precio en su propia copia. */
 export async function deleteProviderService(providerId: string, serviceId: string): Promise<void> {
+  await clearServiceImage(providerId, serviceId).catch(() => undefined); // liberar espacio; si falla, el borrado sigue
   const { data, error } = await getSupabaseClient()
     .from("services")
     .update({ is_active: false, deleted_at: new Date().toISOString() })

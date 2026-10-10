@@ -16,6 +16,21 @@ $$;
 grant usage on schema public, auth to anon, authenticated;
 alter default privileges in schema public grant all on tables to anon, authenticated;
 
+
+-- Storage mínimo (solo para probar las políticas del bucket service-images)
+create schema if not exists storage;
+create table if not exists storage.buckets (
+  id text primary key, name text not null, public boolean default false,
+  file_size_limit bigint, allowed_mime_types text[]
+);
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id),
+  name text, owner uuid default auth.uid()
+);
+alter table storage.objects enable row level security;
+grant usage on schema storage to anon, authenticated;
+grant select, insert, update, delete on storage.objects to authenticated;
+
 -- Ayudantes de las pruebas
 create schema if not exists test;
 grant usage on schema test to public;

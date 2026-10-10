@@ -2,7 +2,7 @@ export const IMAGE_LIMITS = {
   maxDimension: 2048,
   variants: {
     thumb: { maxDimension: 200, targetBytes: 8_000 },
-    card: { maxDimension: 600, targetBytes: 40_000 },
+    card: { maxDimension: 720, targetBytes: 60_000 },
     detail: { maxDimension: 1080, targetBytes: 120_000 },
     original: { maxDimension: 2048, targetBytes: 400_000 }
   },
@@ -23,5 +23,9 @@ export interface ProcessedImage {
 
 export interface ProcessedImageSet {
   blurhash: string;
+  /** Tamaño de la foto original que eligió la usuaria. */
+  originalBytes: number;
+  /** Suma de lo que realmente se sube. */
+  totalBytes: number;
   variants: ProcessedImage[];
 }
