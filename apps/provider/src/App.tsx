@@ -114,6 +114,8 @@ export default function App() {
       const price = Number(servicePrice.replace(",", "."));
       const duration = Number(serviceDuration);
       if (!Number.isFinite(price) || price < 0) throw new Error("Escribe un precio válido.");
+      if (servicePhoto && !/^image\/(jpeg|png|webp)$/.test(servicePhoto.type)) throw new Error("La foto debe ser JPG, PNG o WebP.");
+      if (servicePhoto && servicePhoto.size > 8 * 1024 * 1024) throw new Error("La foto no puede superar 8 MB.");
       const serviceId = await saveProviderService({
         providerId: profile.id,
         ...(editingServiceId ? { id: editingServiceId } : {}),
@@ -125,8 +127,6 @@ export default function App() {
       });
       setEditingServiceId(serviceId);
       if (servicePhoto) {
-        if (!/^image\/(jpeg|png|webp)$/.test(servicePhoto.type)) throw new Error("La foto debe ser JPG, PNG o WebP.");
-        if (servicePhoto.size > 8 * 1024 * 1024) throw new Error("La foto no puede superar 8 MB.");
         const extension = servicePhoto.type === "image/png" ? "png" : servicePhoto.type === "image/webp" ? "webp" : "jpg";
         const path = profile.id + "/" + serviceId + "/" + Date.now() + "." + extension;
         const { error: uploadError } = await getSupabaseClient().storage.from("service-photos")
