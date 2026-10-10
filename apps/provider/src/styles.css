@@ -113,3 +113,28 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .invite-share-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 .invite-share-card .provider-primary,.invite-share-card .provider-secondary{min-height:42px}
 @media(max-width:560px){.invite-share-actions{flex-direction:column}.invite-share-actions button{width:100%}}
+
+
+/* Turnos individuales definidos manualmente */
+.manual-turns-card { margin-top: 22px; }
+.manual-turn-add, .manual-turn-edit { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:16px 0; }
+.manual-turn-add label, .manual-turn-edit label { display:flex; flex-direction:column; gap:6px; flex:1 1 150px; min-width:130px; font-size:.88rem; }
+.manual-turn-add input, .manual-turn-edit input { width:100%; min-height:42px; }
+.manual-turn-list { display:grid; gap:10px; margin-top:16px; }
+.manual-turn-row { display:flex; flex-wrap:wrap; align-items:center; gap:12px; border:1px solid var(--border,#e8e0e5); border-radius:14px; padding:14px; background:var(--card,#fff); }
+.manual-turn-time { display:flex; flex-direction:column; gap:4px; min-width:135px; }
+.manual-turn-time b { font-size:1.2rem; }
+.manual-turn-time span, .manual-turn-meta { font-size:.82rem; color:var(--muted,#777); }
+.manual-turn-meta { display:flex; flex-direction:column; gap:5px; flex:1; }
+.turn-available { color:#43845a; }
+.turn-booked { color:#a65a55; }
+.manual-turn-actions { display:flex; gap:8px; }
+.manual-turn-edit { width:100%; }
+@media(max-width:600px) {
+  .manual-turn-row { align-items:flex-start; }
+  .manual-turn-time { width:calc(50% - 8px); }
+  .manual-turn-meta { width:calc(50% - 8px); flex:initial; }
+  .manual-turn-actions { width:100%; }
+  .manual-turn-actions button { flex:1; }
+  .manual-turn-add button { width:100%; }
+}
