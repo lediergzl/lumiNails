@@ -4,7 +4,7 @@ import { getSupabaseClient } from "@lumi/api";
 type LicensePlan = {
   code: "monthly" | "quarterly" | "annual";
   label: string;
-  duration_days: 30 | 90 | 365;
+  duration_days: number;
   price_cents: number;
   currency: string;
   active: boolean;
@@ -61,7 +61,7 @@ export default function LicenseRenewal({ providerId }: { providerId: string }) {
     const allMethods = Array.isArray(methodResult.data?.value)
       ? (methodResult.data.value as Array<string | PaymentMethod>).map(m => typeof m === "string" ? { code: m, label: m, active: true } : m)
       : [];
-    const validPlans = allPlans.filter(p => p.active && [30, 90, 365].includes(p.duration_days) && p.price_cents > 0);
+    const validPlans = allPlans.filter(p => p.active && Number.isInteger(Number(p.duration_days)) && Number(p.duration_days) >= 1 && Number(p.duration_days) <= 3650 && Number(p.price_cents) > 0);
     const validMethods = allMethods.filter(m => m.active !== false && m.code && m.label);
     setPlans(validPlans);
     setMethods(validMethods);
