@@ -24,7 +24,8 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
   const [mode, setMode] = useState<Mode>("general");
   const [day, setDay] = useState(localDate(new Date()));
   const [weekday, setWeekday] = useState(weekdayFor(localDate(new Date())));
-  const [applyTo, setApplyTo] = useState<"week" | "day">("week");
+  const [applyTo, setApplyTo] = useState<"week" | "day">("day");
+  const [copyFromWeekday, setCopyFromWeekday] = useState(1);
   const [turns, setTurns] = useState<ProviderTurn[]>([]);
   const [weeklyTurns, setWeeklyTurns] = useState<WeeklyProviderTurn[]>([]);
   const [override, setOverride] = useState(false);
@@ -90,6 +91,34 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
     finally { setSaving(false); }
   };
 
+  const markWeekdayOff = async () => {
+    if (mode !== "general" || weeklyTurns.length === 0) return;
+    const dayName = DAY_NAMES[weekday].toLowerCase();
+    if (!window.confirm(`¿Marcar los ${dayName} como no laborables? Se quitarán los turnos semanales de ese día. Las citas ya reservadas no se cancelarán.`)) return;
+    setSaving(true); setMessage(null);
+    try {
+      for (const turn of weeklyTurns) await deleteMyWeeklyTurn(turn.id, providerId);
+      await load();
+      setMessage({kind:"ok",text:`Los ${dayName} quedaron como día no laborable. Las citas existentes se mantienen.`});
+    } catch(e) { setMessage({kind:"error",text:e instanceof Error?e.message:"No se pudo actualizar el día."}); }
+    finally { setSaving(false); }
+  };
+
+  const copyWeekdaySchedule = async () => {
+    if (mode !== "general" || weeklyTurns.length > 0 || copyFromWeekday === weekday) return;
+    setSaving(true); setMessage(null);
+    try {
+      const sourceTurns = await listMyWeeklyTurns(providerId, copyFromWeekday);
+      if (sourceTurns.length === 0) throw new Error("El día elegido no tiene turnos para copiar.");
+      for (const turn of sourceTurns) {
+        await createMyWeeklyTurn({providerId,weekday,startTime:hhmm(turn.start_time),bufferAfterMinutes:turn.buffer_after_minutes});
+      }
+      await load();
+      setMessage({kind:"ok",text:`Horario copiado del ${DAY_NAMES[copyFromWeekday].toLowerCase()} al ${DAY_NAMES[weekday].toLowerCase()}.`});
+    } catch(e) { setMessage({kind:"error",text:e instanceof Error?e.message:"No se pudo copiar el horario."}); }
+    finally { setSaving(false); }
+  };
+
   const beginEdit = (turn: ProviderTurn | WeeklyProviderTurn) => {
     setEditing(turn.id); setEditTime(hhmm(turn.start_time)); setEditBuffer(String(turn.buffer_after_minutes));
   };
@@ -146,8 +175,8 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
         </label>
         <label>Repetir el turno en
           <select value={applyTo} onChange={e=>{setApplyTo(e.target.value as "week"|"day");setEditing(null);setMessage(null);}}>
-            <option value="week">Todos los días de la semana (predeterminado)</option>
-            <option value="day">Solo el día de referencia</option>
+            <option value="day">Solo el día de referencia (predeterminado)</option>
+            <option value="week">Todos los días de la semana</option>
           </select>
         </label>
       </> : <label className="date-filter">Fecha
@@ -164,6 +193,24 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
       <label>Hora de inicio<input type="time" step={60} value={time} onChange={e=>setTime(e.target.value)} /></label>
       <label>Margen después del servicio (min)<input type="number" min="0" max="180" step="5" value={buffer} onChange={e=>setBuffer(e.target.value)} /></label>
       <button type="button" className="provider-primary" disabled={saving||!time||!Number.isInteger(Number(buffer))||Number(buffer)<0||Number(buffer)>180||(mode==="day"&&day<localDate(new Date()))} onClick={()=>void add()}>＋ Agregar turno</button>
+    </div>}
+    {mode==="general" && !loading && <div className="schedule-banner weekday-workday-control" role="region" aria-label="Día laborable">
+      {weeklyTurns.length > 0 ? <>
+        <b>{DAY_NAMES[weekday]}: día laborable</b>
+        <p>Este día tiene {weeklyTurns.length} turno(s) semanal(es). Puedes cerrarlo sin afectar los demás días.</p>
+        <button type="button" className="provider-secondary" disabled={saving} onClick={()=>void markWeekdayOff()}>Marcar {DAY_NAMES[weekday].toLowerCase()} como no laborable</button>
+      </> : <>
+        <b>{DAY_NAMES[weekday]}: no hay turnos semanales</b>
+        <p>Las clientas no podrán reservar este día de la semana. Para abrirlo, copia el horario de otro día laborable.</p>
+        <div className="block-form">
+          <label>Copiar horario de
+            <select value={copyFromWeekday} onChange={e=>setCopyFromWeekday(Number(e.target.value))}>
+              {DAY_NAMES.slice(1).map((name,index)=><option key={name} value={index+1} disabled={index+1===weekday}>{name}</option>)}
+            </select>
+          </label>
+          <button type="button" className="provider-primary" disabled={saving||copyFromWeekday===weekday} onClick={()=>void copyWeekdaySchedule()}>Activar día y copiar turnos</button>
+        </div>
+      </>}
     </div>}
     <p className="schedule-hint">El margen se aplica después de la duración del servicio. Los turnos solo se ofrecerán si el servicio cabe antes del siguiente turno y no hay citas ni bloqueos que se solapen.</p>
     {loading ? <p className="schedule-hint">Cargando turnos…</p> : displayedTurns.length===0 ?
