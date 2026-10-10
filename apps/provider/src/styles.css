@@ -73,3 +73,36 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .schedule-row{grid-template-columns:1fr;gap:0}
   .schedule-actions .provider-primary,.schedule-actions .provider-secondary{flex:1 1 100%}
 }
+
+
+/* ---- Carteras independientes e invitaciones personales ---- */
+.invite-share-card{margin:20px 0;padding:22px;background:#fffaf7;border:1px solid var(--line);border-radius:4px}
+.invite-share-card h2{margin:8px 0;font:500 25px var(--serif);color:var(--ink)}
+.invite-share-card p{max-width:720px;color:var(--muted);font-size:14px;line-height:1.6}
+.invite-link-row{display:flex;gap:8px;margin-top:16px}
+.invite-link-row input{min-width:0;flex:1;height:44px;padding:0 12px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:13px}
+.invite-share-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.client-portfolio-summary{display:flex;align-items:baseline;gap:10px;margin:24px 0 14px;padding:16px 18px;background:#f7f1ed;border-left:3px solid #b98b8f}
+.client-portfolio-summary>b{font:500 32px var(--serif);color:var(--ink)}
+.client-portfolio-summary>span{font-weight:600;color:var(--ink)}
+.client-portfolio-summary>small{margin-left:auto;color:var(--muted);font-size:12px}
+.client-portfolio-list{display:grid;gap:10px}
+.client-portfolio-card{display:flex;align-items:center;gap:14px;padding:16px;background:#fff;border:1px solid var(--line);border-radius:3px}
+.client-portfolio-avatar{flex:0 0 46px;width:46px;height:46px;display:grid;place-items:center;border-radius:50%;background:#f0e1df;color:#67474a;font:500 20px var(--serif)}
+.client-portfolio-main{min-width:0;flex:1}
+.client-portfolio-main h3{margin:0 0 4px;font:500 18px var(--serif);color:var(--ink)}
+.client-portfolio-main p{margin:0 0 4px;color:var(--muted);font-size:13px}
+.client-portfolio-main a{color:inherit;text-decoration:none}
+.client-portfolio-main small,.client-portfolio-stats small{color:var(--muted);font-size:11px}
+.client-portfolio-stats{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+.client-portfolio-stats>b{font:500 23px var(--serif);color:var(--ink)}
+.client-portfolio-stats>span{font-size:12px;color:var(--muted)}
+@media(max-width:650px){
+  .invite-share-card{padding:15px}
+  .invite-link-row{flex-direction:column}
+  .invite-share-actions>*{flex:1 1 100%}
+  .client-portfolio-summary{flex-wrap:wrap}
+  .client-portfolio-summary>small{flex-basis:100%;margin-left:0}
+  .client-portfolio-card{align-items:flex-start;gap:10px;padding:12px}
+  .client-portfolio-stats small{max-width:110px}
+}
