@@ -60,7 +60,7 @@ export async function getMyProviderProfile(): Promise<ProviderProfile | null> {
   return data as ProviderProfile | null;
 }
 
-export async function createMyProviderProfile(businessName: string, bio = ""): Promise<ProviderProfile> {
+export async function createMyProviderProfile(businessName: string, bio = "", brandIcon = "💅"): Promise<ProviderProfile> {
   const { data: { user }, error: userError } = await getSupabaseClient().auth.getUser();
   if (userError) throw new Error(userError.message);
   if (!user) throw new Error("Inicia sesión para registrar tu estudio.");
@@ -70,7 +70,7 @@ export async function createMyProviderProfile(businessName: string, bio = ""): P
   const slug = `${slugBase}-${user.id.slice(0, 8)}`;
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
-    .insert({ user_id: user.id, slug, business_name: cleanName, bio: bio.trim() })
+    .insert({ user_id: user.id, slug, business_name: cleanName, bio: bio.trim(), brand_icon: brandIcon })
     .select("id,user_id,slug,business_name,bio,avatar_path,brand_icon,trial_started_at,license_expires_at,license_status,is_published,timezone")
     .single();
   if (error) throw new Error(error.message);
