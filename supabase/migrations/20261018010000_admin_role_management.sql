@@ -2,6 +2,21 @@
 -- Aplicar después de 20261016010000_license_plans_and_admin_workflow.sql.
 begin;
 
+create or replace function public.luni_protect_profile_role()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $fn$
+begin
+  if auth.uid() is not null
+     and new.role is distinct from old.role
+     and coalesce(current_setting('app.luni_admin_role_change', true), 'off') <> 'on' then
+    raise exception 'PROFILE_ROLE_CHANGE_FORBIDDEN' using errcode = '42501';
+  end if;
+  return new;
+end;
+$fn$;
+
 create or replace function public.luni_admin_list_users()
 returns table (
   user_id uuid,
@@ -65,6 +80,7 @@ begin
     raise exception 'CANNOT_REMOVE_LAST_ADMIN' using errcode = '42501';
   end if;
 
+  perform set_config('app.luni_admin_role_change', 'on', true);
   update public.profiles
   set role = p_role, updated_at = now()
   where id = p_user_id
