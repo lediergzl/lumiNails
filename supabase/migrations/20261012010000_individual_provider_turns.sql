@@ -49,6 +49,17 @@ begin
     raise exception 'TURN_HAS_ACTIVE_APPOINTMENT' using errcode = 'P0001';
   end if;
   if tg_op = 'DELETE' then return old; end if;
+
+  if exists (
+    select 1 from public.appointments a
+    where a.provider_id = new.provider_id
+      and a.starts_at = ((new.turn_date + new.start_time) at time zone
+        (select p.timezone from public.provider_profiles p where p.id = new.provider_id))
+      and a.status in ('pending_confirmation','confirmed')
+      and a.deleted_at is null
+  ) then
+    raise exception 'TURN_HAS_ACTIVE_APPOINTMENT' using errcode = 'P0001';
+  end if;
   return new;
 end;
 $fn$;
@@ -89,6 +100,14 @@ begin
   where id = p_provider_id and id = v_service.provider_id
     and is_published and deleted_at is null;
   if not found or not public.luni_provider_license_ok(v_provider) then return; end if;
+
+  -- Never expose appointment availability anonymously or outside the provider's private client portfolio.
+  if auth.uid() is null or not (
+    public.luni_is_provider_owner(v_provider.id)
+    or public.luni_client_linked_to_provider(v_provider.id, auth.uid())
+  ) then
+    return;
+  end if;
 
   v_today := (now() at time zone v_provider.timezone)::date;
   if p_day is null or p_day < v_today or p_day > v_today + 90 then return; end if;
@@ -264,6 +283,6 @@ $fn$;
 revoke all on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) from public, anon;
 grant execute on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) to authenticated;
 revoke all on function public.luni_available_slots(uuid, uuid, date) from public;
-grant execute on function public.luni_available_slots(uuid, uuid, date) to anon, authenticated;
+revoke all on function public.luni_available_slots(uuid, uuid, date) from anon;\ngrant execute on function public.luni_available_slots(uuid, uuid, date) to authenticated;
 
 commit;
