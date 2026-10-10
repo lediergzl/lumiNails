@@ -10,7 +10,7 @@ import {
   listAvailableSlots,
   listMyAppointments,
   listPublicServices,
-  listPublishedProviders,
+  listPublicPortfolio,
   getSupabaseClient,
   listMyClientProviders,
   previewProviderInvite,
@@ -23,6 +23,7 @@ import {
   type PublicService,
   type RemoteAppointment,
   type ProviderInvitePreview,
+  type PublicPortfolioItem,
 } from "@lumi/api";
 
 type Tab = "inicio" | "citas" | "perfil";
@@ -51,6 +52,7 @@ const makeId = () => typeof crypto !== "undefined" && "randomUUID" in crypto
 export default function App() {
   const [tab, setTab] = useState<Tab>("inicio");
   const [providers, setProviders] = useState<PublicProvider[]>([]);
+  const [publicWorks, setPublicWorks] = useState<PublicPortfolioItem[]>([]);
   const [linkedProviders, setLinkedProviders] = useState<PublicProvider[]>([]);
   const [servicesRaw, setServicesRaw] = useState<PublicService[]>([]);
   const [appointments, setAppointments] = useState<RemoteAppointment[]>([]);
@@ -103,19 +105,23 @@ export default function App() {
         setInvitePreview(null);
       }
       await refreshAppointments();
-      // Catálogo público: no requiere sesión para consultar manicuristas publicadas.
-      const published = await listPublishedProviders();
-      const serviceGroups = await Promise.all(published.map(p => listPublicServices(p.id)));
-      setProviders(published);
-      setServicesRaw(serviceGroups.flat());
+      // El portafolio se publica mediante una RPC segura y se puede consultar sin cuenta.
+      const gallery = await listPublicPortfolio();
+      setPublicWorks(gallery);
       const session = await getCurrentSession();
       if (session) {
         const linked = await listMyClientProviders();
-        setLinkedProviders(linked.map(p => ({
+        const linkedRows = linked.map(p => ({
           id: p.provider_id, slug: p.slug, business_name: p.business_name, bio: p.bio, avatar_path: null,
-        })));
+        }));
+        setLinkedProviders(linkedRows);
+        setProviders(linkedRows);
+        const serviceGroups = await Promise.all(linked.map(p => listPublicServices(p.provider_id)));
+        setServicesRaw(serviceGroups.flat());
       } else {
         setLinkedProviders([]);
+        setProviders([]);
+        setServicesRaw([]);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo conectar con Luni.");
@@ -254,6 +260,13 @@ export default function App() {
             }}>{busy ? "Conectando…" : "Añadir a mis manicuristas"} <span>↗</span></button>
           : <div><p>Inicia sesión o crea tu cuenta para añadir esta manicurista a tu cartera.</p><button className="button-dark" onClick={() => setTab("perfil")}>Entrar o registrarme <span>↗</span></button></div>}
       </article>}
+      <section className="public-work-gallery">
+        <div className="section-heading"><div><span className="eyebrow">INSPIRACIÓN REAL</span><h2>Trabajos <em>terminados.</em></h2><p>Descubre diseños publicados por las manicuristas en Luni.</p></div><span className="service-count">{publicWorks.length} publicaciones</span></div>
+        {publicWorks.length > 0 ? <div className="public-work-grid">{publicWorks.map(item => <article className="public-work-card" key={item.id}>
+          <div className="public-work-photos">{item.image_paths.slice(0, 3).map(path => <img key={path} src={getSupabaseClient().storage.from("service-images").getPublicUrl(path).data.publicUrl} alt={item.title || "Trabajo de uñas terminado"} loading="lazy" />)}</div>
+          <div className="public-work-info"><span className="portfolio-work-category">{item.category}</span><h3>{item.title || item.category}</h3>{item.description && <p>{item.description}</p>}<b>{item.business_name}</b><small>{item.image_paths.length} {item.image_paths.length === 1 ? "foto" : "fotos"}</small></div>
+        </article>)}</div> : <div className="public-work-empty"><span>✧</span><h3>Pronto habrá trabajos para descubrir</h3><p>Las publicaciones de las manicuristas aparecerán aquí.</p></div>}
+      </section>
       <label className="search-box"><span>⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar entre tus servicios..." /></label>
       {loading ? <p className="empty-state">Cargando tus manicuristas…</p> :
         !sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Tu cartera empieza con una invitación</h3><p>Para proteger la privacidad, Luni no tiene un directorio público. Introduce el código de invitación que te comparta tu manicurista.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div>
