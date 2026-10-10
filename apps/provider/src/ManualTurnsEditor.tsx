@@ -24,6 +24,7 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
   const [mode, setMode] = useState<Mode>("general");
   const [day, setDay] = useState(localDate(new Date()));
   const [weekday, setWeekday] = useState(weekdayFor(localDate(new Date())));
+  const [applyTo, setApplyTo] = useState<"week" | "day">("week");
   const [turns, setTurns] = useState<ProviderTurn[]>([]);
   const [weeklyTurns, setWeeklyTurns] = useState<WeeklyProviderTurn[]>([]);
   const [override, setOverride] = useState(false);
@@ -69,13 +70,22 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
     setSaving(true); setMessage(null);
     try {
       if (mode === "general") {
-        await createMyWeeklyTurn({providerId,weekday,startTime:time,bufferAfterMinutes:Number(buffer)});
+        const targetDays = applyTo === "week" ? [1,2,3,4,5,6,7] : [weekday];
+        for (const targetWeekday of targetDays) {
+          const existing = await listMyWeeklyTurns(providerId, targetWeekday);
+          const sameTime = existing.find(turn => hhmm(turn.start_time) === time);
+          if (sameTime) {
+            await updateMyWeeklyTurn(sameTime.id, {providerId,weekday:targetWeekday,startTime:time,bufferAfterMinutes:Number(buffer)});
+          } else {
+            await createMyWeeklyTurn({providerId,weekday:targetWeekday,startTime:time,bufferAfterMinutes:Number(buffer)});
+          }
+        }
       } else {
         if (!override) throw new Error("Personaliza este día antes de agregar un turno.");
         await createMyTurn({providerId,day,startTime:time,bufferAfterMinutes:Number(buffer)});
       }
       await load();
-      setMessage({kind:"ok",text:mode==="general"?"Turno general guardado. Se aplicará automáticamente a todos los días de la semana seleccionada, salvo fechas personalizadas.":"Turno agregado para esta fecha."});
+      setMessage({kind:"ok",text:mode==="general"?(applyTo==="week"?"Turno creado para todos los días de la semana. Las fechas personalizadas seguirán teniendo sus propios turnos.":"Turno creado solo para "+DAY_NAMES[weekday].toLowerCase()+", salvo fechas personalizadas."):"Turno agregado para esta fecha."});
     } catch(e) { setMessage({kind:"error",text:e instanceof Error?e.message:"No se pudo agregar el turno."}); }
     finally { setSaving(false); }
   };
@@ -120,7 +130,7 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
 
   return <section className="schedule-card manual-turns-card" aria-labelledby="manual-turns-title">
     <h3 id="manual-turns-title">Turnos y horarios de reserva</h3>
-    <p>Define una plantilla general por día de la semana. Se repetirá automáticamente en las fechas futuras. Si necesitas cambiar una sola fecha, personalízala: los demás días no se modificarán.</p>
+    <p>Por defecto, cada turno nuevo se configura para todos los días de la semana y se repite en las fechas futuras. Puedes limitarlo al día seleccionado o personalizar una fecha concreta.</p>
     <div className="block-form">
       <label>Tipo de horario
         <select value={mode} onChange={e=>{setMode(e.target.value as Mode);setEditing(null);setMessage(null);}}>
@@ -128,11 +138,19 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
           <option value="day">Personalizar una fecha</option>
         </select>
       </label>
-      {mode==="general" ? <label>Día de la semana
-        <select value={weekday} onChange={e=>{setWeekday(Number(e.target.value));setEditing(null);setMessage(null);}}>
-          {DAY_NAMES.slice(1).map((name,index)=><option key={name} value={index+1}>{name}</option>)}
-        </select>
-      </label> : <label className="date-filter">Fecha
+      {mode==="general" ? <>
+        <label>Día de referencia
+          <select value={weekday} onChange={e=>{setWeekday(Number(e.target.value));setEditing(null);setMessage(null);}}>
+            {DAY_NAMES.slice(1).map((name,index)=><option key={name} value={index+1}>{name}</option>)}
+          </select>
+        </label>
+        <label>Repetir el turno en
+          <select value={applyTo} onChange={e=>{setApplyTo(e.target.value as "week"|"day");setEditing(null);setMessage(null);}}>
+            <option value="week">Todos los días de la semana (predeterminado)</option>
+            <option value="day">Solo el día de referencia</option>
+          </select>
+        </label>
+      </> : <label className="date-filter">Fecha
         <input type="date" min={localDate(new Date())} max={addDays(new Date(),90)} value={day} onChange={e=>{setDay(e.target.value);setEditing(null);setMessage(null);}} />
       </label>}
     </div>
