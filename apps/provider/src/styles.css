@@ -183,3 +183,56 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .portfolio-work-body p{margin:0 0 10px;color:var(--muted,#7b6c70);font-size:13px;line-height:1.55}
 .portfolio-work-body small{display:block;color:var(--muted,#7b6c70);margin:10px 0}
 .service-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+
+/* Licencias: formularios claros, alineados y adaptables a móvil. */
+.license-renewal-card,.license-admin-card{display:grid;grid-template-columns:44px minmax(0,1fr);gap:18px;margin-top:24px;padding:26px;border:1px solid #eaded9;border-radius:12px;background:#fff;box-shadow:0 8px 24px #593c3c08;align-items:start}
+.license-renewal-card>.settings-icon,.license-admin-card>.settings-icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:#f8ece8;color:#95666b;font-size:21px}
+.license-renewal-content{min-width:0;width:100%}
+.license-renewal-content>.eyebrow{display:block;margin:2px 0 8px;font-size:10px;letter-spacing:1.7px}
+.license-renewal-content>h3{margin:0 0 8px;color:#493738;font:500 26px/1.25 var(--serif)}
+.license-renewal-content>p{color:#81716f;font-size:13px;line-height:1.65;margin:0 0 16px;max-width:760px}
+.license-renewal-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0 26px;padding:20px;border:1px solid #f0e6e1;border-radius:9px;background:#fffcfa}
+.license-renewal-form>label,.license-admin-section>label,.license-admin-plan>label,.license-admin-method>label,.license-admin-request>label{display:flex;flex-direction:column;gap:8px;min-width:0;color:#6f5957;font-size:12px;font-weight:650}
+.license-renewal-form>label:nth-child(3){grid-column:1/-1}
+.license-renewal-form input,.license-renewal-form select,.license-admin-section input,.license-admin-section select,.license-admin-plan input,.license-admin-method input,.license-admin-request input{width:100%;min-width:0;min-height:43px;padding:10px 12px;border:1px solid #e7d9d3;border-radius:6px;background:#fff;color:#493c3c;font-size:13px}
+.license-renewal-form .provider-primary{grid-column:1/-1;justify-self:start;min-width:200px;border-radius:6px}
+.license-request-history{margin-top:24px;border-top:1px solid #eee5e1;padding-top:20px}
+.license-request-history h4,.license-admin-section h4{margin:0 0 14px;color:#533f40;font-size:15px;font-weight:650}
+.license-request-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 14px;align-items:center;padding:15px 0;border-bottom:1px solid #f1e9e5}
+.license-request-row>div b,.license-request-row>div small{display:block}
+.license-request-row>div b{font-size:13px;color:#4d3d3d}
+.license-request-row small{font-size:11px;line-height:1.6;color:#897b78;margin-top:3px;overflow-wrap:anywhere}
+.license-request-row>.trial-pill{white-space:nowrap}
+.license-admin-section{margin:22px 0;padding:20px;border:1px solid #eee4df;border-radius:9px;background:#fffdfb}
+.license-admin-plan{display:grid;grid-template-columns:minmax(130px,.8fr) minmax(140px,1fr);gap:12px 18px;align-items:center;padding:16px 0;border-bottom:1px solid #f0e8e3}
+.license-admin-plan>b{color:#4e3c3d;font-size:13px}
+.license-admin-plan .license-admin-check{grid-column:2;flex-direction:row;align-items:center;gap:8px;font-weight:500}
+.license-admin-check input{width:16px!important;min-height:16px!important;margin:0;accent-color:#80575b}
+.license-admin-section>.provider-primary{margin-top:16px;border-radius:6px}
+.license-admin-method{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end;padding:13px 0;border-bottom:1px solid #f0e8e3}
+.license-admin-method .license-admin-check{flex-direction:row;align-items:center;padding:12px 0}
+.license-admin-method .provider-secondary{min-height:40px;border-radius:5px}
+.license-admin-request{display:grid;gap:7px;padding:16px 0;border-bottom:1px solid #f0e8e3}
+.license-admin-request>b{font-size:13px;color:#493a3b}
+.license-admin-request>small{font-size:11px;line-height:1.6;color:#81716f;overflow-wrap:anywhere}
+.license-admin-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:5px}
+.license-admin-actions button{border-radius:5px}
+.license-admin-section>label{margin:14px 0}
+.license-admin-card>.license-renewal-content>.provider-secondary{margin-top:6px;border-radius:5px}
+@media(max-width:700px){
+ .license-renewal-card,.license-admin-card{grid-template-columns:1fr;gap:12px;padding:18px;margin-top:18px}
+ .license-renewal-content>h3{font-size:23px}
+ .license-renewal-form{grid-template-columns:1fr;padding:14px;gap:14px}
+ .license-renewal-form>label:nth-child(3),.license-renewal-form .provider-primary{grid-column:1}
+ .license-renewal-form .provider-primary{width:100%;white-space:normal}
+ .license-admin-section{padding:14px}
+ .license-admin-plan{grid-template-columns:1fr;gap:10px}
+ .license-admin-plan .license-admin-check{grid-column:1}
+ .license-admin-method{grid-template-columns:1fr;align-items:stretch}
+ .license-admin-method .license-admin-check{padding:2px 0}
+ .license-admin-method button{justify-self:start}
+ .license-request-row{grid-template-columns:1fr;align-items:start}
+ .license-request-row>.trial-pill{justify-self:start}
+ .license-admin-actions button{flex:1;white-space:normal}
+}
