@@ -440,3 +440,11 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .section-tabs { gap: 4px; margin: 14px 0 18px; padding: 4px; border-radius: 12px; }
   .section-tab { min-height: 38px; padding: 8px 10px; font-size: 11px; }
 }
+
+
+/* Organización del perfil del estudio y filtros de portafolio. */
+.profile-section-tabs{margin:18px 0 22px}
+.profile-section-panel{display:grid;gap:18px;min-width:0}
+.profile-section-panel>.settings-card,.profile-section-panel>.license-renewal-card,.profile-section-panel>.license-admin-card{margin-top:0}
+.portfolio-category-tabs{margin:18px 0 14px}
+@media(max-width:600px){.profile-section-tabs .section-tab{white-space:normal;line-height:1.25;padding:9px 7px}.portfolio-category-tabs .section-tab{flex:0 0 auto}}
