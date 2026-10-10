@@ -467,3 +467,12 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .setup-brand-picker{flex-basis:100%;width:100%;padding:14px 0 3px;border-top:1px solid #eee2db}
 .setup-brand-picker>b{font-size:13px;color:var(--ink)}
 .setup-brand-picker>p{font-size:12px;line-height:1.6;color:var(--muted);margin:7px 0 12px}
+
+
+/* Logotipo opcional del estudio */
+.brand-logo-editor{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin:14px 0 20px}
+.brand-logo-preview{width:104px;height:104px;border:1px solid var(--line);border-radius:18px;background:#fffaf8;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:38px}
+.brand-logo-preview img{width:100%;height:100%;object-fit:contain}
+.brand-logo-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.brand-logo-actions input[type=file]{display:none}
+.brand-logo-editor>small{color:var(--muted);font-size:12px;line-height:1.5}
