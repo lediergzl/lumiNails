@@ -106,3 +106,10 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .client-portfolio-card{align-items:flex-start;gap:10px;padding:12px}
   .client-portfolio-stats small{max-width:110px}
 }
+
+/* Invitaciones para distribución mediante APK, sin URL pública */
+.invite-share-card>p{max-width:680px}
+.invite-link-row input{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.04em}
+.invite-share-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.invite-share-card .provider-primary,.invite-share-card .provider-secondary{min-height:42px}
+@media(max-width:560px){.invite-share-actions{flex-direction:column}.invite-share-actions button{width:100%}}
