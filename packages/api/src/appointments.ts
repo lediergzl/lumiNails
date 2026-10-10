@@ -40,6 +40,7 @@ export async function createAppointment(
   if (error) {
     const knownMessages: Record<string, string> = {
       AUTH_REQUIRED: "Inicia sesión antes de solicitar una cita.",
+      CLIENT_PROVIDER_LINK_REQUIRED: "Primero debes añadir esta manicurista a tu cartera desde su invitación personal.",
       INVALID_APPOINTMENT_TIME: "Selecciona una hora con al menos una hora de anticipación.",
       PHONE_REQUIRED: "Añade tu número de teléfono antes de reservar.",
       DAILY_LIMIT_REACHED: "Este estudio ya alcanzó su límite de citas para ese día. Elige otra fecha.",
