@@ -23,6 +23,7 @@ export type ProviderService = {
   currency: string;
   duration_minutes: number;
   is_active: boolean;
+  thumb_path: string | null;
 };
 
 export type ProviderAppointment = {
@@ -76,7 +77,7 @@ export async function createMyProviderProfile(businessName: string, bio = ""): P
 export async function listMyProviderServices(providerId: string): Promise<ProviderService[]> {
   const { data, error } = await getSupabaseClient()
     .from("services")
-    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,is_active")
+    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,is_active,thumb_path")
     .eq("provider_id", providerId)
     .is("deleted_at", null)
     .order("name");
@@ -92,7 +93,7 @@ export async function saveProviderService(input: {
   priceCents: number;
   currency: string;
   durationMinutes: number;
-}): Promise<void> {
+}): Promise<string> {
   const name = input.name.trim();
   if (!name) throw new Error("El nombre del servicio es obligatorio.");
   if (!Number.isInteger(input.priceCents) || input.priceCents < 0) throw new Error("El precio debe ser un número válido.");
@@ -107,10 +108,27 @@ export async function saveProviderService(input: {
     duration_minutes: input.durationMinutes,
     is_active: true,
   };
-  const result = input.id
-    ? await supabase.from("services").update(payload).eq("id", input.id).eq("provider_id", input.providerId)
-    : await supabase.from("services").insert(payload);
-  if (result.error) throw new Error(result.error.message);
+  if (input.id) {
+    const { error } = await supabase.from("services").update(payload)
+      .eq("id", input.id).eq("provider_id", input.providerId);
+    if (error) throw new Error(error.message);
+    return input.id;
+  }
+  const { data, error } = await supabase.from("services").insert(payload).select("id").single();
+  if (error) throw new Error(error.message);
+  return data.id as string;
+}
+
+export async function setProviderServiceActive(providerId: string, serviceId: string, isActive: boolean): Promise<void> {
+  const { error } = await getSupabaseClient().from("services").update({ is_active: isActive })
+    .eq("id", serviceId).eq("provider_id", providerId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setProviderServicePhoto(providerId: string, serviceId: string, thumbPath: string): Promise<void> {
+  const { error } = await getSupabaseClient().from("services").update({ thumb_path: thumbPath })
+    .eq("id", serviceId).eq("provider_id", providerId);
+  if (error) throw new Error(error.message);
 }
 
 export async function listProviderAppointments(providerId: string): Promise<ProviderAppointment[]> {
