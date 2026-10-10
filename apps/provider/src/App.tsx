@@ -71,6 +71,8 @@ export default function App() {
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
   const [newBrandIcon, setNewBrandIcon] = useState("💅");
+  const [brandLogoFile, setBrandLogoFile] = useState<File | null>(null);
+  const [brandLogoPreview, setBrandLogoPreview] = useState<string | null>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProviderService | null>(null);
@@ -269,6 +271,71 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const pickBrandLogo = (file: File | undefined) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("El logotipo debe ser una imagen JPG, PNG o WebP.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("El archivo del logotipo no puede superar 8 MB.");
+      return;
+    }
+    setError(""); setNotice("");
+    setBrandLogoFile(file);
+    setBrandLogoPreview(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
+  };
+
+  const saveBrandLogo = async () => {
+    if (!profile || busy || !brandLogoFile) return;
+    setBusy(true); setError(""); setNotice("");
+    let uploadedPath: string | null = null;
+    try {
+      const processed = await processImageLocally(brandLogoFile);
+      const image = processed.variants.find(v => v.variant === "card") ?? processed.variants[0];
+      if (!image) throw new Error("No se pudo preparar el logotipo.");
+      const ext = image.file.type === "image/webp" ? "webp" : "jpg";
+      uploadedPath = profile.id + "/brand/" + image.sha256.slice(0, 16) + "-" + crypto.randomUUID().slice(0, 8) + "-logo." + ext;
+      const { error: uploadError } = await getSupabaseClient().storage.from("service-images")
+        .upload(uploadedPath, image.file, { upsert: false, contentType: image.file.type, cacheControl: "31536000" });
+      if (uploadError) throw new Error(uploadError.message);
+      const previousPath = profile.avatar_path;
+      const { error: updateError } = await getSupabaseClient().from("provider_profiles")
+        .update({ avatar_path: uploadedPath }).eq("id", profile.id);
+      if (updateError) throw new Error(updateError.message);
+      if (previousPath && !/^https?:\/\//i.test(previousPath)) {
+        await getSupabaseClient().storage.from("service-images").remove([previousPath]);
+      }
+      setBrandLogoFile(null);
+      setBrandLogoPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+      await refresh();
+      setNotice("Logotipo guardado. Ya aparecerá en Luni Cliente.");
+    } catch (e) {
+      if (uploadedPath) await getSupabaseClient().storage.from("service-images").remove([uploadedPath]);
+      setError(e instanceof Error ? e.message : "No se pudo guardar el logotipo.");
+    } finally { setBusy(false); }
+  };
+
+  const removeBrandLogo = async () => {
+    if (!profile || busy || !profile.avatar_path) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const previousPath = profile.avatar_path;
+      const { error: updateError } = await getSupabaseClient().from("provider_profiles")
+        .update({ avatar_path: null }).eq("id", profile.id);
+      if (updateError) throw new Error(updateError.message);
+      if (!/^https?:\/\//i.test(previousPath)) {
+        await getSupabaseClient().storage.from("service-images").remove([previousPath]);
+      }
+      setBrandLogoFile(null);
+      setBrandLogoPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+      await refresh();
+      setNotice("Logotipo eliminado. Luni Cliente mostrará el icono predeterminado.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo eliminar el logotipo.");
+    } finally { setBusy(false); }
+  };
+
   const saveBrandIcon = async (icon: string) => {
     if (!profile || busy) return;
     setBusy(true); setError(""); setNotice("");
@@ -371,7 +438,7 @@ export default function App() {
           {clients.length===0?<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes clientas vinculadas</b><p>Crea un código y compártelo por WhatsApp o muéstralo a la clienta para que lo introduzca en Luni Cliente. No existe un directorio público de clientas ni de estudios.</p><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>Crear mi primer código</button></div>
           :<div className="client-portfolio-list">{clients.map(client=><article className="client-portfolio-card" key={client.client_id}><div className="client-portfolio-avatar">{(client.display_name||"C").trim()[0]?.toUpperCase()}</div><div className="client-portfolio-main"><h3>{client.display_name||"Clienta de Luni"}</h3><p>{client.phone?<a href={"tel:"+client.phone}>{client.phone}</a>:"Sin teléfono registrado"}</p><small>Conectada desde {new Date(client.linked_at).toLocaleDateString("es-CU")}</small></div><div className="client-portfolio-stats"><b>{client.appointment_count}</b><span>{client.appointment_count===1?"cita":"citas"}</span><small>{client.last_appointment_at?"Última: "+new Date(client.last_appointment_at).toLocaleDateString("es-CU"):"Sin citas todavía"}</small></div></article>)}</div>}
         </div>}
-        {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="section-tabs profile-section-tabs" role="tablist" aria-label="Secciones del negocio"><button type="button" role="tab" aria-selected={profileSection==="business"} className={profileSection==="business"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("business")}>Datos del estudio</button><button type="button" role="tab" aria-selected={profileSection==="license"} className={profileSection==="license"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("license")}>Licencia</button><button type="button" role="tab" aria-selected={profileSection==="schedule"} className={profileSection==="schedule"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("schedule")}>Horarios y turnos</button><button type="button" role="tab" aria-selected={profileSection==="account"} className={profileSection==="account"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("account")}>Cuenta</button></div>{profileSection==="business"&&<><div className="settings-card"><div className="settings-avatar studio-brand-icon">{profile.brand_icon || "💅"}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}{profile.license_expires_at ? " · Vence: " + new Date(profile.license_expires_at).toLocaleDateString("es-CU") : ""}</p></div><span className="trial-pill">{profile.is_published?"RESERVAS ACTIVAS":"RESERVAS PAUSADAS"}</span></div><section className="settings-card studio-brand-customizer"><div className="settings-icon">✦</div><div className="studio-brand-copy"><h3>Personaliza la identidad de tu estudio</h3><p>Elige un icono que te represente. Se verá junto al nombre de tu estudio en Luni Cliente. Si no eliges otro, se usará 💅 por defecto.</p><div className="studio-brand-options" role="group" aria-label="Icono del estudio">{BRAND_ICONS.map(icon=><button type="button" key={icon} className={(profile.brand_icon || "💅")===icon?"selected":""} aria-pressed={(profile.brand_icon || "💅")===icon} disabled={busy} onClick={()=>void saveBrandIcon(icon)}>{icon}</button>)}</div></div></section><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Reservas por invitación</h3><p>{profile.is_published?"Tu estudio puede aceptar reservas de clientas vinculadas por invitación.":"Activa las reservas cuando tengas servicios y horarios listos. Tu estudio no aparecerá en un directorio público."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Pausar reservas":"Activar reservas"}</button></div></>}{profileSection==="license"&&<div className="profile-section-panel">{!isAdmin && <LicenseRenewal providerId={profile.id} />}<AdminLicenses /></div>}{profileSection==="schedule"&&<div className="profile-section-panel"><ManualTurnsEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} /><ScheduleEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} legacyScheduleHidden /></div>}{profileSection==="account"&&<div className="profile-section-panel"><div className="settings-card"><div className="settings-icon">⌁</div><div><h3>Cuenta</h3><p>{sessionEmail}</p></div><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await signOut();setProfile(null);setServices([]);setAppointments([]);setSessionEmail("");setNotice("Sesión cerrada.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión.");}finally{setBusy(false);}}}>Cerrar sesión</button></div></div>}
+        {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="section-tabs profile-section-tabs" role="tablist" aria-label="Secciones del negocio"><button type="button" role="tab" aria-selected={profileSection==="business"} className={profileSection==="business"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("business")}>Datos del estudio</button><button type="button" role="tab" aria-selected={profileSection==="license"} className={profileSection==="license"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("license")}>Licencia</button><button type="button" role="tab" aria-selected={profileSection==="schedule"} className={profileSection==="schedule"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("schedule")}>Horarios y turnos</button><button type="button" role="tab" aria-selected={profileSection==="account"} className={profileSection==="account"?"section-tab active":"section-tab"} onClick={()=>setProfileSection("account")}>Cuenta</button></div>{profileSection==="business"&&<><div className="settings-card"><div className="settings-avatar studio-brand-icon">{profile.brand_icon || "💅"}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}{profile.license_expires_at ? " · Vence: " + new Date(profile.license_expires_at).toLocaleDateString("es-CU") : ""}</p></div><span className="trial-pill">{profile.is_published?"RESERVAS ACTIVAS":"RESERVAS PAUSADAS"}</span></div><section className="settings-card studio-brand-customizer"><div className="settings-icon">✦</div><div className="studio-brand-copy"><h3>Identidad de tu estudio</h3><p>Si tienes un logotipo, súbelo aquí para que aparezca en Luni Cliente. Es opcional: si no lo tienes, se mostrará el icono que elijas abajo.</p><div className="brand-logo-editor"><div className="brand-logo-preview">{brandLogoPreview ? <img src={brandLogoPreview} alt="Vista previa del logotipo" /> : profile.avatar_path ? <img src={serviceImageUrl(profile.avatar_path) ?? ""} alt={"Logotipo de " + profile.business_name} /> : <span>{profile.brand_icon || "💅"}</span>}</div><div className="brand-logo-actions"><label className="provider-secondary photo-pick">{brandLogoPreview || profile.avatar_path ? "Cambiar logotipo" : "Elegir logotipo"}<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.target.value="";pickBrandLogo(file);}} /></label>{brandLogoFile && <button type="button" className="provider-primary" disabled={busy} onClick={()=>void saveBrandLogo()}>{busy?"Guardando…":"Guardar logotipo"}</button>}{profile.avatar_path && !brandLogoFile && <button type="button" className="provider-secondary" disabled={busy} onClick={()=>void removeBrandLogo()}>Quitar logotipo</button>}{brandLogoPreview && <button type="button" className="provider-secondary" disabled={busy} onClick={()=>{setBrandLogoFile(null);setBrandLogoPreview(prev=>{if(prev)URL.revokeObjectURL(prev);return null;});}}>Cancelar</button>}</div><small>JPG, PNG o WebP · máximo 8 MB. Se optimiza antes de subirlo.</small></div><h3>O elige un icono predeterminado</h3><div className="studio-brand-options" role="group" aria-label="Icono del estudio">{BRAND_ICONS.map(icon=><button type="button" key={icon} className={(profile.brand_icon || "💅")===icon?"selected":""} aria-pressed={(profile.brand_icon || "💅")===icon} disabled={busy} onClick={()=>void saveBrandIcon(icon)}>{icon}</button>)}</div></div></section><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Reservas por invitación</h3><p>{profile.is_published?"Tu estudio puede aceptar reservas de clientas vinculadas por invitación.":"Activa las reservas cuando tengas servicios y horarios listos. Tu estudio no aparecerá en un directorio público."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Pausar reservas":"Activar reservas"}</button></div></>}{profileSection==="license"&&<div className="profile-section-panel">{!isAdmin && <LicenseRenewal providerId={profile.id} />}<AdminLicenses /></div>}{profileSection==="schedule"&&<div className="profile-section-panel"><ManualTurnsEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} /><ScheduleEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} legacyScheduleHidden /></div>}{profileSection==="account"&&<div className="profile-section-panel"><div className="settings-card"><div className="settings-icon">⌁</div><div><h3>Cuenta</h3><p>{sessionEmail}</p></div><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await signOut();setProfile(null);setServices([]);setAppointments([]);setSessionEmail("");setNotice("Sesión cerrada.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión.");}finally{setBusy(false);}}}>Cerrar sesión</button></div></div>}
       </div>}
       <footer className="provider-footer"><span>luni studio</span><span>Hecho con cuidado, para quienes cuidan. ♡</span></footer>
       </>}
