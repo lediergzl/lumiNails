@@ -153,8 +153,8 @@ export async function listMyTurns(providerId: string, fromDay: string, toDay: st
 export async function createMyTurn(input: {
   providerId: string; day: string; startTime: string; bufferAfterMinutes: number;
 }): Promise<void> {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.day)) throw new Error("Elige una fecha válida.");
-  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(input.startTime)) throw new Error("Elige una hora válida.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day)) throw new Error("Elige una fecha válida.");
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.startTime)) throw new Error("Elige una hora válida.");
   if (!Number.isInteger(input.bufferAfterMinutes) || input.bufferAfterMinutes < 0 || input.bufferAfterMinutes > 180) {
     throw new Error("El margen debe estar entre 0 y 180 minutos.");
   }
@@ -217,8 +217,8 @@ export async function addMyTurn(
   startTime: string,
   bufferAfterMinutes = 0
 ): Promise<void> {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day)) throw new Error("Elige una fecha válida.");
-  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(startTime)) throw new Error("Elige una hora válida.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Elige una fecha válida.");
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) throw new Error("Elige una hora válida.");
   if (!Number.isInteger(bufferAfterMinutes) || bufferAfterMinutes < 0 || bufferAfterMinutes > 180) {
     throw new Error("El margen debe estar entre 0 y 180 minutos.");
   }
