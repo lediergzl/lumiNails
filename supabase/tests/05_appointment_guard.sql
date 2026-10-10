@@ -10,18 +10,34 @@ exception when others then return false; end $$;
 grant execute on function test.raises(text, text), test.updates(text) to public;
 
 \set UP '51050000-0000-0000-0000-000000000001'
-\set UC '51050000-0000-0000-0000-000000000002'
+\set U1 '51050000-0000-0000-0000-000000000002'
+\set U2 '51050000-0000-0000-0000-000000000004'
+\set U3 '51050000-0000-0000-0000-000000000005'
+\set U4 '51050000-0000-0000-0000-000000000006'
+\set U5 '51050000-0000-0000-0000-000000000007'
+\set U6 '51050000-0000-0000-0000-000000000008'
+\set U7 '51050000-0000-0000-0000-000000000009'
 \set UO '51050000-0000-0000-0000-000000000003'
 \set P  '51050000-0000-0000-0000-0000000000a1'
 \set S  '51050000-0000-0000-0000-0000000000b1'
-insert into auth.users(id, email) values (:'UP','p5@t'), (:'UC','c5@t'), (:'UO','o5@t');
+insert into auth.users(id, email) values
+  (:'UP','p5@t'), (:'U1','c51@t'), (:'U2','c52@t'), (:'U3','c53@t'),
+  (:'U4','c54@t'), (:'U5','c55@t'), (:'U6','c56@t'), (:'U7','c57@t'), (:'UO','o5@t');
 insert into public.provider_profiles(id, user_id, slug, business_name) values (:'P', :'UP', 'guard-p', 'Guard');
 insert into public.services(id, provider_id, name, price_cents, duration_minutes) values (:'S', :'P', 'Manicura', 80000, 60);
 insert into public.appointments(id, provider_id, client_id, service_id, starts_at, ends_at, status, idempotency_key, client_service_name, client_price_cents)
-select ('51050000-0000-0000-0000-0000000001' || lpad(i::text, 2, '0'))::uuid, :'P', :'UC', :'S',
+select ('51050000-0000-0000-0000-0000000001' || lpad(i::text, 2, '0'))::uuid, :'P', client_id::uuid, :'S',
        now() + (i || ' days')::interval, now() + (i || ' days')::interval + interval '1 hour',
        st, 'k' || i, 'Manicura', 80000
-from (values (1,'pending_confirmation'),(2,'pending_confirmation'),(3,'confirmed'),(4,'completed'),(5,'pending_confirmation'),(6,'pending_confirmation'),(7,'confirmed')) v(i, st);
+from (values
+  (1,'pending_confirmation','51050000-0000-0000-0000-000000000002'),
+  (2,'pending_confirmation','51050000-0000-0000-0000-000000000004'),
+  (3,'confirmed','51050000-0000-0000-0000-000000000005'),
+  (4,'completed','51050000-0000-0000-0000-000000000006'),
+  (5,'pending_confirmation','51050000-0000-0000-0000-000000000007'),
+  (6,'pending_confirmation','51050000-0000-0000-0000-000000000008'),
+  (7,'confirmed','51050000-0000-0000-0000-000000000009')
+) v(i, st, client_id);
 
 \set A1 '51050000-0000-0000-0000-000000000101'
 \set A2 '51050000-0000-0000-0000-000000000102'
@@ -44,11 +60,13 @@ select test.t('manicurista NO puede completar una cita pendiente', test.raises(f
 reset role;
 
 -- ===== clienta
-set role authenticated; select test.sub(:'UC');
+set role authenticated; select test.sub(:'U5');
 select test.t('clienta NO puede confirmar su propia cita', test.raises(format($q$update public.appointments set status='confirmed' where id=%L$q$, :'A5'), 'APPOINTMENT_STATUS_CHANGE_FORBIDDEN'));
 select test.t('clienta NO puede cambiar notas al cancelar', test.raises(format($q$update public.appointments set status='cancelled', notes='x' where id=%L$q$, :'A5'), 'APPOINTMENT_FIELD_LOCKED'));
 select test.t('clienta NO puede cancelar una cita completada', test.raises(format($q$update public.appointments set status='cancelled' where id=%L$q$, :'A4'), 'APPOINTMENT_STATUS_CHANGE_FORBIDDEN'));
 select test.t('clienta cancela su cita pendiente', test.updates(format($q$update public.appointments set status='cancelled', cancellation_reason='Imprevisto' where id=%L$q$, :'A5')));
+reset role;
+set role authenticated; select test.sub(:'U7');
 select test.t('clienta cancela su cita confirmada', test.updates(format($q$update public.appointments set status='cancelled' where id=%L$q$, :'A7')));
 reset role;
 
