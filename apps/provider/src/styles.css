@@ -81,6 +81,7 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .invite-share-card p{max-width:720px;color:var(--muted);font-size:14px;line-height:1.6}
 .invite-link-row{display:flex;gap:8px;margin-top:16px}
 .invite-link-row input{min-width:0;flex:1;height:44px;padding:0 12px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:13px}
+.invite-link-row input.invite-code-display{font-size:clamp(18px,3vw,24px);font-weight:700;letter-spacing:.12em;text-align:center;text-transform:uppercase;font-variant-numeric:tabular-nums}
 .invite-share-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 .client-portfolio-summary{display:flex;align-items:baseline;gap:10px;margin:24px 0 14px;padding:16px 18px;background:#f7f1ed;border-left:3px solid #b98b8f}
 .client-portfolio-summary>b{font:500 32px var(--serif);color:var(--ink)}
@@ -448,3 +449,7 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .profile-section-panel>.settings-card,.profile-section-panel>.license-renewal-card,.profile-section-panel>.license-admin-card{margin-top:0}
 .portfolio-category-tabs{margin:18px 0 14px}
 @media(max-width:600px){.profile-section-tabs .section-tab{white-space:normal;line-height:1.25;padding:9px 7px}.portfolio-category-tabs .section-tab{flex:0 0 auto}}
+
+
+/* Los códigos cortos deben leerse de un vistazo y poder dictarse sin confusión. */
+@media(max-width:520px){.invite-link-row{flex-wrap:wrap}.invite-link-row input.invite-code-display{flex-basis:100%;height:54px;letter-spacing:.16em}.invite-link-row .provider-secondary{flex:1}}
