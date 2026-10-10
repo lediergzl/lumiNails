@@ -47,13 +47,14 @@ function throwAuthError(error: AuthError | null): void {
 export async function signUpWithEmail(
   email: string,
   password: string,
-  displayName: string
+  displayName: string,
+  accountRole: "client" | "provider" = "client"
 ): Promise<AuthResult> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
-    options: { data: { display_name: displayName.trim() } },
+    options: { data: { display_name: displayName.trim(), signup_role: accountRole } },
   });
   throwAuthError(error);
   if (!data.user) throw new Error("Supabase no devolvió el usuario creado.");
