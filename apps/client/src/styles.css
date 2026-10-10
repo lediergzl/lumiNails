@@ -66,3 +66,7 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .invite-preview-card h2{font:500 27px var(--serif);color:#463536;margin:12px 0}
 .invite-preview-card p{font-size:13px;line-height:1.7;color:var(--muted)}
 @media(max-width:520px){.invite-code-entry{padding:16px}.invite-code-entry-row{flex-direction:column}.invite-code-entry-row .button-dark{width:100%}}
+
+/* Las fotografías reales reemplazan el arte decorativo del catálogo. */
+.service-photo { width:100%; height:100%; position:absolute; inset:0; display:block; object-fit:cover; border-radius:inherit; }
+.service-art { overflow:hidden; }
