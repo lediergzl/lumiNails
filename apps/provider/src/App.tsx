@@ -154,10 +154,10 @@ export default function App() {
     setBusy(true); setError(""); setNotice("");
     try {
       const invite = await createProviderInvite(profile.id);
-      const clientBase = (import.meta.env.VITE_CLIENT_APP_URL || window.location.origin).replace(/\\/+$/, "");
-      setInviteLink(clientBase + "/?invite=" + encodeURIComponent(invite.token));
+      // Las apps se distribuyen como APK: no dependemos de una web pública.
+      setInviteLink(invite.token);
       setInviteExpiresAt(invite.expires_at);
-      setNotice("Invitación creada. Comparte el enlace con la clienta.");
+      setNotice("Código de invitación creado. Compártelo por WhatsApp o muéstralo a la clienta.");
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo crear la invitación."); }
     finally { setBusy(false); }
   };
@@ -166,15 +166,18 @@ export default function App() {
     if (!inviteLink) return;
     try {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(inviteLink);
-      else window.prompt("Copia este enlace de invitación:", inviteLink);
-      setNotice("Enlace listo para compartir.");
-    } catch { window.prompt("Copia este enlace de invitación:", inviteLink); }
+      else window.prompt("Copia este código de invitación:", inviteLink);
+      setNotice("Código listo para compartir.");
+    } catch { window.prompt("Copia este código de invitación:", inviteLink); }
   };
 
   const shareInviteLink = async () => {
     if (!inviteLink) return;
     try {
-      if (navigator.share) await navigator.share({ title: "Invitación a " + (profile?.business_name || "Luni"), text: "Añádeme a tus manicuristas en Luni:", url: inviteLink });
+      if (navigator.share) await navigator.share({
+        title: "Invitación a " + (profile?.business_name || "Luni"),
+        text: "Añádeme a tus manicuristas en Luni. Abre Luni Cliente, entra en «Mis manicuristas» e introduce este código: " + inviteLink
+      });
       else await copyInviteLink();
     } catch (e) {
       if (e instanceof Error && e.name !== "AbortError") setError("No se pudo abrir el menú para compartir. Copia el enlace.");
@@ -197,9 +200,9 @@ export default function App() {
         {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Los cambios se guardan en Supabase.</p></div><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>＋ Añadir servicio</button></div><div className="provider-service-grid">{activeServices.map((s,i)=><article className="provider-service-card" key={s.id}><div className={"provider-service-art art-"+(i%3)}>{["✿","✧","❀"][i%3]}<span>{String(i+1).padStart(2,"0")}</span></div><div className="provider-service-content"><h3>{s.name}</h3><p>{s.description}</p><div><span>◷ {s.duration_minutes} min</span><b>{money(s.price_cents,s.currency)}</b></div><span className="service-saved-label">Guardado en Supabase</span></div></article>)}</div>{activeServices.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes servicios</b><p>Añade tu primer servicio para completar el catálogo del estudio.</p><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>Añadir servicio</button></div>}</div>}
         {tab==="clientes"&&<div className="workspace">
           <div className="welcome-row"><div><span className="eyebrow">CARTERA PRIVADA</span><h1>Tus <em>clientas.</em></h1><p>Cada clienta entra por tu invitación personal. Tu cartera es independiente de la de otras manicuristas.</p></div><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>＋ Crear invitación</button></div>
-          {inviteLink&&<section className="invite-share-card"><span className="eyebrow">ENLACE PERSONAL · VÁLIDO HASTA {new Date(inviteExpiresAt).toLocaleDateString("es-CU")}</span><h2>Invita a una nueva clienta</h2><p>Envíale este enlace. Cuando inicie sesión y lo acepte, quedará conectada únicamente a tu cartera.</p><div className="invite-link-row"><input aria-label="Enlace de invitación" readOnly value={inviteLink}/><button className="provider-secondary" onClick={()=>void copyInviteLink()}>Copiar enlace</button></div><div className="invite-share-actions"><button className="provider-primary" onClick={()=>void shareInviteLink()}>Compartir invitación ↗</button><button className="provider-secondary" onClick={()=>setInviteLink("")}>Ocultar enlace</button></div></section>}
+          {inviteLink&&<section className="invite-share-card"><span className="eyebrow">CÓDIGO PERSONAL · VÁLIDO HASTA {new Date(inviteExpiresAt).toLocaleDateString("es-CU")}</span><h2>Invita a una nueva clienta</h2><p>Comparte este código por WhatsApp o muéstralo en persona. La clienta lo introduce dentro de Luni Cliente; no hace falta publicar la aplicación en Internet.</p><div className="invite-link-row"><input aria-label="Código de invitación" readOnly value={inviteLink}/><button className="provider-secondary" onClick={()=>void copyInviteLink()}>Copiar código</button></div><div className="invite-share-actions"><button className="provider-primary" onClick={()=>void shareInviteLink()}>Compartir invitación ↗</button><button className="provider-secondary" onClick={()=>setInviteLink("")}>Ocultar código</button></div></section>}
           <div className="client-portfolio-summary"><b>{clients.length}</b><span>{clients.length===1?"clienta conectada":"clientas conectadas"}</span><small>La información de cada clienta solo es visible para tu estudio.</small></div>
-          {clients.length===0?<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes clientas vinculadas</b><p>Crea una invitación y compártela por WhatsApp, correo o el medio que prefieras. No existe un directorio público de clientas ni de estudios.</p><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>Crear mi primer enlace</button></div>
+          {clients.length===0?<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes clientas vinculadas</b><p>Crea un código y compártelo por WhatsApp o muéstralo a la clienta para que lo introduzca en Luni Cliente. No existe un directorio público de clientas ni de estudios.</p><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>Crear mi primer código</button></div>
           :<div className="client-portfolio-list">{clients.map(client=><article className="client-portfolio-card" key={client.client_id}><div className="client-portfolio-avatar">{(client.display_name||"C").trim()[0]?.toUpperCase()}</div><div className="client-portfolio-main"><h3>{client.display_name||"Clienta de Luni"}</h3><p>{client.phone?<a href={"tel:"+client.phone}>{client.phone}</a>:"Sin teléfono registrado"}</p><small>Conectada desde {new Date(client.linked_at).toLocaleDateString("es-CU")}</small></div><div className="client-portfolio-stats"><b>{client.appointment_count}</b><span>{client.appointment_count===1?"cita":"citas"}</span><small>{client.last_appointment_at?"Última: "+new Date(client.last_appointment_at).toLocaleDateString("es-CU"):"Sin citas todavía"}</small></div></article>)}</div>}
         </div>}
         {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="settings-card"><div className="settings-avatar">{profile.business_name[0]?.toUpperCase()}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}</p></div><span className="trial-pill">{profile.is_published?"RESERVAS ACTIVAS":"RESERVAS PAUSADAS"}</span></div><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Reservas por invitación</h3><p>{profile.is_published?"Tu estudio puede aceptar reservas de clientas vinculadas por invitación.":"Activa las reservas cuando tengas servicios y horarios listos. Tu estudio no aparecerá en un directorio público."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Pausar reservas":"Activar reservas"}</button></div><ScheduleEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} /><div className="settings-card"><div className="settings-icon">⌁</div><div><h3>Cuenta</h3><p>{sessionEmail}</p></div><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await signOut();setProfile(null);setServices([]);setAppointments([]);setSessionEmail("");setNotice("Sesión cerrada.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión.");}finally{setBusy(false);}}}>Cerrar sesión</button></div></div>}
