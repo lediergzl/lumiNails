@@ -13,6 +13,7 @@ import {
   listMyAppointments,
   listPublicServices,
   listMyClientProviders,
+  listPublicPortfolio,
   previewProviderInvite,
   acceptProviderInvite,
   removeClientProvider,
@@ -23,6 +24,7 @@ import {
   type PublicService,
   type RemoteAppointment,
   type ProviderInvitePreview,
+  type PublicPortfolioItem,
 } from "@lumi/api";
 
 type Tab = "inicio" | "citas" | "perfil";
@@ -51,6 +53,7 @@ const makeId = () => typeof crypto !== "undefined" && "randomUUID" in crypto
 export default function App() {
   const [tab, setTab] = useState<Tab>("inicio");
   const [providers, setProviders] = useState<PublicProvider[]>([]);
+  const [publicWorks, setPublicWorks] = useState<PublicPortfolioItem[]>([]);
   const [servicesRaw, setServicesRaw] = useState<PublicService[]>([]);
   const [appointments, setAppointments] = useState<RemoteAppointment[]>([]);
   const [sessionEmail, setSessionEmail] = useState("");
@@ -103,6 +106,8 @@ export default function App() {
         setInvitePreview(null);
       }
       await refreshAppointments();
+      const gallery = await listPublicPortfolio();
+      setPublicWorks(gallery);
       const session = await getCurrentSession();
       if (!session) {
         setProviders([]);
@@ -253,6 +258,7 @@ export default function App() {
             }}>{busy ? "Conectando…" : "Añadir a mis manicuristas"} <span>↗</span></button>
           : <div><p>Inicia sesión o crea tu cuenta para añadir esta manicurista a tu cartera.</p><button className="button-dark" onClick={() => setTab("perfil")}>Entrar o registrarme <span>↗</span></button></div>}
       </article>}
+      <section className="public-work-gallery"><div className="section-heading"><div><span className="eyebrow">INSPIRACIÓN REAL</span><h2>Trabajos <em>terminados.</em></h2><p>Descubre diseños publicados por las manicuristas en Luni.</p></div><span className="service-count">{publicWorks.length} publicaciones</span></div>{publicWorks.length > 0 ? <div className="public-work-grid">{publicWorks.map(item=><article className="public-work-card" key={item.id}><div className="public-work-photos">{item.image_paths.slice(0,3).map(path=>{const url=serviceImageUrl(path);return url?<img key={path} src={url} alt={item.title||"Trabajo de uñas terminado"} loading="lazy" decoding="async"/>:null;})}</div><div className="public-work-info"><span className="portfolio-work-category">{item.category}</span><h3>{item.title||item.category}</h3>{item.description&&<p>{item.description}</p>}<b>{item.business_name}</b><small>{item.image_paths.length} {item.image_paths.length===1?"foto":"fotos"}</small><button className="button-outline" onClick={()=>{if(!sessionEmail){setNotice("Inicia sesión y solicita el código de invitación de esta manicurista para reservar.");setTab("perfil");}else if(!providers.some(p=>p.id===item.provider_id)){setNotice("Para reservar con "+item.business_name+", pídele su código de invitación y añádela a tu cartera.");}else{setSearch(item.business_name);}}}>Ver servicios / reservar ↗</button></div></article>)}</div>:<div className="public-work-empty"><span>✧</span><h3>Pronto habrá trabajos para descubrir</h3><p>Las publicaciones de las manicuristas aparecerán aquí.</p></div>}</section>
       <label className="search-box"><span>⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar entre tus servicios..." /></label>
       {loading ? <p className="empty-state">Cargando tus manicuristas…</p> :
         !sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Tu cartera empieza con una invitación</h3><p>Para proteger la privacidad, Luni no tiene un directorio público. Introduce el código de invitación que te comparta tu manicurista.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div>
