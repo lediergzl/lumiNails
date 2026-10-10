@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthPanel from "./AuthPanel";
 import {
   createAppointment,
+  rescheduleMyAppointment,
   serviceImageUrl,
   cancelMyAppointment,
   getCurrentSession,
@@ -84,6 +85,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+  const [reschedulingAppointmentId, setReschedulingAppointmentId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [inviteToken, setInviteToken] = useState(() => new URLSearchParams(window.location.search).get("invite") ?? "");
@@ -182,7 +184,7 @@ export default function App() {
         <h3>{a.client_service_name}</h3>
         <p className="appt-when">{weekday.charAt(0).toUpperCase() + weekday.slice(1)} · {when.toLocaleTimeString("es-CU", { hour: "numeric", minute: "2-digit" })}{providerName ? " · " + providerName : ""}</p>
         <b className="appt-price">{money(a.client_price_cents, a.client_currency)}</b>
-        {(a.status === "cancelled" || a.status === "rejected") && a.cancellation_reason && <p className="muted">Motivo del estudio: {a.cancellation_reason}</p>}{(a.status === "pending_confirmation" || a.status === "confirmed") && new Date(a.starts_at) > new Date() && (cancelConfirmId === a.id ? <div><p className="muted">¿Seguro que quieres cancelar esta cita?</p><button className="button-dark" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await cancelMyAppointment(a.id); setCancelConfirmId(null); await refreshAppointments(); setNotice("Cita cancelada."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cancelar la cita."); } finally { setBusy(false); } }}>Sí, cancelar</button> <button className="button-outline" disabled={busy} onClick={() => setCancelConfirmId(null)}>No, mantener</button></div> : <button className="button-outline" onClick={() => setCancelConfirmId(a.id)}>Cancelar cita</button>)}
+        {(a.status === "cancelled" || a.status === "rejected") && a.cancellation_reason && <p className="muted">Motivo del estudio: {a.cancellation_reason}</p>}{(a.status === "pending_confirmation" || a.status === "confirmed") && new Date(a.starts_at) > new Date() && (cancelConfirmId === a.id ? <div><p className="muted">¿Seguro que quieres cancelar esta cita?</p><button className="button-dark" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await cancelMyAppointment(a.id); setCancelConfirmId(null); await refreshAppointments(); setNotice("Cita cancelada."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cancelar la cita."); } finally { setBusy(false); } }}>Sí, cancelar</button> <button className="button-outline" disabled={busy} onClick={() => setCancelConfirmId(null)}>No, mantener</button></div> : <button className="button-outline" onClick={() => setCancelConfirmId(a.id)}>Cancelar cita</button>)}{(a.status === "pending_confirmation" || a.status === "confirmed") && new Date(a.starts_at) > new Date() && <button className="button-outline" disabled={busy} onClick={() => { const service = services.find(s => s.id === a.service_id); if (!service) { setError("No se encontró el servicio de esta cita en el catálogo actual. Contacta con la manicurista para cambiarla."); return; } setReschedulingAppointmentId(a.id); setSelected(service); setError(""); setNotice("Elige una nueva fecha y hora. Modificaremos esta cita, sin crear otra."); }}>{reschedulingAppointmentId === a.id ? "Modificando esta cita…" : "Modificar fecha y hora"}</button>}
       </div>
     </article>;
   };
@@ -201,6 +203,7 @@ export default function App() {
     !((a.status === "pending_confirmation" || a.status === "confirmed") && new Date(a.starts_at) >= new Date())
   ), [appointments]);
   const visibleAppointments = appointmentSection === "upcoming" ? upcomingAppointments : historyAppointments;
+  const activeAppointment = useMemo(() => appointments.find(a => a.status === "pending_confirmation" || a.status === "confirmed") ?? null, [appointments]);
   const visible = useMemo(() => services.filter(s =>
     `${s.name} ${s.description} ${s.providerName}`.toLowerCase().includes(search.toLowerCase())
   ), [services, search]);
@@ -246,17 +249,27 @@ export default function App() {
       if (!sessionEmail) throw new Error("Inicia sesión antes de solicitar una cita.");
       if (!slot) throw new Error("Elige un horario disponible.");
       await saveMyProfilePhone(clientPhone);
-      await createAppointment({
-        id: makeId(),
-        providerId: selected.provider_id,
-        serviceId: selected.id,
-        startsAt: slot,
-        idempotencyKey: makeId(),
-      });
-      await refreshAppointments();
-      setSelected(null);
-      setTab("citas");
-      setNotice("Solicitud enviada. La cita queda pendiente hasta que el estudio la confirme.");
+      if (reschedulingAppointmentId) {
+        await rescheduleMyAppointment(reschedulingAppointmentId, slot);
+        await refreshAppointments();
+        setSelected(null);
+        setReschedulingAppointmentId(null);
+        setTab("citas");
+        setNotice("Cita modificada correctamente. Se conservó la misma cita y su estado.");
+      } else {
+        if (activeAppointment) throw new Error("Ya tienes una cita pendiente o confirmada. Modifica esa cita o cancélala antes de reservar otra.");
+        await createAppointment({
+          id: makeId(),
+          providerId: selected.provider_id,
+          serviceId: selected.id,
+          startsAt: slot,
+          idempotencyKey: makeId(),
+        });
+        await refreshAppointments();
+        setSelected(null);
+        setTab("citas");
+        setNotice("Solicitud enviada. La cita queda pendiente hasta que el estudio la confirme.");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo enviar la solicitud.");
       setAvailabilityKey(k => k + 1); // otra persona pudo ocupar la hora: refrescar
@@ -335,8 +348,8 @@ export default function App() {
         : providers.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Aún no tienes manicuristas conectadas</h3><p>Pide a cada profesional su código de invitación. Cada cartera y su historial se mantienen independientes.</p></div>
         : <>
           {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar studio-client-icon" aria-label={"Identidad de " + p.business_name}>{p.avatar_path ? <img className="provider-brand-logo" src={serviceImageUrl(p.avatar_path) ?? ""} alt={"Logotipo de " + p.business_name} loading="lazy" /> : (p.brand_icon || "💅")}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p>{p.business_phone && <p><a href={"tel:" + p.business_phone}>☎ {p.business_phone}</a></p>}{p.business_location && <p>⌖ {p.business_location}</p>}<small><span className="studio-card-icon">{p.avatar_path ? <img className="provider-brand-logo small" src={serviceImageUrl(p.avatar_path) ?? ""} alt="" loading="lazy" /> : (p.brand_icon || "💅")}</span> Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
-          {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
-          <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}>{service.card_path && <img className="service-photo" src={serviceImageUrl(service.card_path) ?? ""} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}<div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b><span className="studio-card-icon">{service.providerLogoPath ? <img className="provider-brand-logo small" src={serviceImageUrl(service.providerLogoPath) ?? ""} alt="" loading="lazy" /> : service.providerIcon}</span> {service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button><div aria-label={"Logotipo de " + service.providerName} title={service.providerName} style={{ marginTop: 10, marginLeft: "auto", width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: "2px solid #e8cbd3", background: "#fff8fa", display: "grid", placeItems: "center", boxShadow: "0 3px 10px rgba(80,40,55,.12)" }}>{service.providerLogoPath ? <img src={serviceImageUrl(service.providerLogoPath) ?? ""} alt={"Logotipo de " + service.providerName} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{service.providerIcon || "💅"}</span>}</div></div></article>)}</div>
+          {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>{activeAppointment && <div className="provider-notice" role="status">Ya tienes una cita {activeAppointment.status === "confirmed" ? "confirmada" : "pendiente de confirmar"} para {formatChosen(activeAppointment.starts_at)}. No puedes reservar otra mientras siga activa. Puedes modificar la fecha y hora desde «Mis citas» o cancelar esta cita.</div>}
+          <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}>{service.card_path && <img className="service-photo" src={serviceImageUrl(service.card_path) ?? ""} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}<div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b><span className="studio-card-icon">{service.providerLogoPath ? <img className="provider-brand-logo small" src={serviceImageUrl(service.providerLogoPath) ?? ""} alt="" loading="lazy" /> : service.providerIcon}</span> {service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" disabled={!!activeAppointment} title={activeAppointment ? "Ya tienes una cita activa; modifica o cancela esa cita primero." : "Reservar este servicio"} onClick={() => { if (activeAppointment) return; setReschedulingAppointmentId(null); setSelected(service); setError(""); }}> {activeAppointment ? "Ya tienes una cita activa" : "Reservar este servicio"} <span>↗</span></button><div aria-label={"Logotipo de " + service.providerName} title={service.providerName} style={{ marginTop: 10, marginLeft: "auto", width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: "2px solid #e8cbd3", background: "#fff8fa", display: "grid", placeItems: "center", boxShadow: "0 3px 10px rgba(80,40,55,.12)" }}>{service.providerLogoPath ? <img src={serviceImageUrl(service.providerLogoPath) ?? ""} alt={"Logotipo de " + service.providerName} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{service.providerIcon || "💅"}</span>}</div></div></article>)}</div>
           {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p>}</>}
         </>)}
     </section>}
@@ -347,7 +360,7 @@ export default function App() {
 
     <footer className="client-footer"><div className="brand-lockup"><div className="brand-mark small-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div><span>Hecho con cariño ♡</span></footer>
 
-    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setSelected(null)}>×</button><span className="eyebrow">TU PRÓXIMO MOMENTO</span><h2 id="booking-title">Reserva tu <em>espacio.</em></h2><div className="selected-service"><div className={"mini-service-art " + selected.tone}>{selected.thumb_path ? <img className="service-photo loaded" src={serviceImageUrl(selected.thumb_path) ?? ""} alt="" /> : "✿"}</div><div><b>{selected.name}</b><small><span className="studio-card-icon">{selected.providerLogoPath ? <img className="provider-brand-logo small" src={serviceImageUrl(selected.providerLogoPath) ?? ""} alt="" /> : selected.providerIcon}</span> {selected.providerName} · {selected.duration_minutes} min</small><small>{money(selected.price_cents, selected.currency)}</small></div></div><div className="field-label" role="group" aria-labelledby="day-label"><span id="day-label">Elige un día</span>
+    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" aria-label="Cerrar" onClick={() => { setSelected(null); setReschedulingAppointmentId(null); }}>×</button><span className="eyebrow">{reschedulingAppointmentId ? "MODIFICA TU CITA" : "TU PRÓXIMO MOMENTO"}</span><h2 id="booking-title">{reschedulingAppointmentId ? <>Cambia tu <em>horario.</em></> : <>Reserva tu <em>espacio.</em></>}</h2><div className="selected-service"><div className={"mini-service-art " + selected.tone}>{selected.thumb_path ? <img className="service-photo loaded" src={serviceImageUrl(selected.thumb_path) ?? ""} alt="" /> : "✿"}</div><div><b>{selected.name}</b><small><span className="studio-card-icon">{selected.providerLogoPath ? <img className="provider-brand-logo small" src={serviceImageUrl(selected.providerLogoPath) ?? ""} alt="" /> : selected.providerIcon}</span> {selected.providerName} · {selected.duration_minutes} min</small><small>{money(selected.price_cents, selected.currency)}</small></div></div><div className="field-label" role="group" aria-labelledby="day-label"><span id="day-label">Elige un día</span>
           {loadingDays && days.length === 0 ? <p className="muted availability-note">Buscando horarios disponibles…</p>
           : days.every(d => d.slots === 0) ? <p className="muted availability-note">Este estudio aún no tiene horarios disponibles en los próximos días. Vuelve a intentarlo pronto.</p>
           : <div className="day-strip">{days.map(d => { const p = dayParts(d.day); return <button type="button" key={d.day} className={d.day === day ? "day-chip chosen" : "day-chip"} disabled={d.slots === 0} aria-pressed={d.day === day} aria-label={`${p.weekday} ${p.number} de ${p.month}${d.slots === 0 ? ", sin horarios" : ""}`} onClick={() => setDay(d.day)}><small>{p.weekday}</small><b>{p.number}</b><small>{p.month}</small></button>; })}</div>}
@@ -358,6 +371,6 @@ export default function App() {
           : <div className="time-options">{slots.map(iso => <button type="button" key={iso} className={slot === iso ? "time-chip chosen" : "time-chip"} aria-pressed={slot === iso} onClick={() => setSlot(iso)}>{formatSlot(iso)}</button>)}</div>}
         </div>}
         {slot && <p className="chosen-summary" role="status">Tu cita: <b>{formatChosen(slot)}</b></p>}
-        <label className="field-label">Teléfono de contacto <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="Ej. +53 5XXXXXXX" autoComplete="tel" required /></label><p className="muted">La manicurista utilizará este número para contactarte sobre tu cita.</p><p className="booking-disclaimer">Solo ves horarios que están libres ahora mismo. Tu solicitud queda pendiente hasta que el estudio la confirme.</p><button className="button-dark full-button" disabled={busy || !slot || clientPhone.trim().replace(/[^0-9]/g, "").length < 7} onClick={() => void submitBooking()}>{busy ? "Enviando…" : !slot ? "Elige una hora" : clientPhone.trim().replace(/[^0-9]/g, "").length < 7 ? "Añade tu teléfono" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
+        <label className="field-label">Teléfono de contacto <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="Ej. +53 5XXXXXXX" autoComplete="tel" required /></label><p className="muted">La manicurista utilizará este número para contactarte sobre tu cita.</p><p className="booking-disclaimer">{reschedulingAppointmentId ? "Se cambiará la fecha y hora de la misma cita; no se creará una segunda reserva." : "Solo ves horarios que están libres ahora mismo. Tu solicitud queda pendiente hasta que el estudio la confirme."}</p><button className="button-dark full-button" disabled={busy || !slot || (!reschedulingAppointmentId && clientPhone.trim().replace(/[^0-9]/g, "").length < 7)} onClick={() => void submitBooking()}>{busy ? (reschedulingAppointmentId ? "Modificando…" : "Enviando…") : !slot ? "Elige una hora" : (!reschedulingAppointmentId && clientPhone.trim().replace(/[^0-9]/g, "").length < 7) ? "Añade tu teléfono" : reschedulingAppointmentId ? "Guardar cambios" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
   </main>;
 }
