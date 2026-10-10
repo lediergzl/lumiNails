@@ -130,3 +130,12 @@ La migración `20261018030000_signup_role_by_app.sql` debe ejecutarse después d
 - Registro desde **LuniManicurista**: rol `provider` (manicurista).
 - El registro público nunca puede crear una cuenta `admin`; ese rol solo lo asigna un administrador desde el panel.
 Las cuentas existentes conservan su rol actual; esta migración solo afecta a nuevos registros.
+
+
+### Corrección de tipos RPC y duración configurable de licencias
+
+Aplica también la migración [20261018040000_fix_roles_rpc_and_custom_license_days.sql](https://github.com/lediergzl/lumiNails/blob/main/supabase/migrations/20261018040000_fix_roles_rpc_and_custom_license_days.sql) después de `20261018030000_signup_role_by_app.sql`.
+
+Esta migración corrige el error PostgreSQL `42804` al listar cuentas (convierte explícitamente los campos `varchar` a `text`) y permite que el administrador establezca la duración de cada plan entre **1 y 3650 días**. La duración se guarda en el plan y se copia a cada solicitud de renovación; al aprobar el pago, la licencia suma exactamente esos días.
+
+**Importante:** ejecutar la migración SQL en Supabase es un paso separado de actualizar la APK o hacer `git pull`. Después, reinicia la app y pulsa **Actualizar cuentas** y **Actualizar datos**.
