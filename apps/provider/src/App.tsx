@@ -43,6 +43,43 @@ const statusText: Record<string, string> = {
 };
 const BRAND_ICONS = ["💅", "🌸", "✨", "🌷", "🦋", "💎", "🌺", "🤍", "🎀", "🌿", "⭐", "👑"];
 
+const STARTER_NAIL_CATALOG: Array<{ name: string; description: string; price: number; minutes: number }> = [
+  { name: "Uñas nuevas · cortas", description: "Manicura · Uñas nuevas · Largo corto", price: 1500, minutes: 90 },
+  { name: "Uñas nuevas · medianas", description: "Manicura · Uñas nuevas · Largo mediano", price: 2000, minutes: 100 },
+  { name: "Uñas nuevas · largas", description: "Manicura · Uñas nuevas · Largo largo", price: 2500, minutes: 110 },
+  { name: "Uñas nuevas · extralargas", description: "Manicura · Uñas nuevas · Largo extralargo", price: 3000, minutes: 120 },
+  { name: "Uñas naturales · gel · cortas", description: "Manicura · Uñas naturales · Gel · Cortas", price: 300, minutes: 45 },
+  { name: "Uñas naturales · rubber · cortas", description: "Manicura · Uñas naturales · Rubber · Cortas", price: 800, minutes: 45 },
+  { name: "Uñas naturales · acrílico · cortas", description: "Manicura · Uñas naturales · Acrílico · Cortas", price: 1300, minutes: 60 },
+  { name: "Uñas naturales · gel · largas", description: "Manicura · Uñas naturales · Gel · Largas", price: 500, minutes: 45 },
+  { name: "Uñas naturales · rubber · largas", description: "Manicura · Uñas naturales · Rubber · Largas", price: 1000, minutes: 50 },
+  { name: "Uñas naturales · acrílico · largas", description: "Manicura · Uñas naturales · Acrílico · Largas", price: 1500, minutes: 60 },
+  { name: "Relleno básico", description: "Manicura · Relleno · Incluye pintura y decoración extremadamente sencilla", price: 1300, minutes: 75 },
+  { name: "Relleno completo", description: "Manicura · Relleno · Incluye pintura y decoración extremadamente sencilla", price: 1500, minutes: 80 },
+  { name: "Relleno de uñas muy deterioradas", description: "Manicura · Relleno · Uñas muy deterioradas · Incluye pintura y decoración sencilla", price: 1800, minutes: 90 },
+  { name: "Efecto ojo de gato / aurora", description: "Manicura · Diseño · Precio por pareja de uñas; extralargas +100 CUP", price: 150, minutes: 15 },
+  { name: "Efecto espejo / azúcar", description: "Manicura · Diseño · Precio por pareja de uñas; extralargas +100 CUP", price: 100, minutes: 15 },
+  { name: "Baby boomer / difuminado / cover", description: "Manicura · Diseño · Precio por pareja de uñas; extralargas +100 CUP", price: 200, minutes: 20 },
+  { name: "Encapsulado", description: "Manicura · Diseño · Precio por pareja de uñas; extralargas +100 CUP", price: 150, minutes: 20 },
+  { name: "Relieve · pareja de flores", description: "Manicura · Decoración · Precio por pareja de flores", price: 100, minutes: 15 },
+  { name: "Relieve en gel · pareja de flores", description: "Manicura · Decoración · Precio por pareja de flores", price: 200, minutes: 20 },
+  { name: "Cromados", description: "Manicura · Decoración · Precio configurable según diseño (referencia 100–200 CUP)", price: 100, minutes: 15 },
+  { name: "Joyería", description: "Manicura · Decoración · Precio configurable según pieza (referencia 150–300 CUP)", price: 150, minutes: 15 },
+  { name: "Decoración con piedras", description: "Manicura · Decoración · Precio configurable según diseño (referencia 50–300 CUP)", price: 50, minutes: 15 },
+  { name: "Calcomanías", description: "Manicura · Decoración", price: 50, minutes: 10 },
+  { name: "Pedicura · cover en todas las uñas", description: "Pedicura · Uñas nuevas · Incluye pintura", price: 1000, minutes: 60 },
+  { name: "Pedicura · relleno cover en todas", description: "Pedicura · Relleno cover en todas las uñas", price: 500, minutes: 40 },
+  { name: "Pedicura · cover en una uña", description: "Pedicura · Uñas nuevas · Incluye pintura", price: 800, minutes: 45 },
+  { name: "Pedicura · relleno cover en una", description: "Pedicura · Relleno cover en una uña", price: 400, minutes: 30 },
+  { name: "Pedicura · acripie", description: "Pedicura · Uñas nuevas · Incluye pintura", price: 800, minutes: 45 },
+  { name: "Pedicura · relleno acripie", description: "Pedicura · Relleno acripie", price: 400, minutes: 30 },
+  { name: "Pedicura · uña principal", description: "Pedicura · Uñas nuevas · Incluye pintura", price: 500, minutes: 35 },
+  { name: "Pedicura · relleno uña principal", description: "Pedicura · Relleno uña principal", price: 250, minutes: 20 },
+  { name: "Pedicura · pintura de gel natural", description: "Pedicura · Uñas naturales", price: 300, minutes: 30 },
+  { name: "Pedicura · rubber base natural", description: "Pedicura · Uñas naturales", price: 500, minutes: 35 },
+];
+
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("agenda");
   const [agendaSection, setAgendaSection] = useState<"all" | "pending" | "confirmed" | "completed">("all");
@@ -174,6 +211,35 @@ export default function App() {
       await refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo registrar el estudio."); }
     finally { setBusy(false); }
+  };
+
+
+  const loadStarterCatalog = async () => {
+    if (!profile || busy) return;
+    if (services.some(service => !service.deleted_at)) {
+      setError("El catálogo de ejemplo solo se carga cuando el estudio no tiene servicios. Puedes añadir o editar cada precio manualmente.");
+      return;
+    }
+    setBusy(true); setError(""); setNotice("");
+    let created = 0;
+    try {
+      for (const item of STARTER_NAIL_CATALOG) {
+        await saveProviderService({
+          providerId: profile.id,
+          name: item.name,
+          description: item.description,
+          priceCents: Math.round(item.price * 100),
+          currency: "CUP",
+          durationMinutes: item.minutes,
+        });
+        created++;
+      }
+      await refresh();
+      setNotice(`Catálogo inicial cargado: ${created} servicios. Entra en «Editar» para ajustar cualquier precio, duración o descripción.`);
+    } catch (e) {
+      await refresh().catch(() => undefined);
+      setError(`Se cargaron ${created} servicios antes del error. Puedes revisar el catálogo y volver a añadir los que falten. ${e instanceof Error ? e.message : "No se pudo completar la carga."}`);
+    } finally { setBusy(false); }
   };
 
   const createService = async () => {
@@ -450,7 +516,7 @@ export default function App() {
           <div className="metric-grid"><article className="metric-card"><span>CITAS DEL DÍA</span><div><b>{filteredAppointments.length}</b><i>▦</i></div><small>En la agenda</small></article><article className="metric-card"><span>INGRESOS PREVISTOS</span><div><b>{money(filteredAppointments.filter(a=>a.status==="confirmed"||a.status==="pending_confirmation").reduce((sum,a)=>sum+a.client_price_cents,0))}</b><i>♧</i></div><small>Confirmadas y pendientes</small></article><article className="metric-card"><span>POR CONFIRMAR</span><div><b>{filteredAppointments.filter(a=>a.status==="pending_confirmation").length}</b><i>◷</i></div><small>Requieren seguimiento</small></article></div>
           <section className="agenda-panel"><div className="agenda-heading"><div><h2>Agenda</h2><p>{profile.business_name}</p></div><button className="today-button" onClick={()=>setDay(new Date().toISOString().slice(0,10))}>Hoy ↗</button></div><div className="agenda-date"><b>{new Date(day+"T12:00:00").toLocaleDateString("es-CU",{weekday:"long",day:"numeric",month:"long"})}</b><span>{filteredAppointments.length} citas</span></div><div className="section-tabs provider-agenda-tabs" role="tablist" aria-label="Filtrar citas de la agenda"><button type="button" role="tab" aria-selected={agendaSection==="all"} className={agendaSection==="all"?"section-tab active":"section-tab"} onClick={()=>setAgendaSection("all")}>Todas <span>{filteredAppointments.length}</span></button><button type="button" role="tab" aria-selected={agendaSection==="pending"} className={agendaSection==="pending"?"section-tab active":"section-tab"} onClick={()=>setAgendaSection("pending")}>Por confirmar <span>{filteredAppointments.filter(a=>a.status==="pending_confirmation").length}</span></button><button type="button" role="tab" aria-selected={agendaSection==="confirmed"} className={agendaSection==="confirmed"?"section-tab active":"section-tab"} onClick={()=>setAgendaSection("confirmed")}>Confirmadas <span>{filteredAppointments.filter(a=>a.status==="confirmed").length}</span></button><button type="button" role="tab" aria-selected={agendaSection==="completed"} className={agendaSection==="completed"?"section-tab active":"section-tab"} onClick={()=>setAgendaSection("completed")}>Completadas <span>{filteredAppointments.filter(a=>a.status==="completed").length}</span></button></div><div className="appointment-list">{agendaAppointments.map(a=><article className="provider-appointment" key={a.id}><div className="appointment-time"><b>{new Date(a.starts_at).toLocaleTimeString("es-CU",{hour:"2-digit",minute:"2-digit"})}</b><span>{Math.max(1,Math.round((Date.parse(a.ends_at)-Date.parse(a.starts_at))/60000))} min</span></div><div className={"appointment-color "+(a.status==="confirmed"?"pink":a.status==="pending_confirmation"?"sand":"lilac")}></div><div className="appointment-details"><b>{a.client_service_name}</b><small>{a.client_display_name || "Clienta"} · {a.client_phone ? <a href={"tel:" + a.client_phone}>{a.client_phone}</a> : "Sin teléfono registrado"}</small><span>{money(a.client_price_cents,a.client_currency)} · {statusText[a.status] ?? a.status}</span><small>{a.notes || "Sin notas"}</small></div><div className="appointment-actions">{a.status==="pending_confirmation"&&<><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"confirmed")}>Confirmar</button><button className="provider-secondary" disabled={busy} onClick={()=>{setReasonText("");setReasonTarget({id:a.id,status:"rejected"});}}>Rechazar</button></>}{a.status==="confirmed"&&<><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"completed")}>Completar</button><button className="provider-secondary" disabled={busy} onClick={()=>{setReasonText("");setReasonTarget({id:a.id,status:"cancelled"});}}>Cancelar</button></>}</div></article>)}{agendaAppointments.length===0&&<div className="provider-empty"><span>✧</span><b>{agendaSection==="all"?"Tu agenda está despejada":agendaSection==="pending"?"No hay citas por confirmar":agendaSection==="confirmed"?"No hay citas confirmadas":"No hay citas completadas"}</b><p>{agendaSection==="all"?"No hay citas registradas para esta fecha.":"Prueba otra pestaña o selecciona otra fecha."}</p></div>}</div></section>
         </div>}
-        {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Los cambios se guardan en Supabase.</p></div><button className="provider-primary" onClick={openNewService}>＋ Añadir servicio</button></div><div className="provider-service-grid">{activeServices.map((s,i)=><article className="provider-service-card" key={s.id}><div className={"provider-service-art art-"+(i%3)}>{s.card_path?<img className="service-photo" src={serviceImageUrl(s.card_path)??""} alt="" loading="lazy" decoding="async" onLoad={e=>e.currentTarget.classList.add("loaded")}/>:["✿","✧","❀"][i%3]}<span>{String(i+1).padStart(2,"0")}</span></div><div className="provider-service-content"><h3>{s.name}</h3><p>{s.description}</p><div><span>◷ {s.duration_minutes} min</span><b>{money(s.price_cents,s.currency)}</b></div><div className="appointment-actions"><button className="provider-secondary" disabled={busy} onClick={()=>openEditService(s)}>Editar</button><button className="provider-secondary" disabled={busy} onClick={()=>setDeleteTarget(s)}>Eliminar</button></div></div></article>)}</div>{activeServices.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes servicios</b><p>Añade tu primer servicio para completar el catálogo del estudio.</p><button className="provider-primary" onClick={openNewService}>Añadir servicio</button></div>}</div>}
+        {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Los cambios se guardan en Supabase.</p></div><button className="provider-primary" onClick={openNewService}>＋ Añadir servicio</button></div><div className="provider-service-toolbar"><p>Define tus tarifas: cada servicio, descripción y duración se puede modificar sin afectar a otros estudios.</p>{activeServices.length===0&&<button type="button" className="provider-secondary" disabled={busy} onClick={()=>void loadStarterCatalog()}>{busy?"Cargando catálogo…":"Cargar catálogo inicial de manicura y pedicura"}</button>}</div><div className="provider-service-grid">{activeServices.map((s,i)=><article className="provider-service-card" key={s.id}><div className={"provider-service-art art-"+(i%3)}>{s.card_path?<img className="service-photo" src={serviceImageUrl(s.card_path)??""} alt="" loading="lazy" decoding="async" onLoad={e=>e.currentTarget.classList.add("loaded")}/>:["✿","✧","❀"][i%3]}<span>{String(i+1).padStart(2,"0")}</span></div><div className="provider-service-content"><h3>{s.name}</h3><p>{s.description}</p><div><span>◷ {s.duration_minutes} min</span><b>{money(s.price_cents,s.currency)}</b></div><div className="appointment-actions"><button className="provider-secondary" disabled={busy} onClick={()=>openEditService(s)}>Editar</button><button className="provider-secondary" disabled={busy} onClick={()=>setDeleteTarget(s)}>Eliminar</button></div></div></article>)}</div>{activeServices.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes servicios</b><p>Añade tu primer servicio para completar el catálogo del estudio.</p><button className="provider-primary" onClick={openNewService}>Añadir servicio</button></div>}</div>}
         {tab==="trabajos"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">TU GALERÍA PÚBLICA</span><h1>Mis trabajos <em>terminados.</em></h1><p>Publica fotos reales para que futuras clientas conozcan tu estilo. Puedes incluir hasta 6 fotos en cada publicación.</p></div><button className="provider-primary" onClick={()=>{setEditingWorkId(null);setWorkTitle("");setWorkDescription("");setWorkCategory("Diseños");setWorkPhotos([]);setShowWorkForm(true);}}>＋ Publicar trabajo</button></div><div className="section-tabs portfolio-category-tabs" role="tablist" aria-label="Filtrar trabajos por categoría">{portfolioCategories.map(category=><button key={category} type="button" role="tab" aria-selected={portfolioFilter===category} className={portfolioFilter===category?"section-tab active":"section-tab"} onClick={()=>setPortfolioFilter(category)}>{category}<span>{category==="Todas"?portfolioItems.length:portfolioItems.filter(item=>item.category===category).length}</span></button>)}</div><div className="portfolio-work-grid">{filteredPortfolioItems.map(item=><article className="portfolio-work-card" key={item.id}><div className="portfolio-work-images">{item.image_paths.slice(0,3).map(path=><img key={path} src={getSupabaseClient().storage.from("service-images").getPublicUrl(path).data.publicUrl} alt={item.title||"Trabajo de uñas"} loading="lazy"/>)}</div><div className="portfolio-work-body"><span className="portfolio-work-category">{item.category}</span><h3>{item.title||item.category}</h3><p>{item.description||"Trabajo terminado publicado en tu galería."}</p><small>{item.image_paths.length} {item.image_paths.length===1?"foto":"fotos"} · {item.is_published?"Visible públicamente":"Oculto"}</small><div className="service-actions"><button className="provider-secondary" onClick={()=>{setEditingWorkId(item.id);setWorkTitle(item.title);setWorkDescription(item.description);setWorkCategory(item.category);setWorkPhotos([]);setShowWorkForm(true);}}>Editar</button><button className="provider-secondary" disabled={busy} onClick={async()=>{if(!window.confirm("¿Eliminar esta publicación de tu portafolio?"))return;setBusy(true);setError("");try{await deletePortfolioItem(profile.id,item.id);await refresh();setNotice("Publicación eliminada de la galería.");}catch(e){setError(e instanceof Error?e.message:"No se pudo eliminar el trabajo.");}finally{setBusy(false);}}}>Eliminar</button></div></div></article>)}</div>{portfolioItems.length>0&&filteredPortfolioItems.length===0&&<div className="provider-empty"><p>No hay trabajos en esta categoría.</p></div>}{portfolioItems.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Tu galería empieza aquí</b><p>Publica tu primer trabajo terminado con hasta 6 fotos.</p><button className="provider-primary" onClick={()=>setShowWorkForm(true)}>Publicar primer trabajo</button></div>}</div>}
         {tab==="clientes"&&<div className="workspace">
           <div className="welcome-row"><div><span className="eyebrow">CARTERA PRIVADA</span><h1>Tus <em>clientas.</em></h1><p>Cada clienta entra por tu invitación personal. Tu cartera es independiente de la de otras manicuristas.</p></div><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>＋ Ver mi código permanente</button></div>
