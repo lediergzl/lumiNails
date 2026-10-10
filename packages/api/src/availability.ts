@@ -190,3 +190,79 @@ export async function deleteMyTurn(id: string, providerId: string): Promise<void
     fail(error);
   }
 }
+
+
+/** Turnos reutilizables para un día de la semana (1=lunes ... 7=domingo). */
+export type WeeklyProviderTurn = {
+  id: string;
+  provider_id: string;
+  weekday: number;
+  start_time: string;
+  buffer_after_minutes: number;
+};
+
+export async function listMyWeeklyTurns(providerId: string, weekday: number): Promise<WeeklyProviderTurn[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("provider_weekly_turns")
+    .select("id,provider_id,weekday,start_time,buffer_after_minutes")
+    .eq("provider_id", providerId)
+    .eq("weekday", weekday)
+    .order("start_time");
+  if (error) fail(error);
+  return (data ?? []) as WeeklyProviderTurn[];
+}
+
+function validateTurnInput(startTime: string, bufferAfterMinutes: number) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) throw new Error("Elige una hora válida.");
+  if (!Number.isInteger(bufferAfterMinutes) || bufferAfterMinutes < 0 || bufferAfterMinutes > 180) {
+    throw new Error("El margen debe estar entre 0 y 180 minutos.");
+  }
+}
+
+export async function createMyWeeklyTurn(input: {
+  providerId: string; weekday: number; startTime: string; bufferAfterMinutes: number;
+}): Promise<void> {
+  if (!Number.isInteger(input.weekday) || input.weekday < 1 || input.weekday > 7) throw new Error("Elige un día de la semana válido.");
+  validateTurnInput(input.startTime, input.bufferAfterMinutes);
+  const { error } = await getSupabaseClient().from("provider_weekly_turns").insert({
+    provider_id: input.providerId, weekday: input.weekday, start_time: input.startTime,
+    buffer_after_minutes: input.bufferAfterMinutes,
+  });
+  if (error) {
+    if (error.code === "23505") throw new Error("Ya existe un turno a esa hora en ese día de la semana.");
+    fail(error);
+  }
+}
+
+export async function updateMyWeeklyTurn(id: string, input: {
+  providerId: string; weekday: number; startTime: string; bufferAfterMinutes: number;
+}): Promise<void> {
+  validateTurnInput(input.startTime, input.bufferAfterMinutes);
+  const { error } = await getSupabaseClient().from("provider_weekly_turns").update({
+    weekday: input.weekday, start_time: input.startTime, buffer_after_minutes: input.bufferAfterMinutes,
+  }).eq("id", id).eq("provider_id", input.providerId);
+  if (error) {
+    if (error.code === "23505") throw new Error("Ya existe un turno a esa hora.");
+    fail(error);
+  }
+}
+
+export async function deleteMyWeeklyTurn(id: string, providerId: string): Promise<void> {
+  const { error } = await getSupabaseClient().from("provider_weekly_turns").delete()
+    .eq("id", id).eq("provider_id", providerId);
+  if (error) fail(error);
+}
+
+export async function isMyTurnDayOverride(providerId: string, day: string): Promise<boolean> {
+  const { data, error } = await getSupabaseClient().from("provider_turn_overrides")
+    .select("turn_date").eq("provider_id", providerId).eq("turn_date", day).maybeSingle();
+  if (error) fail(error);
+  return Boolean(data);
+}
+
+export async function setMyTurnDayOverride(day: string, enabled: boolean): Promise<void> {
+  const { error } = await getSupabaseClient().rpc("luni_set_turn_day_override", {
+    p_day: day, p_enabled: enabled,
+  });
+  if (error) fail(error);
+}
