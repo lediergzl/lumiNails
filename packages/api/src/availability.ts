@@ -218,6 +218,12 @@ export async function addMyTurn(
   bufferAfterMinutes = 0
 ): Promise<void> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Elige una fecha válida.");
+  const todayDate = new Date();
+  const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, "0")}-${String(todayDate.getDate()).padStart(2, "0")}`;
+  const maxDate = new Date(todayDate);
+  maxDate.setDate(maxDate.getDate() + 90);
+  const maxDay = `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}-${String(maxDate.getDate()).padStart(2, "0")}`;
+  if (day < today || day > maxDay) throw new Error("Los turnos solo se pueden configurar desde hoy hasta 90 días adelante.");
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) throw new Error("Elige una hora válida.");
   if (!Number.isInteger(bufferAfterMinutes) || bufferAfterMinutes < 0 || bufferAfterMinutes > 180) {
     throw new Error("El margen debe estar entre 0 y 180 minutos.");
