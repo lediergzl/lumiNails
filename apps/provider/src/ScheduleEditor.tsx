@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   blockDay,
+  addMyTurn,
+  listMyTurns,
+  removeMyTurn,
   getMyWeeklySchedule,
   getMyDailyAppointmentLimit,
   saveMyDailyAppointmentLimit,
@@ -9,6 +12,7 @@ import {
   setProviderAppointmentStatus,
   unblockDay,
   type DayBlock,
+  type IndividualTurn,
   type ProviderAppointment,
   type WeeklyWindow,
 } from "@lumi/api";
@@ -65,6 +69,10 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
   const [reviewedAppointmentIds, setReviewedAppointmentIds] = useState<string[]>([]);
   const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
   const [dailyLimit, setDailyLimit] = useState(8);
+  const [turnDate, setTurnDate] = useState(() => localDate(new Date()));
+  const [turnTime, setTurnTime] = useState("09:00");
+  const [turnBuffer, setTurnBuffer] = useState("0");
+  const [turns, setTurns] = useState<IndividualTurn[]>([]);
   const [limitDraft, setLimitDraft] = useState("8");
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
@@ -86,6 +94,44 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
   }, [providerId, legacyScheduleHidden]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const refreshTurns = useCallback(async () => {
+    try {
+      setTurns(await listMyTurns(providerId, turnDate));
+    } catch (e) {
+      setMessage({ kind: "error", text: e instanceof Error ? e.message : "No se pudieron cargar los turnos." });
+    }
+  }, [providerId, turnDate]);
+
+  useEffect(() => { void refreshTurns(); }, [refreshTurns]);
+
+  const addTurn = async () => {
+    if (!turnDate || !turnTime) {
+      setMessage({ kind: "error", text: "Elige la fecha y la hora de inicio del turno." });
+      return;
+    }
+    setSaving(true); setMessage(null);
+    try {
+      await addMyTurn(providerId, turnDate, turnTime, Number(turnBuffer));
+      await refreshTurns();
+      setMessage({ kind: "ok", text: `Turno agregado para el ${turnDate} a las ${turnTime}. No se generaron otros horarios automáticamente.` });
+    } catch (e) {
+      setMessage({ kind: "error", text: e instanceof Error ? e.message : "No se pudo agregar el turno." });
+    } finally { setSaving(false); }
+  };
+
+  const deleteTurn = async (turn: IndividualTurn) => {
+    if (!window.confirm(`¿Eliminar el turno de las ${turn.start_time.slice(0, 5)} del ${turn.turn_date}? Si tiene una cita, el sistema lo protegerá.`)) return;
+    setSaving(true); setMessage(null);
+    try {
+      await removeMyTurn(turn.id);
+      await refreshTurns();
+      setMessage({ kind: "ok", text: "Turno eliminado." });
+    } catch (e) {
+      setMessage({ kind: "error", text: e instanceof Error ? e.message : "No se pudo eliminar el turno." });
+    } finally { setSaving(false); }
+  };
+
 
   const update = (day: number, patch: Partial<Row>) => {
     setRows(prev => ({ ...prev, [day]: { ...prev[day], ...patch } }));
@@ -210,7 +256,32 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
       <p className="schedule-hint">Actualmente: máximo {dailyLimit} citas pendientes o confirmadas al día.</p>
 
       {loading ? <p className="schedule-hint">Cargando tu horario…</p> : <>
-        {!legacyScheduleHidden && isNew && (
+        <section className="individual-turns" aria-labelledby="individual-turns-title">
+        <h3 id="individual-turns-title">Turnos individuales</h3>
+        <p className="schedule-hint">Define uno por uno los inicios que vas a ofrecer. No se crean horarios automáticos cada 30 minutos. La duración del servicio elegido determina cuánto tiempo ocupa la cita.</p>
+        <div className="block-form">
+          <label className="date-filter">Fecha
+            <input type="date" min={localDate(new Date())} value={turnDate} onChange={e => setTurnDate(e.target.value)} />
+          </label>
+          <label className="date-filter">Hora de inicio
+            <input type="time" step={60} value={turnTime} onChange={e => setTurnTime(e.target.value)} />
+          </label>
+          <label className="date-filter">Margen después (min)
+            <input type="number" min="0" max="180" step="5" value={turnBuffer} onChange={e => setTurnBuffer(e.target.value)} />
+          </label>
+          <button type="button" className="provider-primary" disabled={saving || !turnDate || !turnTime || !/^(0|[1-9]\\d?|1[0-7]\\d|180)$/.test(turnBuffer)} onClick={() => void addTurn()}>
+            {saving ? "Guardando…" : "+ Agregar turno"}
+          </button>
+        </div>
+        <p className="schedule-hint">Turnos definidos para {turnDate || "la fecha seleccionada"}: {turns.length}</p>
+        {turns.length === 0 ? <p className="empty-state">Todavía no has definido turnos para este día.</p> :
+          <ul className="block-list">{turns.map(turn => <li key={turn.id}>
+            <span><strong>{turn.start_time.slice(0, 5)}</strong>{turn.buffer_after_minutes > 0 ? <small> · margen {turn.buffer_after_minutes} min</small> : <small> · sin margen adicional</small>}</span>
+            <button type="button" className="provider-secondary" disabled={saving} onClick={() => void deleteTurn(turn)}>Eliminar</button>
+          </li>)}</ul>}
+      </section>
+
+      {!legacyScheduleHidden && isNew && (
           <p className="schedule-banner" role="note">
             Aún no has guardado tu horario: mientras tanto, nadie puede reservar contigo. Revisa los días y pulsa «Guardar horario».
           </p>
