@@ -24,6 +24,8 @@ create index if not exists provider_portfolio_public_idx
   where deleted_at is null;
 
 alter table public.provider_portfolio_items enable row level security;
+revoke all on table public.provider_portfolio_items from public, anon;
+grant select, insert, update, delete on table public.provider_portfolio_items to authenticated;
 
 drop policy if exists "provider manages own portfolio" on public.provider_portfolio_items;
 create policy "provider manages own portfolio"
@@ -57,7 +59,6 @@ as $fn$
   join public.provider_profiles p on p.id = i.provider_id
   where i.is_published
     and i.deleted_at is null
-    and p.is_published
     and p.deleted_at is null
   order by i.created_at desc
   limit 300;
