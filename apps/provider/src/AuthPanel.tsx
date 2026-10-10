@@ -50,7 +50,7 @@ export default function AuthPanel({ onError, onNotice, onSignedIn }: Props) {
     onNotice("");
     try {
       if (mode === "signup") {
-        const { session } = await signUpWithEmail(email, password, displayName);
+        const { session } = await signUpWithEmail(email, password, displayName, "provider");
         if (session) {
           await onSignedIn("signup");
           onNotice("Cuenta creada. Registra tu estudio para empezar.");
