@@ -63,7 +63,6 @@ export default function App() {
   const [editingWorkId, setEditingWorkId] = useState<string | null>(null);
   const [showWorkForm, setShowWorkForm] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
-  const [inviteExpiresAt, setInviteExpiresAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -398,8 +397,7 @@ export default function App() {
       const invite = await createProviderInvite(profile.id);
       // Las apps se distribuyen como APK: no dependemos de una web pública.
       setInviteLink(invite.token);
-      setInviteExpiresAt(invite.expires_at ?? "");
-      setNotice("Código de invitación creado. Compártelo por WhatsApp o muéstralo a la clienta.");
+      setNotice("Este es el código permanente de tu estudio. Compártelo por WhatsApp o muéstralo a tus clientas.");
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo crear la invitación."); }
     finally { setBusy(false); }
   };
