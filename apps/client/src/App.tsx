@@ -53,6 +53,7 @@ const makeId = () => typeof crypto !== "undefined" && "randomUUID" in crypto
 export default function App() {
   const [tab, setTab] = useState<Tab>("inicio");
   const [appointmentSection, setAppointmentSection] = useState<"upcoming" | "history">("upcoming");
+  const [homeSection, setHomeSection] = useState<"providers" | "services" | "inspiration">("providers");
   const [providers, setProviders] = useState<PublicProvider[]>([]);
   const [publicWorks, setPublicWorks] = useState<PublicPortfolioItem[]>([]);
   const [servicesRaw, setServicesRaw] = useState<PublicService[]>([]);
@@ -237,7 +238,14 @@ export default function App() {
 
     {tab === "inicio" && <section className="simple-page">
       <span className="eyebrow">TU CÍRCULO DE CONFIANZA</span>
-      <h1>Mis <em>manicuristas.</em></h1>
+      <h1>Tu espacio <em>de belleza.</em></h1>
+      <div className="section-tabs home-section-tabs" role="tablist" aria-label="Secciones de inicio">
+        <button type="button" role="tab" aria-selected={homeSection === "providers"} className={homeSection === "providers" ? "section-tab active" : "section-tab"} onClick={() => setHomeSection("providers")}>Mis manicuristas <span>{providers.length}</span></button>
+        <button type="button" role="tab" aria-selected={homeSection === "services"} className={homeSection === "services" ? "section-tab active" : "section-tab"} onClick={() => setHomeSection("services")}>Servicios <span>{services.length}</span></button>
+        <button type="button" role="tab" aria-selected={homeSection === "inspiration"} className={homeSection === "inspiration" ? "section-tab active" : "section-tab"} onClick={() => setHomeSection("inspiration")}>Inspiración <span>{publicWorks.length}</span></button>
+      </div>
+      {homeSection === "providers" && <>
+      <h2 className="home-section-title">Mis <em>manicuristas.</em></h2>
       <article className="invite-code-entry">
         <span className="eyebrow">¿TIENES UNA INVITACIÓN?</span>
         <p>Introduce el código que te dio tu manicurista para añadirla a tu cartera.</p>
@@ -250,7 +258,7 @@ export default function App() {
           <button className="button-dark" disabled={busy || !inviteCodeInput.trim()} onClick={checkInviteCode}>Validar código</button>
         </div>
       </article>
-      {invitePreview && <article className="invite-preview-card">
+      {homeSection === "providers" && invitePreview && <article className="invite-preview-card">
         <span className="eyebrow">INVITACIÓN PERSONAL</span>
         <h2>{invitePreview.business_name}</h2>
         <p>{invitePreview.bio || "Tu manicurista te invita a conocer sus servicios y reservar tus citas desde Luni."}</p>
@@ -266,16 +274,18 @@ export default function App() {
             }}>{busy ? "Conectando…" : "Añadir a mis manicuristas"} <span>↗</span></button>
           : <div><p>Inicia sesión o crea tu cuenta para añadir esta manicurista a tu cartera.</p><button className="button-dark" onClick={() => setTab("perfil")}>Entrar o registrarme <span>↗</span></button></div>}
       </article>}
-      <section className="public-work-gallery"><div className="section-heading"><div><span className="eyebrow">INSPIRACIÓN REAL</span><h2>Trabajos <em>terminados.</em></h2><p>Descubre diseños publicados por las manicuristas en Luni.</p></div><span className="service-count">{publicWorks.length} publicaciones</span></div>{publicWorks.length > 0 ? <div className="public-work-grid">{publicWorks.map(item=><article className="public-work-card" key={item.id}><div className="public-work-photos">{item.image_paths.slice(0,3).map(path=>{const url=serviceImageUrl(path);return url?<img key={path} src={url} alt={item.title||"Trabajo de uñas terminado"} loading="lazy" decoding="async"/>:null;})}</div><div className="public-work-info"><span className="portfolio-work-category">{item.category}</span><h3>{item.title||item.category}</h3>{item.description&&<p>{item.description}</p>}<b>{item.business_name}</b><small>{item.image_paths.length} {item.image_paths.length===1?"foto":"fotos"}</small><button className="button-outline" onClick={()=>{if(!sessionEmail){setNotice("Inicia sesión y solicita el código de invitación de esta manicurista para reservar.");setTab("perfil");}else if(!providers.some(p=>p.id===item.provider_id)){setNotice("Para reservar con "+item.business_name+", pídele su código de invitación y añádela a tu cartera.");}else{setSearch(item.business_name);}}}>Ver servicios / reservar ↗</button></div></article>)}</div>:<div className="public-work-empty"><span>✧</span><h3>Pronto habrá trabajos para descubrir</h3><p>Las publicaciones de las manicuristas aparecerán aquí.</p></div>}</section>
+      </>}
+      {homeSection === "inspiration" && <section className="public-work-gallery"><div className="section-heading"><div><span className="eyebrow">INSPIRACIÓN REAL</span><h2>Trabajos <em>terminados.</em></h2><p>Descubre diseños publicados por las manicuristas en Luni.</p></div><span className="service-count">{publicWorks.length} publicaciones</span></div>{publicWorks.length > 0 ? <div className="public-work-grid">{publicWorks.map(item=><article className="public-work-card" key={item.id}><div className="public-work-photos">{item.image_paths.slice(0,3).map(path=>{const url=serviceImageUrl(path);return url?<img key={path} src={url} alt={item.title||"Trabajo de uñas terminado"} loading="lazy" decoding="async"/>:null;})}</div><div className="public-work-info"><span className="portfolio-work-category">{item.category}</span><h3>{item.title||item.category}</h3>{item.description&&<p>{item.description}</p>}<b>{item.business_name}</b><small>{item.image_paths.length} {item.image_paths.length===1?"foto":"fotos"}</small><button className="button-outline" onClick={()=>{if(!sessionEmail){setNotice("Inicia sesión y solicita el código de invitación de esta manicurista para reservar.");setTab("perfil");}else if(!providers.some(p=>p.id===item.provider_id)){setNotice("Para reservar con "+item.business_name+", pídele su código de invitación y añádela a tu cartera.");}else{setSearch(item.business_name);}}}>Ver servicios / reservar ↗</button></div></article>)}</div>:<div className="public-work-empty"><span>✧</span><h3>Pronto habrá trabajos para descubrir</h3><p>Las publicaciones de las manicuristas aparecerán aquí.</p></div>}</section>}
+      {homeSection === "services" && <>
       <label className="search-box"><span>⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar entre tus servicios..." /></label>
       {loading ? <p className="empty-state">Cargando tus manicuristas…</p> :
         !sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Tu cartera empieza con una invitación</h3><p>Para proteger la privacidad, Luni no tiene un directorio público. Introduce el código de invitación que te comparta tu manicurista.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div>
         : providers.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Aún no tienes manicuristas conectadas</h3><p>Pide a cada profesional su código de invitación. Cada cartera y su historial se mantienen independientes.</p></div>
         : <>
-          <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar">{p.business_name[0]?.toUpperCase() || "♡"}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p><small>Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>
-          <div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
+          {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar">{p.business_name[0]?.toUpperCase() || "♡"}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p><small>Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
+          {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
           <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}>{service.card_path && <img className="service-photo" src={serviceImageUrl(service.card_path) ?? ""} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}<span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>
-          {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p>}
+          {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p></>}
         </>}
     </section>}
 
