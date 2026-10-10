@@ -26,13 +26,13 @@ export type ProviderClient = {
   last_appointment_at: string | null;
 };
 
-export async function createProviderInvite(providerId: string): Promise<{ token: string; expires_at: string }> {
+export async function createProviderInvite(providerId: string): Promise<{ token: string; expires_at: string | null }> {
   const { data, error } = await getSupabaseClient()
     .rpc("luni_create_provider_invite", { p_provider_id: providerId });
   if (error) throw new Error(error.message);
   const row = Array.isArray(data) ? data[0] : data;
   if (!row?.token) throw new Error("No se pudo crear el enlace de invitación.");
-  return row as { token: string; expires_at: string };
+  return row as { token: string; expires_at: string | null };
 }
 
 export async function previewProviderInvite(token: string): Promise<ProviderInvitePreview | null> {
