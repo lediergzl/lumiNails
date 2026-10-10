@@ -2,6 +2,34 @@
 -- Apply after 20261009010000_initial_schema.sql. No payment provider is assumed.
 begin;
 
+-- Let authenticated administrators change license fields through the guarded RPCs,
+-- while ordinary providers remain unable to edit their own license state.
+create or replace function public.luni_protect_provider_license()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $fn$
+begin
+  if auth.uid() is not null and not exists (
+    select 1 from public.profiles where id = auth.uid() and role = 'admin'
+  ) then
+    if tg_op = 'INSERT' then
+      if new.license_status <> 'trial' or new.license_expires_at is not null then
+        raise exception 'PROVIDER_LICENSE_CHANGE_FORBIDDEN' using errcode = '42501';
+      end if;
+      new.trial_started_at := now();
+    elsif (
+      new.trial_started_at is distinct from old.trial_started_at
+      or new.license_expires_at is distinct from old.license_expires_at
+      or new.license_status is distinct from old.license_status
+    ) then
+      raise exception 'PROVIDER_LICENSE_CHANGE_FORBIDDEN' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$fn$;
+
 insert into public.app_settings(key, value)
 values
   ('license_prices', '[
@@ -10,7 +38,15 @@ values
     {"code":"annual","label":"Anual","duration_days":365,"price_cents":0,"currency":"CUP","active":true}
   ]'::jsonb),
   ('payment_methods', '[]'::jsonb)
-on conflict (key) do nothing;
+on conflict (key) do update
+set value = case
+  when app_settings.key = 'license_prices' and app_settings.value = '[]'::jsonb then excluded.value
+  else app_settings.value
+end,
+updated_at = case
+  when app_settings.key = 'license_prices' and app_settings.value = '[]'::jsonb then now()
+  else app_settings.updated_at
+end;
 
 create table if not exists public.license_payment_requests (
   id uuid primary key default gen_random_uuid(),
@@ -126,12 +162,12 @@ begin
   end if;
   if exists (
     select 1 from jsonb_array_elements(p_plans) x
-    where x->>'code' not in ('monthly','quarterly','annual')
-      or (x->>'duration_days')::integer not in (30,90,365)
+    where coalesce(x->>'code','') not in ('monthly','quarterly','annual')
+      or coalesce((x->>'duration_days')::integer,0) not in (30,90,365)
       or coalesce((x->>'price_cents')::bigint,0) <= 0
       or coalesce(x->>'label','') = ''
       or coalesce(x->>'currency','') = ''
-      or jsonb_typeof(x->'active') <> 'boolean'
+      or jsonb_typeof(x->'active') is distinct from 'boolean'
   ) then raise exception 'INVALID_LICENSE_PLANS' using errcode = '22023'; end if;
   if (select count(distinct x->>'code') from jsonb_array_elements(p_plans) x) <> jsonb_array_length(p_plans) then
     raise exception 'DUPLICATE_LICENSE_PLAN' using errcode = '22023';
@@ -164,7 +200,7 @@ begin
     where jsonb_typeof(x) <> 'object'
        or coalesce(x->>'code','') = ''
        or coalesce(x->>'label','') = ''
-       or jsonb_typeof(x->'active') <> 'boolean'
+       or jsonb_typeof(x->'active') is distinct from 'boolean'
   ) then raise exception 'INVALID_PAYMENT_METHODS' using errcode = '22023'; end if;
   if (select count(distinct x->>'code') from jsonb_array_elements(p_methods) x) <> jsonb_array_length(p_methods) then
     raise exception 'DUPLICATE_PAYMENT_METHOD' using errcode = '22023';
