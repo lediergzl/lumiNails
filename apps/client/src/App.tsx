@@ -11,12 +11,16 @@ import {
   listMyAppointments,
   listPublicServices,
   listPublishedProviders,
+  listMyClientProviders,
+  previewProviderInvite,
+  acceptProviderInvite,
   onAuthStateChange,
   signOut,
   type AvailableDay,
   type PublicProvider,
   type PublicService,
   type RemoteAppointment,
+  type ProviderInvitePreview,
 } from "@lumi/api";
 
 type Tab = "inicio" | "citas" | "perfil";
@@ -62,6 +66,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get("invite") ?? "");
+  const [invitePreview, setInvitePreview] = useState<ProviderInvitePreview | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const refreshAppointments = useCallback(async () => {
     const session = await getCurrentSession();
@@ -84,17 +91,33 @@ export default function App() {
     }
     try {
       setError("");
-      const [providerRows, serviceRows] = await Promise.all([listPublishedProviders(), listPublicServices()]);
-      setProviders(providerRows);
-      const visibleProviderIds = new Set(providerRows.map(p => p.id));
-      setServicesRaw(serviceRows.filter(s => visibleProviderIds.has(s.provider_id)));
+      if (inviteToken) {
+        const preview = await previewProviderInvite(inviteToken);
+        setInvitePreview(preview);
+        if (!preview) setNotice("Este enlace de invitación no es válido o ha vencido.");
+      } else {
+        setInvitePreview(null);
+      }
       await refreshAppointments();
+      const session = await getCurrentSession();
+      if (!session) {
+        setProviders([]);
+        setServicesRaw([]);
+        return;
+      }
+      const linked = await listMyClientProviders();
+      const providerRows = linked.map(p => ({
+        id: p.provider_id, slug: p.slug, business_name: p.business_name, bio: p.bio, avatar_path: null,
+      }));
+      const serviceGroups = await Promise.all(linked.map(p => listPublicServices(p.provider_id)));
+      setProviders(providerRows);
+      setServicesRaw(serviceGroups.flat());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo conectar con Supabase.");
+      setError(e instanceof Error ? e.message : "No se pudo conectar con Luni.");
     } finally {
       setLoading(false);
     }
-  }, [refreshAppointments]);
+  }, [refreshAppointments, inviteToken]);
 
   useEffect(() => {
     void loadCatalog();
@@ -184,19 +207,36 @@ export default function App() {
     {error && <div role="alert" className="provider-notice">{error}<button onClick={() => setError("")}>×</button></div>}
     {notice && <div role="status" className="provider-notice">{notice}<button onClick={() => setNotice("")}>×</button></div>}
 
-    {tab === "inicio" && <>
-      <section className="client-hero">
-        <div className="hero-copy"><span className="eyebrow">BELLEZA QUE SE SIENTE</span><h1>Un momento<br/>solo <em>para ti.</em></h1><p>Encuentra tu próximo estilo favorito y reserva tu espacio.</p><button className="button-dark" onClick={() => document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" })}>Explorar servicios <span>↗</span></button></div>
-        <div className="hero-art" aria-label="Ilustración decorativa de manicura"><div className="sun-disc"></div><div className="flower flower-one">✿</div><div className="flower flower-two">✿</div><div className="nail-bottle"><div className="bottle-cap"></div><div className="bottle-neck"></div><div className="bottle-body"><span>l</span></div></div><div className="art-caption">BEAUTY, IN YOUR OWN WAY</div></div>
-      </section>
-      <section className="trust-row"><div><span className="trust-icon">♡</span><span><b>A tu ritmo</b><small>Reserva cuando quieras</small></span></div><div><span className="trust-icon">✧</span><span><b>Tu estilo</b><small>Servicios para ti</small></span></div><div><span className="trust-icon">⌁</span><span><b>Sin sorpresas</b><small>Precios transparentes</small></span></div></section>
-      <section id="catalogo" className="catalog-section"><div className="section-heading"><div><span className="eyebrow">ELIGE TU FAVORITO</span><h2>Pequeños detalles,<br/><em>gran diferencia.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
-        <label className="search-box"><span>⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar servicio o estudio..." /></label>
-        {loading ? <p className="empty-state">Cargando catálogo desde Luni…</p> : <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}><span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>}
-        {!loading && visible.length === 0 && <p className="empty-state">{services.length === 0 ? "Todavía no hay estudios publicados con servicios activos." : "No encontramos servicios con ese nombre."}</p>}
-      </section>
-      <section className="salon-note"><span className="note-star">✳</span><div><span className="eyebrow">UN ESPACIO PARA TI</span><h2>La belleza está<br/>en los detalles.</h2><p>Guarda un ratito para ti. Te lo mereces.</p></div><span className="note-flower">✿</span></section>
-    </>}
+    {tab === "inicio" && <section className="simple-page">
+      <span className="eyebrow">TU CÍRCULO DE CONFIANZA</span>
+      <h1>Mis <em>manicuristas.</em></h1>
+      {invitePreview && <article className="invite-preview-card">
+        <span className="eyebrow">INVITACIÓN PERSONAL</span>
+        <h2>{invitePreview.business_name}</h2>
+        <p>{invitePreview.bio || "Tu manicurista te invita a conocer sus servicios y reservar tus citas desde Luni."}</p>
+        {sessionEmail
+          ? <button className="button-dark" disabled={busy} onClick={async () => {
+              setBusy(true); setError(""); setNotice("");
+              try {
+                await acceptProviderInvite(inviteToken);
+                await loadCatalog();
+                setNotice(`Ya estás conectada con ${invitePreview.business_name}. Sus servicios aparecen en tu espacio.`);
+              } catch (e) { setError(e instanceof Error ? e.message : "No se pudo aceptar la invitación."); }
+              finally { setBusy(false); }
+            }}>{busy ? "Conectando…" : "Añadir a mis manicuristas"} <span>↗</span></button>
+          : <div><p>Inicia sesión o crea tu cuenta para añadir esta manicurista a tu cartera.</p><button className="button-dark" onClick={() => setTab("perfil")}>Entrar o registrarme <span>↗</span></button></div>}
+      </article>}
+      <label className="search-box"><span>⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar entre tus servicios..." /></label>
+      {loading ? <p className="empty-state">Cargando tus manicuristas…</p> :
+        !sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Tu cartera empieza con una invitación</h3><p>Para proteger la privacidad, Luni no tiene un directorio público. Abre el enlace o escanea el QR que te comparta tu manicurista.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div>
+        : providers.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Aún no tienes manicuristas conectadas</h3><p>Pide a cada profesional su enlace personal o su código QR. Cada cartera y su historial se mantienen independientes.</p></div>
+        : <>
+          <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar">{p.business_name[0]?.toUpperCase() || "♡"}</div><div><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p><small>Tu cartera independiente</small></div></article>)}</div>
+          <div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
+          <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}><span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b>{service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button></div></article>)}</div>
+          {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p>}
+        </>}
+    </section>}
 
     {tab === "citas" && <section className="simple-page"><span className="eyebrow">TU AGENDA PERSONAL</span><h1>Mis <em>citas.</em></h1>{!sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Inicia sesión para ver tus citas</h3><p>Las reservas se guardan en tu cuenta de Luni.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div> : appointments.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Tu próximo momento empieza aquí</h3><p>Aún no tienes citas. Explora los servicios disponibles.</p><button className="button-dark" onClick={() => setTab("inicio")}>Descubrir servicios <span>↗</span></button></div> : appointments.map(a => <article className="appointment-card" key={a.id}><span className="pending-pill">{a.status === "pending_confirmation" ? "Pendiente de confirmar" : a.status === "confirmed" ? "Confirmada" : a.status === "cancelled" ? "Cancelada" : a.status}</span><h3>{a.client_service_name}</h3><p>{new Date(a.starts_at).toLocaleString("es-CU", { dateStyle: "medium", timeStyle: "short" })}</p><b>{money(a.client_price_cents, a.client_currency)}</b>{(a.status === "cancelled" || a.status === "rejected") && a.cancellation_reason && <p className="muted">Motivo del estudio: {a.cancellation_reason}</p>}</article>)}</section>}
 
