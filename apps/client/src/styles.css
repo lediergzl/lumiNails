@@ -154,3 +154,10 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .section-tabs { gap: 4px; margin: 14px 0 18px; padding: 4px; border-radius: 12px; }
   .section-tab { min-height: 38px; padding: 8px 10px; font-size: 11px; }
 }
+
+
+/* Inicio organizado en pestañas independientes: cartera, servicios e inspiración. */
+.home-section-tabs{margin:18px 0 24px}
+.home-section-title{margin:4px 0 18px;font:500 clamp(25px,3vw,32px)/1.2 var(--serif);color:var(--ink)}
+.home-section-title em{color:var(--rose-text,#986d79);font-weight:500}
+@media(max-width:520px){.home-section-tabs .section-tab{flex:1 1 30%;white-space:normal;text-align:center;line-height:1.25;padding:9px 7px}.home-section-tabs .section-tab span{flex:0 0 auto}}
