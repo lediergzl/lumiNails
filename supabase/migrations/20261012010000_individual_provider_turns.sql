@@ -113,21 +113,21 @@ begin
        -- A longer service may not consume the next individually defined turn.
        and not exists (
          select 1 from public.provider_turns next_turn
-         where next_turn.provider_id = v.provider_id
+         where next_turn.provider_id = v_provider.id
            and next_turn.turn_date = p_day
            and next_turn.start_time > t.start_time
            and p_day + t.start_time + v_duration + make_interval(mins => t.buffer_after_minutes) > p_day + next_turn.start_time
        )
        and not exists (
          select 1 from public.appointments a
-         where a.provider_id = v.provider_id
+         where a.provider_id = v_provider.id
            and a.status in ('pending_confirmation','confirmed')
            and a.deleted_at is null
            and tstzrange(a.starts_at, a.ends_at, '[)') && tstzrange(v_start, v_end, '[)')
        )
        and not exists (
          select 1 from public.availability b
-         where b.provider_id = v.provider_id
+         where b.provider_id = v_provider.id
            and b.kind = 'block' and b.status = 'active'
            and tstzrange(b.starts_at, b.ends_at, '[)') && tstzrange(v_start, v_end, '[)')
        )
