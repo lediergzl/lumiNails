@@ -269,7 +269,7 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
           <label className="date-filter">Margen después (min)
             <input type="number" min="0" max="180" step="5" value={turnBuffer} onChange={e => setTurnBuffer(e.target.value)} />
           </label>
-          <button type="button" className="provider-primary" disabled={saving || !turnDate || !turnTime || !/^(0|[1-9]\\d?|1[0-7]\\d|180)$/.test(turnBuffer)} onClick={() => void addTurn()}>
+          <button type="button" className="provider-primary" disabled={saving || !turnDate || !turnTime || !(Number.isInteger(Number(turnBuffer)) && Number(turnBuffer) >= 0 && Number(turnBuffer) <= 180)} onClick={() => void addTurn()}>
             {saving ? "Guardando…" : "+ Agregar turno"}
           </button>
         </div>
