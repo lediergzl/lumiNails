@@ -29,6 +29,48 @@ create table if not exists public.provider_invites (
 create index if not exists provider_invites_provider_idx
   on public.provider_invites(provider_id, created_at desc);
 
+-- Conserva el historial previo: cada clienta que ya reservó queda en la cartera de ese estudio.
+insert into public.client_provider_relationships(client_id, provider_id, status)
+select distinct a.client_id, a.provider_id, 'active'
+from public.appointments a
+where a.deleted_at is null
+on conflict (client_id, provider_id) do nothing;
+
+-- SECURITY DEFINER helpers avoid recursive RLS checks between relationship and profile policies.
+create or replace function public.luni_is_provider_owner(p_provider_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $fn$
+  select exists (
+    select 1 from public.provider_profiles p
+    where p.id = p_provider_id and p.user_id = auth.uid()
+  );
+$fn$;
+
+create or replace function public.luni_client_linked_to_provider(p_provider_id uuid, p_client_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $fn$
+  select exists (
+    select 1 from public.client_provider_relationships r
+    where r.provider_id = p_provider_id
+      and r.client_id = p_client_id
+      and r.status = 'active'
+  );
+$fn$;
+
+revoke all on function public.luni_is_provider_owner(uuid) from public;
+revoke all on function public.luni_client_linked_to_provider(uuid, uuid) from public;
+grant execute on function public.luni_is_provider_owner(uuid) to authenticated;
+grant execute on function public.luni_client_linked_to_provider(uuid, uuid) to authenticated;
+
+
 alter table public.client_provider_relationships enable row level security;
 alter table public.provider_invites enable row level security;
 
@@ -218,62 +260,6 @@ begin
   order by max(a.starts_at) desc nulls last, pr.display_name;
 end;
 $fn$;
-
--- Each booking also establishes this client/provider relationship, so the client's
--- portfolio is created even if a reservation began from a valid invitation deep link.
-create or replace function public.luni_link_client_after_appointment()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $fn$
-begin
-  insert into public.client_provider_relationships(client_id, provider_id, status)
-  values (new.client_id, new.provider_id, 'active')
-  on conflict (client_id, provider_id)
-  do update set status = 'active', updated_at = now();
-  return new;
-end;
-$fn$;
-
-drop trigger if exists appointments_link_client_provider on public.appointments;
-create trigger appointments_link_client_provider
-  after insert on public.appointments
-  for each row execute procedure public.luni_link_client_after_appointment();
-
--- SECURITY DEFINER helpers avoid recursive RLS checks between relationship and profile policies.
-create or replace function public.luni_is_provider_owner(p_provider_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public, pg_temp
-as $fn$
-  select exists (
-    select 1 from public.provider_profiles p
-    where p.id = p_provider_id and p.user_id = auth.uid()
-  );
-$fn$;
-
-create or replace function public.luni_client_linked_to_provider(p_provider_id uuid, p_client_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public, pg_temp
-as $fn$
-  select exists (
-    select 1 from public.client_provider_relationships r
-    where r.provider_id = p_provider_id
-      and r.client_id = p_client_id
-      and r.status = 'active'
-  );
-$fn$;
-
-revoke all on function public.luni_is_provider_owner(uuid) from public;
-revoke all on function public.luni_client_linked_to_provider(uuid, uuid) from public;
-grant execute on function public.luni_is_provider_owner(uuid) to authenticated;
-grant execute on function public.luni_client_linked_to_provider(uuid, uuid) to authenticated;
 
 -- Replace anonymous/public discovery policies. A client may read only studios/services
 -- explicitly linked to their own account; a provider can always manage their own records.
