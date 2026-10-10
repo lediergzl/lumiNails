@@ -15,6 +15,7 @@ import {
   listPublishedProviders,
   listMyClientProviders,
   listMyClientProviderBrandIcons,
+  listMyClientProviderBusinessDetails,
   listPublicPortfolio,
   previewProviderInvite,
   acceptProviderInvite,
@@ -118,21 +119,26 @@ export default function App() {
         setServicesRaw([]);
         return;
       }
-      const [linked, publishedProviders, linkedBrandIcons] = await Promise.all([
+      const [linked, publishedProviders, linkedBrandIcons, linkedBusinessDetails] = await Promise.all([
         listMyClientProviders(),
         listPublishedProviders(),
         listMyClientProviderBrandIcons(),
+        listMyClientProviderBusinessDetails(),
       ]);
       const publishedById = new Map(publishedProviders.map(p => [p.id, p]));
       const brandIconById = new Map(linkedBrandIcons.map(p => [p.provider_id, p.brand_icon]));
       const brandLogoById = new Map(linkedBrandIcons.map(p => [p.provider_id, p.avatar_path]));
+      const businessDetailsById = new Map(linkedBusinessDetails.map(p => [p.provider_id, p]));
       const providerRows: PublicProvider[] = linked.map(p => {
         const publicProfile = publishedById.get(p.provider_id);
+        const details = businessDetailsById.get(p.provider_id);
         return {
           id: p.provider_id,
           slug: p.slug,
           business_name: p.business_name,
           bio: p.bio,
+          business_phone: details?.business_phone ?? publicProfile?.business_phone ?? null,
+          business_location: details?.business_location ?? publicProfile?.business_location ?? null,
           avatar_path: brandLogoById.get(p.provider_id) ?? publicProfile?.avatar_path ?? null,
           brand_icon: brandIconById.get(p.provider_id) || publicProfile?.brand_icon || "💅",
         };
@@ -303,7 +309,7 @@ export default function App() {
         !sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Tu cartera empieza con una invitación</h3><p>Para proteger la privacidad, Luni no tiene un directorio público. Introduce el código de invitación que te comparta tu manicurista.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div>
         : providers.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Aún no tienes manicuristas conectadas</h3><p>Pide a cada profesional su código de invitación. Cada cartera y su historial se mantienen independientes.</p></div>
         : <>
-          {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar studio-client-icon" aria-label={"Identidad de " + p.business_name}>{p.avatar_path ? <img className="provider-brand-logo" src={serviceImageUrl(p.avatar_path) ?? ""} alt={"Logotipo de " + p.business_name} loading="lazy" /> : (p.brand_icon || "💅")}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p><small><span className="studio-card-icon">{p.avatar_path ? <img className="provider-brand-logo small" src={serviceImageUrl(p.avatar_path) ?? ""} alt="" loading="lazy" /> : (p.brand_icon || "💅")}</span> Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
+          {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar studio-client-icon" aria-label={"Identidad de " + p.business_name}>{p.avatar_path ? <img className="provider-brand-logo" src={serviceImageUrl(p.avatar_path) ?? ""} alt={"Logotipo de " + p.business_name} loading="lazy" /> : (p.brand_icon || "💅")}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p>{p.business_phone && <p><a href={"tel:" + p.business_phone}>☎ {p.business_phone}</a></p>}{p.business_location && <p>⌖ {p.business_location}</p>}<small><span className="studio-card-icon">{p.avatar_path ? <img className="provider-brand-logo small" src={serviceImageUrl(p.avatar_path) ?? ""} alt="" loading="lazy" /> : (p.brand_icon || "💅")}</span> Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
           {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>
           <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}>{service.card_path && <img className="service-photo" src={serviceImageUrl(service.card_path) ?? ""} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}<span className="service-tag">{service.tag}</span><div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span className="art-number">{service.duration_minutes}′</span></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b><span className="studio-card-icon">{service.providerLogoPath ? <img className="provider-brand-logo small" src={serviceImageUrl(service.providerLogoPath) ?? ""} alt="" loading="lazy" /> : service.providerIcon}</span> {service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" onClick={() => { setSelected(service); setError(""); }}>Reservar este servicio <span>↗</span></button><div aria-label={"Logotipo de " + service.providerName} title={service.providerName} style={{ marginTop: 10, marginLeft: "auto", width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: "2px solid #e8cbd3", background: "#fff8fa", display: "grid", placeItems: "center", boxShadow: "0 3px 10px rgba(80,40,55,.12)" }}>{service.providerLogoPath ? <img src={serviceImageUrl(service.providerLogoPath) ?? ""} alt={"Logotipo de " + service.providerName} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{service.providerIcon || "💅"}</span>}</div></div></article>)}</div>
           {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p>}</>}
