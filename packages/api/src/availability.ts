@@ -177,7 +177,7 @@ export async function updateMyTurn(id: string, input: {
   }).eq("id", id).eq("provider_id", input.providerId);
   if (error) {
     if (error.code === "23505") throw new Error("Ya existe un turno a esa hora.");
-    if (error.message.includes("TURN_HAS_ACTIVE_APPOINTMENT")) throw new Error("No puedes cambiar ese turno porque tiene una cita pendiente o confirmada.");
+    if (error.message.includes("TURN_HAS_APPOINTMENT") || error.message.includes("TURN_HAS_ACTIVE_APPOINTMENT")) throw new Error("No puedes cambiar ese turno porque tiene una cita pendiente o confirmada.");
     fail(error);
   }
 }
@@ -186,7 +186,7 @@ export async function deleteMyTurn(id: string, providerId: string): Promise<void
   const { error } = await getSupabaseClient().from("provider_turns").delete()
     .eq("id", id).eq("provider_id", providerId);
   if (error) {
-    if (error.message.includes("TURN_HAS_ACTIVE_APPOINTMENT")) throw new Error("No puedes eliminar ese turno porque tiene una cita pendiente o confirmada.");
+    if (error.message.includes("TURN_HAS_APPOINTMENT") || error.message.includes("TURN_HAS_ACTIVE_APPOINTMENT")) throw new Error("No puedes eliminar ese turno porque tiene una cita pendiente o confirmada.");
     fail(error);
   }
 }
