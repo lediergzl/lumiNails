@@ -381,3 +381,62 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
     white-space: normal;
   }
 }
+
+
+/* Pestañas compactas para organizar listados sin alargar la pantalla. */
+.section-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 18px 0 22px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--line, #eadfe0);
+  border-radius: 14px;
+  background: #f8f2f1;
+  scrollbar-width: thin;
+}
+.section-tab {
+  display: inline-flex;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted, #7b6c70);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.section-tab span {
+  display: inline-grid;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  background: #eee4e3;
+  color: inherit;
+  font-size: 10px;
+}
+.section-tab.active {
+  border-color: #ead8d7;
+  background: #fff;
+  color: var(--rose-text, #8b5b63);
+  box-shadow: 0 2px 8px #4b29290a;
+}
+.section-tab.active span {
+  background: #f3e2e2;
+}
+.provider-agenda-tabs {
+  margin: 14px 0 12px;
+}
+@media (max-width: 520px) {
+  .section-tabs { gap: 4px; margin: 14px 0 18px; padding: 4px; border-radius: 12px; }
+  .section-tab { min-height: 38px; padding: 8px 10px; font-size: 11px; }
+}
