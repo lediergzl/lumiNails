@@ -14,6 +14,7 @@ import {
   listPublicServices,
   listPublishedProviders,
   listMyClientProviders,
+  listMyClientProviderBrandIcons,
   listPublicPortfolio,
   previewProviderInvite,
   acceptProviderInvite,
@@ -117,11 +118,13 @@ export default function App() {
         setServicesRaw([]);
         return;
       }
-      const [linked, publishedProviders] = await Promise.all([
+      const [linked, publishedProviders, linkedBrandIcons] = await Promise.all([
         listMyClientProviders(),
         listPublishedProviders(),
+        listMyClientProviderBrandIcons(),
       ]);
       const publishedById = new Map(publishedProviders.map(p => [p.id, p]));
+      const brandIconById = new Map(linkedBrandIcons.map(p => [p.provider_id, p.brand_icon]));
       const providerRows: PublicProvider[] = linked.map(p => {
         const publicProfile = publishedById.get(p.provider_id);
         return {
@@ -130,7 +133,7 @@ export default function App() {
           business_name: p.business_name,
           bio: p.bio,
           avatar_path: publicProfile?.avatar_path ?? null,
-          brand_icon: publicProfile?.brand_icon ?? "💅",
+          brand_icon: brandIconById.get(p.provider_id) || publicProfile?.brand_icon || "💅",
         };
       });
       const serviceGroups = await Promise.all(linked.map(p => listPublicServices(p.provider_id)));
