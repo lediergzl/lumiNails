@@ -74,7 +74,6 @@ declare
   v_end timestamptz;
   v_local_start timestamp;
   v_local_end timestamp;
-  v_window_end time;
 begin
   select * into v_service from public.services
   where id = p_service_id and is_active and deleted_at is null;
@@ -109,24 +108,15 @@ begin
     v_end := v_start + v_duration;
     v_local_end := v_end at time zone v_provider.timezone;
 
-    -- The appointment must fit inside one of the provider's configured working windows.
-    select min(w.end_time) into v_window_end
-    from public.weekly_schedule w
-    where w.provider_id = v_provider.id
-      and w.weekday = extract(isodow from p_day)::int
-      and w.start_time <= t.start_time
-      and w.end_time >= v_local_end::time
-      and v_local_end::date = p_day;
-
     if v_start > now() + interval '1 hour'
-       and v_window_end is not null
+       and v_local_end::date = p_day
        -- A longer service may not consume the next individually defined turn.
        and not exists (
          select 1 from public.provider_turns next_turn
          where next_turn.provider_id = v.provider_id
            and next_turn.turn_date = p_day
            and next_turn.start_time > t.start_time
-           and v_local_end::time + make_interval(mins => t.buffer_after_minutes) > next_turn.start_time
+           and p_day + t.start_time + v_duration + make_interval(mins => t.buffer_after_minutes) > p_day + next_turn.start_time
        )
        and not exists (
          select 1 from public.appointments a
@@ -223,18 +213,11 @@ begin
   for update;
   if not found then raise exception 'INVALID_APPOINTMENT_SLOT' using errcode = 'P0001'; end if;
 
-  if not exists (
-    select 1 from public.weekly_schedule w
-    where w.provider_id = v_provider.id
-      and w.weekday = extract(isodow from v_local_start)::int
-      and w.start_time <= v_local_start::time and w.end_time >= v_local_end::time
-  ) then raise exception 'OUTSIDE_WORKING_HOURS' using errcode = 'P0001'; end if;
-
   if exists (
     select 1 from public.provider_turns next_turn
     where next_turn.provider_id = v_provider.id and next_turn.turn_date = v_local_start::date
       and next_turn.start_time > v_local_start::time
-      and v_local_end::time + make_interval(mins => v_turn.buffer_after_minutes) > next_turn.start_time
+      and v_local_end + make_interval(mins => v_turn.buffer_after_minutes) > (v_local_start::date + next_turn.start_time)
   ) then raise exception 'SERVICE_DOES_NOT_FIT_BEFORE_NEXT_TURN' using errcode = 'P0001'; end if;
 
   if exists (
@@ -274,7 +257,7 @@ $fn$;
 
 revoke all on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) from public, anon;
 grant execute on function public.luni_create_appointment(uuid, uuid, uuid, timestamptz, text, text) to authenticated;
-grant execute on function public.luni_available_slots(uuid, uuid, date) from public;
+revoke all on function public.luni_available_slots(uuid, uuid, date) from public;
 grant execute on function public.luni_available_slots(uuid, uuid, date) to anon, authenticated;
 
 commit;
