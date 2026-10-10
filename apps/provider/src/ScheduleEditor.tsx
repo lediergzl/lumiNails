@@ -259,7 +259,7 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
         <section className="individual-turns" aria-labelledby="individual-turns-title">
         <h3 id="individual-turns-title">Turnos individuales</h3>
         <p className="schedule-hint">Define uno por uno los inicios que vas a ofrecer. No se crean horarios automáticos cada 30 minutos. La duración del servicio elegido determina cuánto tiempo ocupa la cita.</p>
-        <div className="block-form">
+        <div className="block-form manual-turn-add">
           <label className="date-filter">Fecha
             <input type="date" min={localDate(new Date())} value={turnDate} onChange={e => setTurnDate(e.target.value)} />
           </label>
@@ -275,8 +275,8 @@ export default function ScheduleEditor({ providerId, appointments, timezone, leg
         </div>
         <p className="schedule-hint">Turnos definidos para {turnDate || "la fecha seleccionada"}: {turns.length}</p>
         {turns.length === 0 ? <p className="empty-state">Todavía no has definido turnos para este día.</p> :
-          <ul className="block-list">{turns.map(turn => <li key={turn.id}>
-            <span><strong>{turn.start_time.slice(0, 5)}</strong>{turn.buffer_after_minutes > 0 ? <small> · margen {turn.buffer_after_minutes} min</small> : <small> · sin margen adicional</small>}</span>
+          <ul className="block-list manual-turn-list">{turns.map(turn => <li className="manual-turn-row" key={turn.id}>
+            <span className="manual-turn-time"><b>{turn.start_time.slice(0, 5)}</b>{turn.buffer_after_minutes > 0 ? <span>Margen: {turn.buffer_after_minutes} min</span> : <span>Sin margen adicional</span>}</span>
             <button type="button" className="provider-secondary" disabled={saving} onClick={() => void deleteTurn(turn)}>Eliminar</button>
           </li>)}</ul>}
       </section>
