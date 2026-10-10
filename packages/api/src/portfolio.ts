@@ -85,7 +85,16 @@ export async function savePortfolioItem(input: {
 }
 
 export async function deletePortfolioItem(providerId: string, itemId: string): Promise<void> {
-  const { error } = await getSupabaseClient().from("provider_portfolio_items")
+  const supabase = getSupabaseClient();
+  const { data, error: readError } = await supabase.from("provider_portfolio_items")
+    .select("image_paths").eq("id", itemId).eq("provider_id", providerId).maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (!data) throw new Error("La publicación ya no existe.");
+  if (data.image_paths?.length) {
+    const { error: storageError } = await supabase.storage.from("service-images").remove(data.image_paths);
+    if (storageError) throw new Error("No se pudieron borrar las fotos: " + storageError.message);
+  }
+  const { error } = await supabase.from("provider_portfolio_items")
     .update({ deleted_at: new Date().toISOString(), is_published: false, updated_at: new Date().toISOString() })
     .eq("id", itemId).eq("provider_id", providerId);
   if (error) throw new Error(error.message);
