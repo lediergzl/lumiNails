@@ -152,7 +152,7 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
       <div className="provider-empty"><span>◷</span><b>{mode==="day"&&!override?"No hay turnos generales definidos para este día de la semana":"No has definido turnos para esta selección"}</b><p>{mode==="day"&&!override?"Define turnos en Horario general semanal o personaliza esta fecha.":"Agrega las horas exactas a las que estás dispuesta a recibir clientas."}</p></div> :
       <div className="manual-turn-list">{displayedTurns.map(turn=>{
         const isWeekly = mode==="general" || !override;
-        const booked = !isWeekly && activeAppointmentAt(turn as ProviderTurn).length>0;
+        const booked = !isWeekly && activeAppointmentAt(turn as ProviderTurn);
         const hasHistory = !isWeekly && appointmentAt(turn as ProviderTurn).length>0;
         return <article className="manual-turn-row" key={turn.id}>
           {editing===turn.id ? <div className="manual-turn-edit">
