@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@lumi/api";
 
-type Plan = { code: "monthly" | "quarterly" | "annual"; label: string; duration_days: 30 | 90 | 365; price_cents: number; currency: string; active: boolean };
+type Plan = { code: "monthly" | "quarterly" | "annual"; label: string; duration_days: number; price_cents: number; currency: string; active: boolean };
 type Method = { code: string; label: string; active: boolean };
 type Request = { id: string; provider_id: string; user_id: string; plan_label: string; duration_days: number; amount_cents: number; currency: string; payment_method: string; payment_reference: string | null; status: "pending" | "approved" | "rejected"; admin_note: string; created_at: string };
 type Provider = { id: string; user_id: string; business_name: string; license_status: string; license_expires_at: string | null; trial_started_at: string | null };
@@ -60,8 +60,8 @@ export default function AdminLicenses() {
     finally { setBusy(false); }
   };
   const savePlans = () => run(async () => {
-    const invalid = plans.some(p => !p.label.trim() || !Number.isFinite(Number(p.price_cents)) || Number(p.price_cents) <= 0);
-    if (invalid) throw new Error("Cada plan activo debe tener un precio mayor que cero. Introduce el precio en CUP.");
+    const invalid = plans.some(p => !p.label.trim() || !Number.isInteger(Number(p.duration_days)) || Number(p.duration_days) < 1 || Number(p.duration_days) > 3650 || !Number.isFinite(Number(p.price_cents)) || Number(p.price_cents) <= 0);
+    if (invalid) throw new Error("Cada plan debe tener una duración entre 1 y 3650 días y un precio mayor que cero en CUP.");
     const payload = plans.map(p => ({ ...p, price_cents: Math.round(Number(p.price_cents)), currency: "CUP" }));
     const { error: e } = await getSupabaseClient().rpc("luni_admin_set_license_plans", { p_plans: payload });
     if (e) throw e;
@@ -93,7 +93,8 @@ export default function AdminLicenses() {
       {error && <p role="alert" className="photo-error">{error}</p>}{notice && <p role="status">{notice}</p>}
       <div className="license-admin-section"><h4>Planes y precios (CUP)</h4>
         {plans.map((p, i) => <div className="license-admin-plan" key={p.code}>
-          <b>{p.label} · {p.duration_days} días</b>
+          <b>{p.label}</b>
+          <label>Duración (días)<input type="number" min="1" max="3650" step="1" value={p.duration_days} onChange={e => setPlans(old => old.map((x, j) => i === j ? { ...x, duration_days: Math.max(1, Math.min(3650, Math.floor(Number(e.target.value || 1)))) } : x))}/></label>
           <label>Precio (CUP)<input type="number" min="1" step="0.01" value={p.price_cents / 100} onChange={e => setPlans(old => old.map((x, j) => i === j ? { ...x, price_cents: Math.round(Number(e.target.value || 0) * 100) } : x))}/></label>
           <label className="license-admin-check"><input type="checkbox" checked={p.active} onChange={e => setPlans(old => old.map((x, j) => i === j ? { ...x, active: e.target.checked } : x))}/> Disponible para renovación</label>
         </div>)}
