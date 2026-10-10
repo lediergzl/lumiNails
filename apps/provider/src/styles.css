@@ -238,3 +238,16 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .license-admin-actions{flex-direction:column}
 .license-admin-actions button{width:100%;flex-basis:auto}
 }
+
+/* Área exclusiva de administración: sin navegación ni controles de manicurista. */
+.admin-shell{grid-template-columns:minmax(0,1fr)}
+.admin-shell .provider-sidebar,.admin-shell .mobile-nav{display:none!important}
+.admin-shell .provider-main{min-height:100dvh}
+.admin-shell .provider-header{justify-content:space-between}
+.admin-license-workspace{width:min(100%,1000px);padding-top:clamp(25px,5vw,52px)}
+.admin-license-workspace>h1{font:500 clamp(32px,4vw,46px)/1.15 var(--serif);letter-spacing:-.8px;color:#493638;margin:10px 0}
+.admin-license-workspace>h1 em{color:#b8797e;font-weight:500}
+.admin-license-workspace>.setup-description{font-size:14px;line-height:1.7;max-width:700px;margin-bottom:22px}
+.admin-license-workspace .license-admin-card{margin-top:0}
+.admin-account-card{margin-top:18px;border-radius:12px}
+@media(max-width:650px){.admin-shell{padding-bottom:0!important}.admin-license-workspace{padding:24px 14px}.admin-account-card{align-items:flex-start}.admin-account-card button{width:100%}}
