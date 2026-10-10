@@ -14,7 +14,11 @@ No hay cobro automático integrado. El pago se verifica manualmente por el admin
 ## Instalación en Supabase
 
 1. Abre el proyecto correcto → SQL Editor.
-2. Si el proyecto ya tiene LumiNails funcionando y aplicó las migraciones anteriores, ejecuta en este orden las dos migraciones nuevas:\n   - `20261016010000_license_plans_and_admin_workflow.sql`\n   - `20261017010000_admin_provider_license_read_policy.sql`\n\n   Si estás creando un proyecto Supabase desde cero, ejecuta todas las migraciones de `supabase/migrations` en orden por nombre, empezando por `20261009010000_initial_schema.sql`.
+2. Si el proyecto ya tiene LumiNails funcionando y aplicó las migraciones anteriores, ejecuta en este orden las dos migraciones nuevas:
+   - `20261016010000_license_plans_and_admin_workflow.sql`
+   - `20261017010000_admin_provider_license_read_policy.sql`
+
+   Si estás creando un proyecto Supabase desde cero, ejecuta todas las migraciones de `supabase/migrations` en orden por nombre, empezando por `20261009010000_initial_schema.sql`.
 3. Obtén el UUID del usuario que administrará las licencias y verifica su identidad. Solo entonces ejecuta, sustituyendo el marcador:
 
 ```sql
