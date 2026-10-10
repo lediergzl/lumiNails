@@ -40,10 +40,12 @@ export async function createAppointment(
   if (error) {
     const knownMessages: Record<string, string> = {
       AUTH_REQUIRED: "Inicia sesión antes de solicitar una cita.",
+      CLIENT_PROVIDER_LINK_REQUIRED: "Primero debes añadir esta manicurista a tu cartera desde su invitación personal.",
       INVALID_APPOINTMENT_TIME: "Selecciona una hora con al menos una hora de anticipación.",
       PHONE_REQUIRED: "Añade tu número de teléfono antes de reservar.",
       DAILY_LIMIT_REACHED: "Este estudio ya alcanzó su límite de citas para ese día. Elige otra fecha.",
-      INVALID_APPOINTMENT_SLOT: "Ese horario no es válido. Selecciona uno de los horarios disponibles.",
+      INVALID_APPOINTMENT_SLOT: "Ese horario no es válido. Selecciona uno de los turnos que la manicurista configuró.",
+      SERVICE_DOES_NOT_FIT_BEFORE_NEXT_TURN: "Ese servicio no cabe antes del siguiente turno. Elige otra hora o un servicio más corto.",
       INVALID_APPOINTMENT_DATE: "La fecha está fuera del período de reservas permitido.",
       SERVICE_NOT_AVAILABLE: "Este servicio ya no está disponible.",
       PROVIDER_NOT_AVAILABLE: "Este estudio no está disponible para reservas.",

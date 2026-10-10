@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthPanel from "./AuthPanel";
 import ScheduleEditor from "./ScheduleEditor";
+import ManualTurnsEditor from "./ManualTurnsEditor";
 import {
   createMyProviderProfile,
+  createProviderInvite,
+  listProviderClients,
   getCurrentSession,
   getMyProviderProfile,
   isSupabaseConfigured,
@@ -15,6 +18,7 @@ import {
   type ProviderAppointment,
   type ProviderProfile,
   type ProviderService,
+  type ProviderClient,
 } from "@lumi/api";
 
 type Tab = "agenda" | "servicios" | "clientes" | "perfil";
@@ -31,6 +35,9 @@ export default function App() {
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [services, setServices] = useState<ProviderService[]>([]);
   const [appointments, setAppointments] = useState<ProviderAppointment[]>([]);
+  const [clients, setClients] = useState<ProviderClient[]>([]);
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteExpiresAt, setInviteExpiresAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -48,21 +55,23 @@ export default function App() {
     const session = await getCurrentSession();
     setSessionEmail(session?.user.email ?? "");
     if (!session) {
-      setProfile(null); setServices([]); setAppointments([]);
+      setProfile(null); setServices([]); setAppointments([]); setClients([]); setInviteLink("");
       return;
     }
     const currentProfile = await getMyProviderProfile();
     setProfile(currentProfile);
     if (!currentProfile) {
-      setServices([]); setAppointments([]);
+      setServices([]); setAppointments([]); setClients([]);
       return;
     }
-    const [serviceRows, appointmentRows] = await Promise.all([
+    const [serviceRows, appointmentRows, clientRows] = await Promise.all([
       listMyProviderServices(currentProfile.id),
       listProviderAppointments(currentProfile.id),
+      listProviderClients(currentProfile.id),
     ]);
     setServices(serviceRows);
     setAppointments(appointmentRows);
+    setClients(clientRows);
   }, []);
 
   useEffect(() => {
@@ -136,9 +145,44 @@ export default function App() {
         .eq("id", profile.id);
       if (updateError) throw new Error(updateError.message);
       await refresh();
-      setNotice(profile.is_published ? "Estudio ocultado del catálogo público." : "Estudio publicado en el catálogo público.");
+      setNotice(profile.is_published ? "Reservas pausadas. Tu enlace personal sigue disponible." : "Reservas activadas para las clientas que estén vinculadas por invitación.");
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cambiar la publicación."); }
     finally { setBusy(false); }
+  };
+
+  const createInvite = async () => {
+    if (!profile) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const invite = await createProviderInvite(profile.id);
+      // Las apps se distribuyen como APK: no dependemos de una web pública.
+      setInviteLink(invite.token);
+      setInviteExpiresAt(invite.expires_at);
+      setNotice("Código de invitación creado. Compártelo por WhatsApp o muéstralo a la clienta.");
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo crear la invitación."); }
+    finally { setBusy(false); }
+  };
+
+  const copyInviteLink = async () => {
+    if (!inviteLink) return;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(inviteLink);
+      else window.prompt("Copia este código de invitación:", inviteLink);
+      setNotice("Código listo para compartir.");
+    } catch { window.prompt("Copia este código de invitación:", inviteLink); }
+  };
+
+  const shareInviteLink = async () => {
+    if (!inviteLink) return;
+    try {
+      if (navigator.share) await navigator.share({
+        title: "Invitación a " + (profile?.business_name || "Luni"),
+        text: "Añádeme a tus manicuristas en Luni. Abre Luni Cliente, entra en «Mis manicuristas» e introduce este código: " + inviteLink
+      });
+      else await copyInviteLink();
+    } catch (e) {
+      if (e instanceof Error && e.name !== "AbortError") setError("No se pudo abrir el menú para compartir. Copia el enlace.");
+    }
   };
 
   const showMobileNav = Boolean(sessionEmail && profile);
@@ -155,8 +199,14 @@ export default function App() {
           <section className="agenda-panel"><div className="agenda-heading"><div><h2>Agenda</h2><p>{profile.business_name}</p></div><button className="today-button" onClick={()=>setDay(new Date().toISOString().slice(0,10))}>Hoy ↗</button></div><div className="agenda-date"><b>{new Date(day+"T12:00:00").toLocaleDateString("es-CU",{weekday:"long",day:"numeric",month:"long"})}</b><span>{filteredAppointments.length} citas</span></div><div className="appointment-list">{filteredAppointments.map(a=><article className="provider-appointment" key={a.id}><div className="appointment-time"><b>{new Date(a.starts_at).toLocaleTimeString("es-CU",{hour:"2-digit",minute:"2-digit"})}</b><span>{Math.max(1,Math.round((Date.parse(a.ends_at)-Date.parse(a.starts_at))/60000))} min</span></div><div className={"appointment-color "+(a.status==="confirmed"?"pink":a.status==="pending_confirmation"?"sand":"lilac")}></div><div className="appointment-details"><b>{a.client_service_name}</b><small>{a.client_display_name || "Clienta"} · {a.client_phone ? <a href={"tel:" + a.client_phone}>{a.client_phone}</a> : "Sin teléfono registrado"}</small><span>{money(a.client_price_cents,a.client_currency)} · {statusText[a.status] ?? a.status}</span><small>{a.notes || "Sin notas"}</small></div><div className="appointment-actions">{a.status==="pending_confirmation"&&<><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"confirmed")}>Confirmar</button><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"rejected")}>Rechazar</button></>}{a.status==="confirmed"&&<button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"completed")}>Completar</button>}</div></article>)}{filteredAppointments.length===0&&<div className="provider-empty"><span>✧</span><b>Tu agenda está despejada</b><p>No hay citas registradas para esta fecha.</p></div>}</div></section>
         </div>}
         {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Los cambios se guardan en Supabase.</p></div><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>＋ Añadir servicio</button></div><div className="provider-service-grid">{activeServices.map((s,i)=><article className="provider-service-card" key={s.id}><div className={"provider-service-art art-"+(i%3)}>{["✿","✧","❀"][i%3]}<span>{String(i+1).padStart(2,"0")}</span></div><div className="provider-service-content"><h3>{s.name}</h3><p>{s.description}</p><div><span>◷ {s.duration_minutes} min</span><b>{money(s.price_cents,s.currency)}</b></div><span className="service-saved-label">Guardado en Supabase</span></div></article>)}</div>{activeServices.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes servicios</b><p>Añade tu primer servicio para completar el catálogo del estudio.</p><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>Añadir servicio</button></div>}</div>}
-        {tab==="clientes"&&<div className="workspace"><span className="eyebrow">RELACIONES QUE IMPORTAN</span><h1>Tus <em>clientas.</em></h1><div className="provider-empty large-empty"><span>♡</span><b>Historial de clientas</b><p>La lista se mostrará a medida que recibas reservas. Ahora tienes {new Set(appointments.map(a=>a.client_id)).size} clientas con citas registradas.</p></div></div>}
-        {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="settings-card"><div className="settings-avatar">{profile.business_name[0]?.toUpperCase()}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}</p></div><span className="trial-pill">{profile.is_published?"PUBLICADO":"NO PUBLICADO"}</span></div><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Catálogo público</h3><p>{profile.is_published?"Tu estudio aparece en el catálogo de clientes.":"Publica tu estudio cuando hayas añadido los servicios que deseas ofrecer."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Ocultar estudio":"Publicar estudio"}</button></div><ScheduleEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} /><div className="settings-card"><div className="settings-icon">⌁</div><div><h3>Cuenta</h3><p>{sessionEmail}</p></div><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await signOut();setProfile(null);setServices([]);setAppointments([]);setSessionEmail("");setNotice("Sesión cerrada.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión.");}finally{setBusy(false);}}}>Cerrar sesión</button></div></div>}
+        {tab==="clientes"&&<div className="workspace">
+          <div className="welcome-row"><div><span className="eyebrow">CARTERA PRIVADA</span><h1>Tus <em>clientas.</em></h1><p>Cada clienta entra por tu invitación personal. Tu cartera es independiente de la de otras manicuristas.</p></div><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>＋ Crear invitación</button></div>
+          {inviteLink&&<section className="invite-share-card"><span className="eyebrow">CÓDIGO PERSONAL · VÁLIDO HASTA {new Date(inviteExpiresAt).toLocaleDateString("es-CU")}</span><h2>Invita a una nueva clienta</h2><p>Comparte este código por WhatsApp o muéstralo en persona. La clienta lo introduce dentro de Luni Cliente; no hace falta publicar la aplicación en Internet.</p><div className="invite-link-row"><input aria-label="Código de invitación" readOnly value={inviteLink}/><button className="provider-secondary" onClick={()=>void copyInviteLink()}>Copiar código</button></div><div className="invite-share-actions"><button className="provider-primary" onClick={()=>void shareInviteLink()}>Compartir invitación ↗</button><button className="provider-secondary" onClick={()=>setInviteLink("")}>Ocultar código</button></div></section>}
+          <div className="client-portfolio-summary"><b>{clients.length}</b><span>{clients.length===1?"clienta conectada":"clientas conectadas"}</span><small>La información de cada clienta solo es visible para tu estudio.</small></div>
+          {clients.length===0?<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes clientas vinculadas</b><p>Crea un código y compártelo por WhatsApp o muéstralo a la clienta para que lo introduzca en Luni Cliente. No existe un directorio público de clientas ni de estudios.</p><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>Crear mi primer código</button></div>
+          :<div className="client-portfolio-list">{clients.map(client=><article className="client-portfolio-card" key={client.client_id}><div className="client-portfolio-avatar">{(client.display_name||"C").trim()[0]?.toUpperCase()}</div><div className="client-portfolio-main"><h3>{client.display_name||"Clienta de Luni"}</h3><p>{client.phone?<a href={"tel:"+client.phone}>{client.phone}</a>:"Sin teléfono registrado"}</p><small>Conectada desde {new Date(client.linked_at).toLocaleDateString("es-CU")}</small></div><div className="client-portfolio-stats"><b>{client.appointment_count}</b><span>{client.appointment_count===1?"cita":"citas"}</span><small>{client.last_appointment_at?"Última: "+new Date(client.last_appointment_at).toLocaleDateString("es-CU"):"Sin citas todavía"}</small></div></article>)}</div>}
+        </div>}
+        {tab==="perfil"&&<div className="workspace"><span className="eyebrow">TU MARCA, TUS REGLAS</span><h1>Mi <em>negocio.</em></h1><div className="settings-card"><div className="settings-avatar">{profile.business_name[0]?.toUpperCase()}</div><div><h3>{profile.business_name}</h3><p>{profile.bio || "Sin descripción todavía."}</p><p>Prueba iniciada: {new Date(profile.trial_started_at).toLocaleDateString("es-CU")} · Estado: {profile.license_status}</p></div><span className="trial-pill">{profile.is_published?"RESERVAS ACTIVAS":"RESERVAS PAUSADAS"}</span></div><div className="settings-card"><div className="settings-icon">↗</div><div><h3>Reservas por invitación</h3><p>{profile.is_published?"Tu estudio puede aceptar reservas de clientas vinculadas por invitación.":"Activa las reservas cuando tengas servicios y horarios listos. Tu estudio no aparecerá en un directorio público."}</p></div><button className="provider-secondary" disabled={busy||activeServices.length===0&&!profile.is_published} onClick={()=>void publishProfile()}>{profile.is_published?"Pausar reservas":"Activar reservas"}</button></div><ManualTurnsEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} /><ScheduleEditor providerId={profile.id} appointments={appointments} timezone={profile.timezone || "America/Havana"} legacyScheduleHidden /><div className="settings-card"><div className="settings-icon">⌁</div><div><h3>Cuenta</h3><p>{sessionEmail}</p></div><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await signOut();setProfile(null);setServices([]);setAppointments([]);setSessionEmail("");setNotice("Sesión cerrada.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión.");}finally{setBusy(false);}}}>Cerrar sesión</button></div></div>}
       </>}
       <footer className="provider-footer"><span>luni studio</span><span>Hecho con cuidado, para quienes cuidan. ♡</span></footer>
     </section>
