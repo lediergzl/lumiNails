@@ -53,6 +53,7 @@ export async function createAppointment(
       OUTSIDE_WORKING_HOURS: "La hora seleccionada está fuera del horario de atención.",
       SLOT_BLOCKED: "Ese horario está bloqueado por el estudio.",
       SLOT_ALREADY_TAKEN: "Otra persona acaba de ocupar ese horario. Elige otro.",
+      CLIENT_HAS_ACTIVE_APPOINTMENT: "Ya tienes una cita pendiente o confirmada. Modifica esa cita o cancélala antes de reservar otra.",
     };
     const message = knownMessages[error.message] ?? error.message;
     throw new Error(message);
@@ -81,4 +82,29 @@ export async function cancelMyAppointment(appointmentId: string, reason = ""): P
     .select("id");
   if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN") ? "Esa cita ya no admite este cambio. Actualiza la lista." : error.message);
   if (!data?.length) throw new Error("Esta cita ya no se puede cancelar.");
+}
+
+
+/** Cambia la fecha/hora de la cita activa sin crear una segunda cita. */
+export async function rescheduleMyAppointment(appointmentId: string, startsAt: string): Promise<RemoteAppointment> {
+  const { data, error } = await getSupabaseClient().rpc("luni_reschedule_appointment", {
+    p_appointment_id: appointmentId,
+    p_starts_at: startsAt,
+  });
+  if (error) {
+    const messages: Record<string, string> = {
+      AUTH_REQUIRED: "Inicia sesión antes de modificar una cita.",
+      APPOINTMENT_NOT_FOUND: "No encontramos esa cita en tu cuenta.",
+      APPOINTMENT_NOT_ACTIVE: "Esta cita ya no está pendiente ni confirmada. Actualiza la lista.",
+      INVALID_APPOINTMENT_TIME: "Elige una fecha y hora futura.",
+      OUTSIDE_WORKING_HOURS: "La hora seleccionada está fuera del horario de atención.",
+      SLOT_BLOCKED: "Ese horario está bloqueado por el estudio.",
+      SLOT_ALREADY_TAKEN: "Otra persona acaba de ocupar ese horario. Elige otro.",
+      SERVICE_NOT_AVAILABLE: "Este servicio ya no está disponible para modificar la cita.",
+      PROVIDER_LICENSE_INACTIVE: "Este estudio no puede aceptar cambios de citas en este momento.",
+    };
+    throw new Error(messages[error.message] ?? error.message);
+  }
+  if (!data) throw new Error("El servidor no devolvió la cita modificada.");
+  return data as RemoteAppointment;
 }
