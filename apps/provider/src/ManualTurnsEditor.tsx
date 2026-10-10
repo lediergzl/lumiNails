@@ -32,9 +32,11 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
   }, [providerId,day]);
   useEffect(() => { void load(); }, [load]);
 
-  const activeAppointmentAt = (turn: ProviderTurn) => appointments.some(a =>
-    (a.status === "pending_confirmation" || a.status === "confirmed") &&
+  const appointmentAt = (turn: ProviderTurn) => appointments.filter(a =>
     localDateTime(a.starts_at, timezone) === `${turn.turn_date}T${hhmm(turn.start_time)}`
+  );
+  const activeAppointmentAt = (turn: ProviderTurn) => appointmentAt(turn).some(a =>
+    a.status === "pending_confirmation" || a.status === "confirmed"
   );
 
   const add = async () => {
@@ -85,6 +87,7 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
       <div className="provider-empty"><span>◷</span><b>No has definido turnos para esta fecha</b><p>Agrega las horas exactas a las que estás dispuesta a recibir clientas.</p></div> :
       <div className="manual-turn-list">{turns.map(turn=>{
         const booked=activeAppointmentAt(turn);
+        const hasHistory=appointmentAt(turn).length>0;
         return <article className="manual-turn-row" key={turn.id}>
           {editing===turn.id ? <div className="manual-turn-edit">
             <label>Hora<input type="time" step={60} value={editTime} onChange={e=>setEditTime(e.target.value)} /></label>
@@ -92,9 +95,9 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
             <button className="provider-primary" disabled={saving||!editTime||!Number.isInteger(Number(editBuffer))||Number(editBuffer)<0||Number(editBuffer)>180} onClick={()=>void saveEdit(turn)}>Guardar</button>
             <button className="provider-secondary" disabled={saving} onClick={()=>setEditing(null)}>Cancelar</button>
           </div> : <>
-            <div className="manual-turn-time"><b>{hhmm(turn.start_time)}</b><span>{booked?"Cita pendiente o confirmada":"Inicio definido por ti"}</span></div>
-            <div className="manual-turn-meta"><span>Margen: {turn.buffer_after_minutes} min</span><span className={booked?"turn-booked":"turn-available"}>{booked?"Ocupado":"Configurado"}</span></div>
-            <div className="manual-turn-actions"><button className="provider-secondary" disabled={saving||booked} onClick={()=>beginEdit(turn)}>Editar</button><button className="provider-secondary" disabled={saving||booked} onClick={()=>void remove(turn)}>Eliminar</button></div>
+            <div className="manual-turn-time"><b>{hhmm(turn.start_time)}</b><span>{booked?"Cita pendiente o confirmada":hasHistory?"Conservado por historial de citas":"Inicio definido por ti"}</span></div>
+            <div className="manual-turn-meta"><span>Margen: {turn.buffer_after_minutes} min</span><span className={booked||hasHistory?"turn-booked":"turn-available"}>{booked?"Ocupado":hasHistory?"Historial":"Configurado"}</span></div>
+            <div className="manual-turn-actions"><button className="provider-secondary" disabled={saving||hasHistory} onClick={()=>beginEdit(turn)}>Editar</button><button className="provider-secondary" disabled={saving||hasHistory} onClick={()=>void remove(turn)}>Eliminar</button></div>
           </>}
         </article>;
       })}</div>}
