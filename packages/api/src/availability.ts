@@ -125,3 +125,67 @@ export async function saveMyDailyAppointmentLimit(providerId: string, limit: num
     .eq("id", providerId);
   if (error) fail(error);
 }
+
+
+/** Turno individual configurado por la manicurista para una fecha concreta. */
+export type ProviderTurn = {
+  id: string;
+  provider_id: string;
+  turn_date: string;
+  start_time: string;
+  buffer_after_minutes: number;
+  status: "active" | "inactive";
+};
+
+export async function listMyTurns(providerId: string, fromDay: string, toDay: string): Promise<ProviderTurn[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("provider_turns")
+    .select("id,provider_id,turn_date,start_time,buffer_after_minutes,status")
+    .eq("provider_id", providerId)
+    .gte("turn_date", fromDay)
+    .lte("turn_date", toDay)
+    .order("turn_date")
+    .order("start_time");
+  if (error) fail(error);
+  return (data ?? []) as ProviderTurn[];
+}
+
+export async function createMyTurn(input: {
+  providerId: string; day: string; startTime: string; bufferAfterMinutes: number;
+}): Promise<void> {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.day)) throw new Error("Elige una fecha válida.");
+  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(input.startTime)) throw new Error("Elige una hora válida.");
+  if (!Number.isInteger(input.bufferAfterMinutes) || input.bufferAfterMinutes < 0 || input.bufferAfterMinutes > 180) {
+    throw new Error("El margen debe estar entre 0 y 180 minutos.");
+  }
+  const { error } = await getSupabaseClient().from("provider_turns").insert({
+    provider_id: input.providerId, turn_date: input.day, start_time: input.startTime,
+    buffer_after_minutes: input.bufferAfterMinutes, status: "active",
+  });
+  if (error) {
+    if (error.code === "23505") throw new Error("Ya existe un turno a esa hora.");
+    fail(error);
+  }
+}
+
+export async function updateMyTurn(id: string, input: {
+  providerId: string; day: string; startTime: string; bufferAfterMinutes: number;
+}): Promise<void> {
+  const { error } = await getSupabaseClient().from("provider_turns").update({
+    turn_date: input.day, start_time: input.startTime, buffer_after_minutes: input.bufferAfterMinutes,
+  }).eq("id", id).eq("provider_id", input.providerId);
+  if (error) {
+    if (error.code === "23505") throw new Error("Ya existe un turno a esa hora.");
+    if (error.message.includes("TURN_HAS_ACTIVE_APPOINTMENT")) throw new Error("No puedes cambiar ese turno porque tiene una cita pendiente o confirmada.");
+    fail(error);
+  }
+}
+
+export async function deleteMyTurn(id: string, providerId: string): Promise<void> {
+  const { error } = await getSupabaseClient().from("provider_turns").delete()
+    .eq("id", id).eq("provider_id", providerId);
+  if (error) {
+    if (error.message.includes("TURN_HAS_ACTIVE_APPOINTMENT")) throw new Error("No puedes eliminar ese turno porque tiene una cita pendiente o confirmada.");
+    fail(error);
+  }
+}
