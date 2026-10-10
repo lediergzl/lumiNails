@@ -2,6 +2,10 @@
 -- Ejecutar una sola vez en Supabase SQL Editor.
 begin;
 
+-- La función de abajo consulta client_provider_relationships, que se crea en una migración posterior
+-- (20261011…). Sin esto, aplicar las migraciones desde cero falla al validar el cuerpo de la función.
+set local check_function_bodies = off;
+
 alter table public.provider_profiles
   add column if not exists brand_icon text not null default '💅';
 

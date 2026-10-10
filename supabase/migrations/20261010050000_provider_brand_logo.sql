@@ -2,6 +2,10 @@
 -- incluso si el estudio pausó las reservas o no está publicado en el catálogo público.
 begin;
 
+
+-- Consulta client_provider_relationships (se crea en 20261011…): sin esto falla la validación del cuerpo
+-- de la función al aplicar las migraciones desde cero.
+set local check_function_bodies = off;
 create or replace function public.luni_my_client_provider_branding()
 returns table (provider_id uuid, brand_icon text, avatar_path text)
 language sql

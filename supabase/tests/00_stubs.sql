@@ -17,6 +17,11 @@ grant usage on schema public, auth to anon, authenticated;
 alter default privileges in schema public grant all on tables to anon, authenticated;
 
 
+-- Como en Supabase, las extensiones viven en el esquema "extensions"
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+grant usage on schema extensions to anon, authenticated;
+
 -- Storage mínimo (solo para probar las políticas del bucket service-images)
 create schema if not exists storage;
 create table if not exists storage.buckets (

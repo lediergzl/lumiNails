@@ -2,6 +2,10 @@
 -- Ejecutar una sola vez en Supabase SQL Editor antes de desplegar el nuevo código.
 begin;
 
+
+-- Consulta client_provider_relationships (se crea en 20261011…): sin esto falla la validación del cuerpo
+-- de la función al aplicar las migraciones desde cero.
+set local check_function_bodies = off;
 alter table public.provider_profiles
   add column if not exists business_phone text,
   add column if not exists business_location text;

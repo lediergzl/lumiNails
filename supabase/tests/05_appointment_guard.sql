@@ -69,7 +69,9 @@ $q$, :'P', :'U5', :'S'), 'CLIENT_HAS_ACTIVE_APPOINTMENT'));
 set role authenticated; select test.sub(:'U5');
 select test.t('clienta NO puede confirmar su propia cita', test.raises(format($q$update public.appointments set status='confirmed' where id=%L$q$, :'A5'), 'APPOINTMENT_STATUS_CHANGE_FORBIDDEN'));
 select test.t('clienta NO puede cambiar notas al cancelar', test.raises(format($q$update public.appointments set status='cancelled', notes='x' where id=%L$q$, :'A5'), 'APPOINTMENT_FIELD_LOCKED'));
+select test.sub(:'U4'); -- A4 pertenece a U4 (si no, RLS oculta la fila y no hay error que comprobar)
 select test.t('clienta NO puede cancelar una cita completada', test.raises(format($q$update public.appointments set status='cancelled' where id=%L$q$, :'A4'), 'APPOINTMENT_STATUS_CHANGE_FORBIDDEN'));
+select test.sub(:'U5');
 select test.t('clienta cancela su cita pendiente', test.updates(format($q$update public.appointments set status='cancelled', cancellation_reason='Imprevisto' where id=%L$q$, :'A5')));
 reset role;
 select test.t('permite reservar otra cita tras cancelar la activa', test.updates(format($q$
