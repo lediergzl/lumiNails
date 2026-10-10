@@ -476,3 +476,19 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .brand-logo-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .brand-logo-actions input[type=file]{display:none}
 .brand-logo-editor>small{color:var(--muted);font-size:12px;line-height:1.5}
+
+/* ---- Cifras de la serif: el cero parecía una "o" ---- */
+*{font-variant-numeric:lining-nums !important}
+/* ---- Eliminar menos protagonista que Editar ---- */
+.provider-service-content .appointment-actions .provider-secondary:last-child{background:none;border-color:transparent;color:#a05f5f;text-decoration:underline}
+/* ---- móvil ---- */
+@media(max-width:650px){
+  .metric-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .metric-card{padding:11px 9px}
+  .metric-card>span{font-size:8.5px;letter-spacing:.6px;line-height:1.3;display:block;min-height:22px}
+  .metric-card>div{margin:4px 0 2px}
+  .metric-card>div>b{font-size:20px}
+  .metric-card>div>i,.metric-card>small{display:none}
+  .provider-service-card{display:block}
+  .provider-service-art{height:auto;min-height:0;aspect-ratio:4/3}
+}

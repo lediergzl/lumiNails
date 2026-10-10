@@ -173,3 +173,41 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .provider-brand-logo.small{width:24px;height:24px;object-fit:contain;border-radius:6px;vertical-align:middle}
 .studio-client-icon:has(.provider-brand-logo){padding:5px;overflow:hidden}
 .studio-card-icon:has(.provider-brand-logo){display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;vertical-align:middle;overflow:hidden;border-radius:7px}
+
+/* ---- Mis manicuristas: tarjeta, rejilla y avatar no tenían estilos ---- */
+.provider-portfolio-grid{display:grid;gap:12px;margin:18px 0}
+.provider-portfolio-card{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);padding:16px;max-width:560px}
+.portfolio-avatar{flex:0 0 48px;width:48px;height:48px;border-radius:50%;background:#f4dfdc;color:#7a4a50;display:grid;place-items:center;font:500 20px var(--serif);overflow:hidden}
+.portfolio-provider-info h3{font:500 19px var(--serif);margin:0 0 3px;color:#463536}
+.portfolio-provider-info p{margin:0 0 2px;font-size:13px;color:var(--muted);line-height:1.45}
+.portfolio-provider-info small{display:block;margin-top:5px;font-size:11px;letter-spacing:.4px;color:var(--rose-text)}
+/* ---- Cifras de la serif: el cero parecía una "o" ---- */
+*{font-variant-numeric:lining-nums !important}
+/* ---- Mis citas ---- */
+.appointment-card{display:grid;grid-template-columns:62px 1fr;align-items:start;gap:16px;padding:18px;margin:12px 0}
+.appt-date{display:grid;justify-items:center;align-content:center;background:#f4dfdc;color:#5a3d40;padding:10px 0;line-height:1}
+.appt-date b{font:500 28px var(--serif)}
+.appt-date span{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-top:5px}
+.appt-body{min-width:0}
+.appt-body h3{margin:8px 0 4px}
+.appt-when{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.appt-price{display:block;margin-bottom:10px;color:#463536}
+.appointment-card.status-cancelled,.appointment-card.status-rejected{opacity:.72}
+.appointment-card.status-cancelled .appt-date,.appointment-card.status-rejected .appt-date,.appointment-card.status-completed .appt-date{background:#efe9e6;color:#7b6a67}
+.appointment-card.status-confirmed .pending-pill{background:#e3efdf;color:#40623a}
+.appointment-card.status-completed .pending-pill{background:#ece7e4;color:#6b5a57}
+.appointment-card.status-cancelled .pending-pill,.appointment-card.status-rejected .pending-pill{background:#f6e0de;color:#8a4343}
+.appointment-card .button-outline{font-size:12px;min-height:40px;border-color:#e6d6d2;color:#866d68}
+/* ---- móvil: foto arriba en las tarjetas y reserva como hoja inferior ---- */
+@media(max-width:700px){
+  .service-card{grid-template-columns:1fr}
+  .service-art{height:auto;min-height:0;aspect-ratio:4/3}
+  .service-info{padding:16px 16px 18px}
+  .service-info h3{font-size:19px}
+  .service-info p{font-size:13px;min-height:0}
+  .service-meta{flex-direction:row;align-items:center}
+  .modal-backdrop{place-items:end center;padding:0}
+  .booking-modal{width:100%;max-height:94vh;max-height:94dvh;padding:24px 20px calc(18px + var(--safe-bottom))}
+  .booking-modal h2{font-size:32px;margin:6px 0 16px}
+  .booking-modal>.full-button{position:sticky;bottom:0;box-shadow:0 -10px 14px -4px var(--cream)}
+}
