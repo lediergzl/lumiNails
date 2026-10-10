@@ -11,7 +11,51 @@ const defaultPlans: Plan[] = [
   { code: "quarterly", label: "Trimestral", duration_days: 90, price_cents: 0, currency: "CUP", active: true },
   { code: "annual", label: "Anual", duration_days: 365, price_cents: 0, currency: "CUP", active: true },
 ];
-const cash = (n: number, c = "CUP") => new Intl.NumberFormat("es-CU", { maximumFractionDigits: 2 }).format(n / 100) + " " + c;
+
+// app_settings es JSON editable; normaliza datos antiguos o incompletos para
+// que nunca aparezcan etiquetas vacías, "NaN CUP" ni días indefinidos.
+function normalizePlans(value: unknown): Plan[] {
+  if (!Array.isArray(value) || value.length === 0) return defaultPlans.map(p => ({ ...p }));
+  const byCode = new Map<string, Record<string, unknown>>();
+  for (const item of value) {
+    if (item && typeof item === "object") {
+      const raw = item as Record<string, unknown>;
+      if (typeof raw.code === "string") byCode.set(raw.code, raw);
+    }
+  }
+  return defaultPlans.map((fallback, index) => {
+    const raw = byCode.get(fallback.code) ??
+      (value[index] && typeof value[index] === "object" ? value[index] as Record<string, unknown> : {});
+    const durationValue = Number(raw.duration_days ?? raw.durationDays ?? fallback.duration_days);
+    const priceInCents = raw.price_cents ?? raw.priceCents;
+    const priceInUnits = raw.price_cup ?? raw.priceCUP ?? raw.price;
+    const parsedPrice = priceInCents !== undefined && priceInCents !== null && priceInCents !== ""
+      ? Number(priceInCents)
+      : priceInUnits !== undefined && priceInUnits !== null && priceInUnits !== ""
+        ? Number(priceInUnits) * 100
+        : 0;
+    const activeValue = raw.active;
+    const active = activeValue === undefined || activeValue === null
+      ? true
+      : activeValue === true || activeValue === 1 || activeValue === "true";
+    const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : fallback.label;
+    return {
+      ...fallback,
+      ...raw,
+      code: fallback.code,
+      label,
+      duration_days: Number.isFinite(durationValue) && durationValue >= 1 && durationValue <= 3650
+        ? Math.floor(durationValue) : fallback.duration_days,
+      price_cents: Number.isFinite(parsedPrice) && parsedPrice >= 0 ? Math.round(parsedPrice) : 0,
+      currency: "CUP",
+      active,
+    };
+  });
+}
+const cash = (n: number, c = "CUP") => {
+  const cents = Number(n);
+  return (Number.isFinite(cents) ? new Intl.NumberFormat("es-CU", { maximumFractionDigits: 2 }).format(cents / 100) : "0,00") + " " + c;
+};
 const date = (v: string | null) => v ? new Date(v).toLocaleDateString("es-CU") : "Sin vencimiento";
 
 export default function AdminLicenses() {
@@ -45,7 +89,7 @@ export default function AdminLicenses() {
     ]);
     const failure = planR.error ?? methodR.error ?? requestR.error ?? providerR.error;
     if (failure) throw failure;
-    if (Array.isArray(planR.data?.value) && planR.data.value.length) setPlans(planR.data.value as Plan[]);
+    setPlans(normalizePlans(planR.data?.value));
     const rawMethods = Array.isArray(methodR.data?.value) ? methodR.data.value : [];
     setMethods(rawMethods.map((m: string | Method) => typeof m === "string" ? { code: m, label: m, active: true } : m) as Method[]);
     setRequests((requestR.data ?? []) as Request[]);
@@ -114,7 +158,7 @@ export default function AdminLicenses() {
               <span className={p.active && p.price_cents > 0 ? "license-plan-state is-active" : "license-plan-state is-inactive"}>{p.active && p.price_cents > 0 ? "Disponible" : p.active ? "Falta configurar el precio" : "Desactivado"}</span>
               <h5>{p.label || p.code}</h5>
               <strong>{cash(p.price_cents, "CUP")}</strong>
-              <p>{p.duration_days} días de licencia</p>
+              <p>{Number.isFinite(Number(p.duration_days)) ? Number(p.duration_days) : 0} días de licencia</p>
             </article>)}
           </div>
           {notice === "Planes guardados." && !error && <p className="license-plan-save-confirmation" role="status">✓ Guardado correctamente. Los valores anteriores se han vuelto a cargar desde Supabase.</p>}
