@@ -13,6 +13,9 @@ import {
   listProviderAppointments,
   onAuthStateChange,
   saveProviderService,
+  setProviderServiceActive,
+  setProviderServicePhoto,
+  getSupabaseClient,
   setProviderAppointmentStatus,
   signOut,
   type ProviderAppointment,
@@ -45,6 +48,8 @@ export default function App() {
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [servicePhoto, setServicePhoto] = useState<File | null>(null);
   const [serviceName, setServiceName] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
   const [servicePrice, setServicePrice] = useState("800");
@@ -109,17 +114,29 @@ export default function App() {
       const price = Number(servicePrice.replace(",", "."));
       const duration = Number(serviceDuration);
       if (!Number.isFinite(price) || price < 0) throw new Error("Escribe un precio válido.");
-      await saveProviderService({
+      const serviceId = await saveProviderService({
         providerId: profile.id,
+        ...(editingServiceId ? { id: editingServiceId } : {}),
         name: serviceName,
         description: serviceDescription,
         priceCents: Math.round(price * 100),
         currency: "CUP",
         durationMinutes: duration,
       });
-      setShowServiceForm(false); setServiceName(""); setServiceDescription("");
+      setEditingServiceId(serviceId);
+      if (servicePhoto) {
+        if (!/^image\/(jpeg|png|webp)$/.test(servicePhoto.type)) throw new Error("La foto debe ser JPG, PNG o WebP.");
+        if (servicePhoto.size > 8 * 1024 * 1024) throw new Error("La foto no puede superar 8 MB.");
+        const extension = servicePhoto.type === "image/png" ? "png" : servicePhoto.type === "image/webp" ? "webp" : "jpg";
+        const path = profile.id + "/" + serviceId + "/" + Date.now() + "." + extension;
+        const { error: uploadError } = await getSupabaseClient().storage.from("service-photos")
+          .upload(path, servicePhoto, { upsert: true, contentType: servicePhoto.type });
+        if (uploadError) throw new Error("No se pudo subir la foto: " + uploadError.message);
+        await setProviderServicePhoto(profile.id, serviceId, path);
+      }
+      setShowServiceForm(false); setEditingServiceId(null); setServiceName(""); setServiceDescription(""); setServicePhoto(null);
       await refresh();
-      setNotice("Servicio guardado en Supabase.");
+      setNotice("Servicio guardado o actualizado.");
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo guardar el servicio."); }
     finally { setBusy(false); }
   };
@@ -198,7 +215,7 @@ export default function App() {
           <div className="metric-grid"><article className="metric-card"><span>CITAS DEL DÍA</span><div><b>{filteredAppointments.length}</b><i>▦</i></div><small>En la agenda</small></article><article className="metric-card"><span>INGRESOS PREVISTOS</span><div><b>{money(filteredAppointments.filter(a=>a.status==="confirmed"||a.status==="pending_confirmation").reduce((sum,a)=>sum+a.client_price_cents,0))}</b><i>♧</i></div><small>Confirmadas y pendientes</small></article><article className="metric-card"><span>POR CONFIRMAR</span><div><b>{filteredAppointments.filter(a=>a.status==="pending_confirmation").length}</b><i>◷</i></div><small>Requieren seguimiento</small></article></div>
           <section className="agenda-panel"><div className="agenda-heading"><div><h2>Agenda</h2><p>{profile.business_name}</p></div><button className="today-button" onClick={()=>setDay(new Date().toISOString().slice(0,10))}>Hoy ↗</button></div><div className="agenda-date"><b>{new Date(day+"T12:00:00").toLocaleDateString("es-CU",{weekday:"long",day:"numeric",month:"long"})}</b><span>{filteredAppointments.length} citas</span></div><div className="appointment-list">{filteredAppointments.map(a=><article className="provider-appointment" key={a.id}><div className="appointment-time"><b>{new Date(a.starts_at).toLocaleTimeString("es-CU",{hour:"2-digit",minute:"2-digit"})}</b><span>{Math.max(1,Math.round((Date.parse(a.ends_at)-Date.parse(a.starts_at))/60000))} min</span></div><div className={"appointment-color "+(a.status==="confirmed"?"pink":a.status==="pending_confirmation"?"sand":"lilac")}></div><div className="appointment-details"><b>{a.client_service_name}</b><small>{a.client_display_name || "Clienta"} · {a.client_phone ? <a href={"tel:" + a.client_phone}>{a.client_phone}</a> : "Sin teléfono registrado"}</small><span>{money(a.client_price_cents,a.client_currency)} · {statusText[a.status] ?? a.status}</span><small>{a.notes || "Sin notas"}</small></div><div className="appointment-actions">{a.status==="pending_confirmation"&&<><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"confirmed")}>Confirmar</button><button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"rejected")}>Rechazar</button></>}{a.status==="confirmed"&&<button className="provider-secondary" disabled={busy} onClick={()=>void changeAppointment(a.id,"completed")}>Completar</button>}</div></article>)}{filteredAppointments.length===0&&<div className="provider-empty"><span>✧</span><b>Tu agenda está despejada</b><p>No hay citas registradas para esta fecha.</p></div>}</div></section>
         </div>}
-        {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Los cambios se guardan en Supabase.</p></div><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>＋ Añadir servicio</button></div><div className="provider-service-grid">{activeServices.map((s,i)=><article className="provider-service-card" key={s.id}><div className={"provider-service-art art-"+(i%3)}>{["✿","✧","❀"][i%3]}<span>{String(i+1).padStart(2,"0")}</span></div><div className="provider-service-content"><h3>{s.name}</h3><p>{s.description}</p><div><span>◷ {s.duration_minutes} min</span><b>{money(s.price_cents,s.currency)}</b></div><span className="service-saved-label">Guardado en Supabase</span></div></article>)}</div>{activeServices.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes servicios</b><p>Añade tu primer servicio para completar el catálogo del estudio.</p><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>Añadir servicio</button></div>}</div>}
+        {tab==="servicios"&&<div className="workspace"><div className="welcome-row"><div><span className="eyebrow">LO QUE HACES MEJOR</span><h1>Mis <em>servicios.</em></h1><p>Los cambios se guardan en Supabase.</p></div><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>＋ Añadir servicio</button></div><div className="provider-service-grid">{services.map((s,i)=><article className={"provider-service-card "+(!s.is_active?"service-inactive":"")} key={s.id}>{s.thumb_path ? <img className="provider-service-photo" src={getSupabaseClient().storage.from("service-photos").getPublicUrl(s.thumb_path).data.publicUrl} alt={"Foto de "+s.name} loading="lazy"/> : <div className={"provider-service-art art-"+(i%3)}>{["✿","✧","❀"][i%3]}<span>{String(i+1).padStart(2,"0")}</span></div>}<div className="provider-service-content"><h3>{s.name}</h3><p>{s.description}</p><div><span>◷ {s.duration_minutes} min</span><b>{money(s.price_cents,s.currency)}</b></div><span className="service-saved-label">{s.is_active?"Visible en el catálogo":"Servicio pausado"}</span><div className="service-actions"><button className="provider-secondary" onClick={()=>{setEditingServiceId(s.id);setServiceName(s.name);setServiceDescription(s.description);setServicePrice(String(s.price_cents/100));setServiceDuration(String(s.duration_minutes));setServicePhoto(null);setShowServiceForm(true);}}>Editar</button><button className="provider-secondary" disabled={busy} onClick={async()=>{setBusy(true);setError("");try{await setProviderServiceActive(profile.id,s.id,!s.is_active);await refresh();setNotice(s.is_active?"Servicio pausado; se conserva en el historial.":"Servicio publicado en el catálogo.");}catch(e){setError(e instanceof Error?e.message:"No se pudo cambiar el estado.");}finally{setBusy(false);}}}>{s.is_active?"Pausar":"Activar"}</button></div></div></article>)}</div>{services.length===0&&<div className="provider-empty large-empty"><span>♡</span><b>Aún no tienes servicios</b><p>Añade tu primer servicio para completar el catálogo del estudio.</p><button className="provider-primary" onClick={()=>setShowServiceForm(true)}>Añadir servicio</button></div>}</div>}
         {tab==="clientes"&&<div className="workspace">
           <div className="welcome-row"><div><span className="eyebrow">CARTERA PRIVADA</span><h1>Tus <em>clientas.</em></h1><p>Cada clienta entra por tu invitación personal. Tu cartera es independiente de la de otras manicuristas.</p></div><button className="provider-primary" disabled={busy||!profile} onClick={()=>void createInvite()}>＋ Crear invitación</button></div>
           {inviteLink&&<section className="invite-share-card"><span className="eyebrow">CÓDIGO PERSONAL · VÁLIDO HASTA {new Date(inviteExpiresAt).toLocaleDateString("es-CU")}</span><h2>Invita a una nueva clienta</h2><p>Comparte este código por WhatsApp o muéstralo en persona. La clienta lo introduce dentro de Luni Cliente; no hace falta publicar la aplicación en Internet.</p><div className="invite-link-row"><input aria-label="Código de invitación" readOnly value={inviteLink}/><button className="provider-secondary" onClick={()=>void copyInviteLink()}>Copiar código</button></div><div className="invite-share-actions"><button className="provider-primary" onClick={()=>void shareInviteLink()}>Compartir invitación ↗</button><button className="provider-secondary" onClick={()=>setInviteLink("")}>Ocultar código</button></div></section>}
@@ -214,6 +231,6 @@ export default function App() {
       {([["agenda", "Agenda", "▦"], ["servicios", "Servicios", "✧"], ["clientes", "Clientas", "♙"], ["perfil", "Negocio", "⚙"]] as const).map(([id, label, icon]) =>
         <button key={id} className={tab === id ? "selected" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><span aria-hidden="true">{icon}</span>{label}</button>)}
     </nav>}
-    {showServiceForm&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="new-service-title"><button className="modal-close" onClick={()=>setShowServiceForm(false)} aria-label="Cerrar">×</button><span className="eyebrow">AMPLÍA TU CATÁLOGO</span><h2 id="new-service-title">Nuevo <em>servicio.</em></h2><label>Nombre del servicio<input value={serviceName} onChange={e=>setServiceName(e.target.value)} placeholder="Ej. Manicura clásica"/></label><label>Descripción<input value={serviceDescription} onChange={e=>setServiceDescription(e.target.value)} placeholder="Describe brevemente el servicio"/></label><label>Precio (CUP)<input inputMode="decimal" value={servicePrice} onChange={e=>setServicePrice(e.target.value)} /></label><label>Duración en minutos<input type="number" min="1" max="1440" value={serviceDuration} onChange={e=>setServiceDuration(e.target.value)} /></label><p>El precio se guarda en centavos en la base de datos. Ejemplo: 800 CUP se guarda como 80000.</p><button className="provider-primary full-provider-button" disabled={busy||!serviceName.trim()} onClick={()=>void createService()}>{busy?"Guardando…":"Guardar servicio"}</button></section></div>}
+    {showServiceForm&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="new-service-title"><button className="modal-close" onClick={()=>{setShowServiceForm(false);setEditingServiceId(null);setServicePhoto(null);}} aria-label="Cerrar">×</button><span className="eyebrow">AMPLÍA TU CATÁLOGO</span><h2 id="new-service-title">{editingServiceId?"Editar":"Nuevo"} <em>servicio.</em></h2><label>Nombre del servicio<input value={serviceName} onChange={e=>setServiceName(e.target.value)} placeholder="Ej. Manicura clásica" required/></label><label>Descripción<textarea value={serviceDescription} onChange={e=>setServiceDescription(e.target.value)} placeholder="Describe brevemente el servicio"/></label><label>Precio (CUP)<input inputMode="decimal" value={servicePrice} onChange={e=>setServicePrice(e.target.value)} /></label><label>Duración en minutos<input type="number" min="1" max="1440" value={serviceDuration} onChange={e=>setServiceDuration(e.target.value)} /></label><label>Fotografía del trabajo (JPG, PNG o WebP, máximo 8 MB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setServicePhoto(e.target.files?.[0]??null)}/></label><p>La foto es opcional. El precio se guarda en centavos; 800 CUP se almacena como 80000.</p><button className="provider-primary full-provider-button" disabled={busy||!serviceName.trim()} onClick={()=>void createService()}>{busy?"Guardando…":editingServiceId?"Guardar cambios":"Guardar servicio"}</button></section></div>}
   </main>;
 }
