@@ -121,3 +121,12 @@ La operación usa funciones RPC protegidas por `luni_is_admin()`; no expone la t
 La migración adicional `20261018020000_admin_role_management_robustness.sql` hace que el panel liste todas las cuentas de Supabase Auth, incluso si alguna cuenta antigua no tiene todavía una fila en `profiles`. Al guardar su rol, repara ese perfil de forma controlada.
 
 Si el panel de roles muestra «No se encontraron cuentas» o el mensaje de error, aplica primero `20261018010000_admin_role_management.sql` y después `20261018020000_admin_role_management_robustness.sql` desde **Supabase → SQL Editor**. La APK por sí sola no puede ejecutar migraciones de base de datos.
+
+
+### Roles automáticos según la aplicación de registro
+
+La migración `20261018030000_signup_role_by_app.sql` debe ejecutarse después de las dos migraciones de administración de roles. A partir de entonces:
+- Registro desde **LuniClients**: rol `client` (clienta/cliente).
+- Registro desde **LuniManicurista**: rol `provider` (manicurista).
+- El registro público nunca puede crear una cuenta `admin`; ese rol solo lo asigna un administrador desde el panel.
+Las cuentas existentes conservan su rol actual; esta migración solo afecta a nuevos registros.
