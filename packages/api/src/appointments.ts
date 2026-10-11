@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./client";
-import { withOfflineCache } from "./offline";
+import { registerOutboxHandler, withOfflineCache, writeOrQueue } from "./offline";
 
 export type CreateAppointmentInput = {
   id: string;
@@ -74,7 +74,7 @@ async function listMyAppointmentsRemote(): Promise<RemoteAppointment[]> {
 }
 
 /** La clienta cancela su propia cita (solo si sigue pendiente o confirmada). */
-export async function cancelMyAppointment(appointmentId: string, reason = ""): Promise<void> {
+async function cancelMyAppointmentRemote(appointmentId: string, reason: string): Promise<void> {
   const { data, error } = await getSupabaseClient()
     .from("appointments")
     .update({ status: "cancelled", cancellation_reason: reason.trim() })
@@ -84,6 +84,23 @@ export async function cancelMyAppointment(appointmentId: string, reason = ""): P
   if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN") ? "Esa cita ya no admite este cambio. Actualiza la lista." : error.message);
   if (!data?.length) throw new Error("Esta cita ya no se puede cancelar.");
 }
+
+/** Cancela la cita; sin conexión queda en cola y se envía al volver la red (`queued: true`). */
+export async function cancelMyAppointment(appointmentId: string, reason = "", label = ""): Promise<{ queued: boolean }> {
+  const cleanReason = reason.trim();
+  const outcome = await writeOrQueue(
+    {
+      type: "appointment.cancel_mine",
+      payload: { appointmentId, reason: cleanReason },
+      label: label || "Cancelar cita",
+      patches: [{ read: "listMyAppointments", op: "merge", id: appointmentId, changes: { status: "cancelled", cancellation_reason: cleanReason } }],
+    },
+    () => cancelMyAppointmentRemote(appointmentId, cleanReason)
+  );
+  return { queued: outcome.queued };
+}
+
+registerOutboxHandler("appointment.cancel_mine", (p: { appointmentId: string; reason: string }) => cancelMyAppointmentRemote(p.appointmentId, p.reason));
 
 
 /** Cambia la fecha/hora de la cita activa sin crear una segunda cita. */

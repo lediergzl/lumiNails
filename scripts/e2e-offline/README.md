@@ -3,7 +3,8 @@
 Corta la red de verdad en un navegador y comprueba, para cada app: datos guardados visibles, aviso
 «datos guardados hace…», sesión que no se pierde con el token caducado, red lenta (muestra lo guardado en ~5 s),
 reconexión automática, reserva bloqueada sin conexión (cliente), borrado de la copia al cerrar sesión
-y que sin copia previa nunca se ofrezca «Registra tu estudio» (manicurista).
+que sin copia previa nunca se ofrezca «Registra tu estudio» (manicurista) y las escrituras sin conexión: cancelar/confirmar/editar
+quedan en cola, sobreviven a recargar, se envían al volver la red y, si el servidor las rechaza, se avisa con el motivo.
 
 No necesita Supabase: simula las respuestas del servidor.
 

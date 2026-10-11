@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./client";
-import { isNetworkError, withOfflineCache } from "./offline";
+import { isNetworkError, registerOutboxHandler, withOfflineCache, writeOrQueue } from "./offline";
 import { clearServiceImage } from "./serviceImages";
 
 export type ProviderProfile = {
@@ -91,7 +91,7 @@ async function listMyProviderServicesRemote(providerId: string): Promise<Provide
   return (data ?? []) as ProviderService[];
 }
 
-export async function saveProviderService(input: {
+type ServiceInput = {
   providerId: string;
   id?: string;
   name: string;
@@ -99,31 +99,66 @@ export async function saveProviderService(input: {
   priceCents: number;
   currency: string;
   durationMinutes: number;
-}): Promise<string> {
-  const name = input.name.trim();
-  if (!name) throw new Error("El nombre del servicio es obligatorio.");
-  if (!Number.isInteger(input.priceCents) || input.priceCents < 0) throw new Error("El precio debe ser un número válido.");
-  if (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 1 || input.durationMinutes > 1440) throw new Error("La duración debe estar entre 1 y 1440 minutos.");
+};
+
+/** Servicio ya validado; `create` indica un alta con id generado en el dispositivo (válida sin conexión). */
+type ServicePayload = ServiceInput & { id: string; create: boolean };
+
+async function saveProviderServiceRemote(input: ServicePayload): Promise<string> {
   const supabase = getSupabaseClient();
   const payload = {
     provider_id: input.providerId,
-    name,
-    description: input.description.trim(),
+    name: input.name,
+    description: input.description,
     price_cents: input.priceCents,
     currency: input.currency,
     duration_minutes: input.durationMinutes,
   };
+  if (input.create) {
+    const { error } = await supabase.from("services").insert({ ...payload, id: input.id, is_active: true });
+    // Si un intento anterior sí llegó al servidor, el reintento no debe fallar ni duplicar.
+    if (error && !/duplicate key|already exists/i.test(error.message)) throw new Error(error.message);
+    return input.id;
+  }
   // Al editar no se toca is_active: así un servicio pausado no se reactiva solo.
-  const result = input.id
-    ? await supabase.from("services").update(payload).eq("id", input.id).eq("provider_id", input.providerId).select("id")
-    : await supabase.from("services").insert({ ...payload, is_active: true }).select("id");
+  const result = await supabase.from("services").update(payload).eq("id", input.id).eq("provider_id", input.providerId).select("id");
   if (result.error) throw new Error(result.error.message);
   if (!result.data?.length) throw new Error("No se pudo guardar el servicio. Es posible que ya no exista.");
-  return String(result.data[0].id);
+  return input.id;
+}
+
+/** Guarda el servicio; sin conexión queda en cola y se envía al volver la red (`queued: true`). */
+export async function saveProviderService(input: ServiceInput): Promise<{ id: string; queued: boolean }> {
+  const name = input.name.trim();
+  if (!name) throw new Error("El nombre del servicio es obligatorio.");
+  if (!Number.isInteger(input.priceCents) || input.priceCents < 0) throw new Error("El precio debe ser un número válido.");
+  if (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 1 || input.durationMinutes > 1440) throw new Error("La duración debe estar entre 1 y 1440 minutos.");
+  const payload: ServicePayload = {
+    ...input,
+    name,
+    description: input.description.trim(),
+    id: input.id ?? crypto.randomUUID(),
+    create: !input.id,
+  };
+  const fields = { name: payload.name, description: payload.description, price_cents: payload.priceCents, currency: payload.currency, duration_minutes: payload.durationMinutes };
+  const outcome = await writeOrQueue(
+    {
+      type: "service.save",
+      payload,
+      label: `Servicio «${name}»`,
+      patches: [
+        payload.create
+          ? { read: "listMyProviderServices", op: "upsert", id: payload.id, item: { id: payload.id, provider_id: payload.providerId, ...fields, is_active: true, thumb_path: null, card_path: null } }
+          : { read: "listMyProviderServices", op: "merge", id: payload.id, changes: fields },
+      ],
+    },
+    () => saveProviderServiceRemote(payload)
+  );
+  return { id: payload.id, queued: outcome.queued };
 }
 
 /** Borrado lógico: las citas existentes conservan nombre y precio en su propia copia. */
-export async function deleteProviderService(providerId: string, serviceId: string): Promise<void> {
+async function deleteProviderServiceRemote(providerId: string, serviceId: string): Promise<void> {
   await clearServiceImage(providerId, serviceId).catch(() => undefined); // liberar espacio; si falla, el borrado sigue
   const { data, error } = await getSupabaseClient()
     .from("services")
@@ -136,6 +171,19 @@ export async function deleteProviderService(providerId: string, serviceId: strin
   if (!data?.length) throw new Error("No se pudo eliminar el servicio. Es posible que ya no exista.");
 }
 
+export async function deleteProviderService(providerId: string, serviceId: string, label = "Servicio"): Promise<{ queued: boolean }> {
+  const outcome = await writeOrQueue(
+    {
+      type: "service.delete",
+      payload: { providerId, serviceId },
+      label: `Eliminar ${label}`,
+      patches: [{ read: "listMyProviderServices", op: "remove", id: serviceId }],
+    },
+    () => deleteProviderServiceRemote(providerId, serviceId)
+  );
+  return { queued: outcome.queued };
+}
+
 async function listProviderAppointmentsRemote(providerId: string): Promise<ProviderAppointment[]> {
   const { data, error } = await getSupabaseClient()
     .rpc("luni_provider_appointments_with_contacts", { p_provider_id: providerId });
@@ -143,10 +191,10 @@ async function listProviderAppointmentsRemote(providerId: string): Promise<Provi
   return (data ?? []) as ProviderAppointment[];
 }
 
-export async function setProviderAppointmentStatus(
+async function setProviderAppointmentStatusRemote(
   appointmentId: string,
   status: "confirmed" | "rejected" | "completed" | "cancelled",
-  reason = ""
+  reason: string
 ): Promise<void> {
   const { error } = await getSupabaseClient()
     .from("appointments")
@@ -157,6 +205,31 @@ export async function setProviderAppointmentStatus(
     .eq("id", appointmentId);
   if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN") ? "Esa cita ya no admite este cambio. Actualiza la lista." : error.message);
 }
+
+/** Cambia el estado de la cita; sin conexión queda en cola y se envía al volver la red (`queued: true`). */
+export async function setProviderAppointmentStatus(
+  appointmentId: string,
+  status: "confirmed" | "rejected" | "completed" | "cancelled",
+  reason = "",
+  label = ""
+): Promise<{ queued: boolean }> {
+  const cleanReason = status === "cancelled" || status === "rejected" ? reason.trim() : "";
+  const outcome = await writeOrQueue(
+    {
+      type: "appointment.status",
+      payload: { appointmentId, status, reason: cleanReason },
+      label: label || "Cambio en una cita",
+      patches: [{ read: "listProviderAppointments", op: "merge", id: appointmentId, changes: { status, cancellation_reason: cleanReason } }],
+    },
+    () => setProviderAppointmentStatusRemote(appointmentId, status, cleanReason)
+  );
+  return { queued: outcome.queued };
+}
+
+registerOutboxHandler("appointment.status", (p: { appointmentId: string; status: "confirmed" | "rejected" | "completed" | "cancelled"; reason: string }) =>
+  setProviderAppointmentStatusRemote(p.appointmentId, p.status, p.reason));
+registerOutboxHandler("service.save", (p: ServicePayload) => saveProviderServiceRemote(p));
+registerOutboxHandler("service.delete", (p: { providerId: string; serviceId: string }) => deleteProviderServiceRemote(p.providerId, p.serviceId));
 
 export const getMyProviderProfile = withOfflineCache("getMyProviderProfile", getMyProviderProfileRemote);
 export const listMyProviderServices = withOfflineCache("listMyProviderServices", listMyProviderServicesRemote);

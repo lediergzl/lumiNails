@@ -32,7 +32,7 @@ const tables={profiles:[{phone:"55501234"}],provider_profiles:[providerRow],serv
 const rpcs={luni_my_client_providers:[{provider_id:P,business_name:"Denise Nails",slug:"denisse-nails",bio:"Spa de uñas en La Habana Vieja",relationship_id:"r1",linked_at:new Date().toISOString()}],luni_available_days:days,luni_available_slots:slots,luni_provider_appointments_with_contacts:appts,luni_provider_clients:[{client_id:"c1",display_name:"Camila Pérez",phone:"55501234",linked_at:day(-30,0),appointment_count:4,last_appointment_at:day(-3,11)},{client_id:"c2",display_name:"Marta León",phone:"55509876",linked_at:day(-10,0),appointment_count:1,last_appointment_at:null}],luni_create_provider_invite:[{token:"LUNI-7K2P-9QXD"}]};
 
 let results=[]; const check=(name,ok)=>{ results.push(ok); console.log((ok?"PASS ":"FAIL ")+name); };
-const ctl={offline:false,delay:0,expired:false,noActive:false};
+const ctl={offline:false,delay:0,expired:false,noActive:false,rejectWrites:false,writes:[]};
 const bro = await puppeteer.launch({ args: chromium.args, executablePath: await chromium.executablePath(), headless: "shell" });
 async function boot(expired=false){
   const p = await bro.newPage(); await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true });
@@ -45,6 +45,16 @@ async function boot(expired=false){
     if(ctl.offline) return r.abort("internetdisconnected");
     if(r.method()==="OPTIONS") return r.respond({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-headers":"*","access-control-allow-methods":"*"}});
     if(ctl.delay) await new Promise(x=>setTimeout(x,ctl.delay));
+    if(r.method()!=="GET"&&u.pathname.startsWith("/rest/v1/")&&!u.pathname.includes("/rpc/")){
+      const t=u.pathname.split("/").pop(); let body={}; try{ body=JSON.parse(r.postData()||"{}"); }catch{}
+      ctl.writes.push({method:r.method(),table:t,query:u.search,body});
+      if(ctl.rejectWrites) return json(r,{message:"APPOINTMENT_STATUS_CHANGE_FORBIDDEN",code:"42501"},400);
+      const id=(u.searchParams.get("id")||"").replace("eq.","");
+      const rows=tables[t]||[];
+      if(r.method()==="PATCH"){ const row=rows.find(x=>x.id===id); if(row){ Object.assign(row,body); return json(r,[{id}]); } return json(r,[]); }
+      if(r.method()==="POST"){ rows.push({is_active:true,...body}); return json(r,[{id:body.id}],201); }
+      return json(r,[]);
+    }
     if(u.pathname.startsWith("/storage/")) return r.respond({status:200,contentType:"image/jpeg",headers:{"access-control-allow-origin":"*"},body:JPEG});
     if(u.pathname.startsWith("/auth/v1/user")) return json(r,user);
     if(u.pathname.startsWith("/auth/v1/")) return json(r,{...session,expires_at:Math.floor(Date.now()/1000)+36000});
@@ -69,7 +79,7 @@ let t=await text(p); if(process.env.DEBUG) console.log("[ONLINE]",t.replace(/\n+
 check("con red: carga los datos y no muestra aviso",has(t)&&!/Sin conexión|datos guardados/.test(t));
 await click(p, APP==="client"?"Mis citas":"Servicios"); await wait(500);
 // 2) sin red (lie-fi: navigator.onLine sigue en true, las peticiones fallan)
-if(process.env.DEBUG) console.log("[IDB keys]",JSON.stringify(await p.evaluate(()=>new Promise(res=>{const r=indexedDB.open("luni-offline",1); r.onsuccess=()=>{const q=r.result.transaction("snapshots").objectStore("snapshots").getAllKeys(); q.onsuccess=()=>res(q.result)}}))));
+if(process.env.DEBUG) console.log("[IDB keys]",JSON.stringify(await p.evaluate(()=>new Promise(res=>{const r=indexedDB.open("luni-offline"); r.onsuccess=()=>{const q=r.result.transaction("snapshots").objectStore("snapshots").getAllKeys(); q.onsuccess=()=>res(q.result)}}))));
 ctl.offline=true; await p.reload({waitUntil:"networkidle0"}).catch(()=>{}); await wait(+(process.env.WAIT||1500));
 t=await text(p); if(process.env.DEBUG) console.log("[OFFLINE]",t.replace(/\n+/g," | ").slice(0,500));
 check("sin red: muestra los datos guardados",has(t));
@@ -85,9 +95,11 @@ await expire(p); await p.reload({waitUntil:"networkidle0"}).catch(()=>{}); await
 t=await text(p);
 check("token caducado y sin red: la sesión se conserva y se ven los datos",has(t)&&!/Iniciar sesión\s*\n/.test(t.split("Hecho")[0]) );
 // 4) reconexión
-ctl.offline=false; await p.evaluate(()=>window.dispatchEvent(new Event("online"))); await wait(2500);
-t=await text(p);
-check("al volver la red: desaparece el aviso y siguen los datos",!/datos guardados/.test(t)&&has(t));
+ctl.offline=false; await p.evaluate(()=>window.dispatchEvent(new Event("online")));
+const tR=Date.now(); let cleared=false;
+for(let i=0;i<20&&!cleared;i++){ await wait(500); t=await text(p); cleared=!/datos guardados|Sin conexión/.test(t)&&has(t); }
+const secsR=((Date.now()-tR)/1000).toFixed(1);
+check(`al volver la red: desaparece el aviso y siguen los datos (en ${secsR}s, límite 6 s)`,cleared&&Date.now()-tR<6000);
 // 5) sin red real (evento offline): reservar exige conexión
 if(APP==="client"){
   ctl.noActive=true; await p.reload({waitUntil:"networkidle0"}).catch(()=>{}); await wait(1200);
@@ -106,13 +118,76 @@ const secs=((Date.now()-t0)/1000).toFixed(1);
 check(`red lenta (12 s): muestra lo guardado en ~${secs}s con aviso 'Conexión lenta' (límite 11 s)`, ok && Date.now()-t0<11500);
 ctl.delay=0; await p.close();
 
+
+// 6b) escribir sin conexión: se guarda en el teléfono, sobrevive a recargar y se envía al volver la red
+{
+ctl.delay=0; ctl.noActive=false; ctl.offline=false;
+const iso=n=>{ const d=new Date(Date.now()+n*86400000); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+const setDate=(p,v)=>p.evaluate(v=>{ const i=document.querySelector("input[type=date]"); const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set; set.call(i,v); i.dispatchEvent(new Event("input",{bubbles:true})); i.dispatchEvent(new Event("change",{bubbles:true})); },v);
+const setField=(p,sel,v)=>p.evaluate((sel,v)=>{ const i=document.querySelector(sel); const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set; set.call(i,v); i.dispatchEvent(new Event("input",{bubbles:true})); },sel,v);
+const clickX=(p,label)=>p.evaluate(l=>{ const el=[...document.querySelectorAll("button")].find(e=>e.innerText&&e.innerText.trim().toLowerCase()===l.toLowerCase()); if(el){el.click();return true} return false },label);
+const wrote=(table,re)=>ctl.writes.some(w=>w.table===table&&re.test(JSON.stringify(w.body)));
+const p = await boot(); await open(p);
+ctl.writes.length=0;
+if(APP==="client"){
+  await click(p,"Mis citas"); await wait(500);
+  ctl.offline=true;
+  await clickX(p,"Cancelar cita"); await wait(300); await clickX(p,"Sí, cancelar"); await wait(1500);
+  t=await text(p); const notedOk=/Cancelación guardada en este teléfono/.test(t)&&/1 cambio sin enviar/.test(t);
+  await click(p,"Historial"); await wait(500); t=await text(p);
+  check("cliente sin red: cancelar queda guardado en el teléfono y la cita aparece 'Cancelada' en el historial",notedOk&&/Cancelada/.test(t));
+  await p.reload({waitUntil:"networkidle0"}).catch(()=>{}); await wait(2000); await click(p,"Mis citas"); await wait(600); await click(p,"Historial"); await wait(500);
+  t=await text(p);
+  check("cliente: tras recargar sin red la cancelación sigue visible y pendiente",/1 cambio sin enviar/.test(t)&&/Cancelada/.test(t));
+  ctl.offline=false; await p.evaluate(()=>window.dispatchEvent(new Event("online"))); await wait(3000);
+  t=await text(p);
+  check("cliente: al volver la red se envía la cancelación al servidor",wrote("appointments",/cancelled/)&&!/sin enviar/.test(t));
+  // el servidor rechaza un cambio: la persona debe enterarse
+  ctl.rejectWrites=true; ctl.offline=true; await click(p,"Mis citas"); await wait(300); await click(p,"Próximas"); await wait(400);
+  await clickX(p,"Cancelar cita"); await wait(300); await clickX(p,"Sí, cancelar"); await wait(1200);
+  ctl.offline=false; await p.evaluate(()=>window.dispatchEvent(new Event("online"))); await wait(3000);
+  t=await text(p);
+  check("cliente: si el servidor rechaza el cambio, se avisa con el motivo y no queda pendiente",/no se pudo aplicar/.test(t)&&/Entendido/.test(t)&&!/sin enviar/.test(t));
+  await clickX(p,"Entendido"); await wait(500); t=await text(p);
+  check("cliente: 'Entendido' descarta el aviso",!/no se pudo aplicar/.test(t));
+  ctl.rejectWrites=false;
+} else {
+  await setDate(p,iso(1)); await wait(900);
+  ctl.offline=true;
+  await clickX(p,"Confirmar"); await wait(1500);
+  t=await text(p);
+  check("manicurista sin red: confirmar queda guardado en el teléfono y la cita sale 'Confirmada'",/Guardado en este teléfono/.test(t)&&/1 cambio sin enviar/.test(t)&&/Confirmada/.test(t));
+  await p.reload({waitUntil:"networkidle0"}).catch(()=>{}); await wait(2000); await setDate(p,iso(1)); await wait(900);
+  t=await text(p);
+  check("manicurista: tras recargar sin red la cita sigue 'Confirmada' y el cambio pendiente",/1 cambio sin enviar/.test(t)&&/Confirmada/.test(t));
+  // editar un servicio sin red
+  await click(p,"Servicios"); await wait(500); await clickX(p,"Editar"); await wait(500);
+  await setField(p,".provider-modal input","Uñas nuevas · XL"); await wait(200);
+  await clickX(p,"Guardar servicio"); await wait(1500);
+  t=await text(p);
+  check("manicurista sin red: editar un servicio queda en cola y se ve el nombre nuevo",/Uñas nuevas · XL/.test(t)&&/2 cambios sin enviar/.test(t));
+  ctl.offline=false; await p.evaluate(()=>window.dispatchEvent(new Event("online"))); await wait(3500);
+  t=await text(p);
+  check("manicurista: al volver la red se envían los cambios en orden y desaparece el aviso",wrote("appointments",/confirmed/)&&wrote("services",/Uñas nuevas · XL/)&&!/sin enviar/.test(t));
+  // el servidor rechaza un cambio
+  await click(p,"Agenda"); await wait(400); await setDate(p,iso(2)); await wait(900);
+  ctl.rejectWrites=true; ctl.offline=true;
+  await clickX(p,"Completar"); await wait(1200);
+  ctl.offline=false; await p.evaluate(()=>window.dispatchEvent(new Event("online"))); await wait(3000);
+  t=await text(p);
+  check("manicurista: si el servidor rechaza el cambio, se avisa con el motivo y no queda pendiente",/no se pudo aplicar/.test(t)&&/Entendido/.test(t)&&!/sin enviar/.test(t));
+  ctl.rejectWrites=false;
+}
+await p.close();
+}
+
 // 7) cerrar sesión borra la copia
 const p2=await boot(); await open(p2); ctl.delay=0;
 await click(p2, APP==="client"?"Mi perfil":"Negocio"); await wait(600);
-const before=await p2.evaluate(()=>new Promise(res=>{const r=indexedDB.open("luni-offline",1); r.onsuccess=()=>{const q=r.result.transaction("snapshots").objectStore("snapshots").count(); q.onsuccess=()=>res(q.result)}; r.onerror=()=>res(-1)}));
+const before=await p2.evaluate(()=>new Promise(res=>{const r=indexedDB.open("luni-offline"); r.onsuccess=()=>{const q=r.result.transaction("snapshots").objectStore("snapshots").count(); q.onsuccess=()=>res(q.result)}; r.onerror=()=>res(-1)}));
 if(APP==="provider"){ await click(p2,"Cuenta"); await wait(500); }
 const clicked=await click(p2,"Cerrar sesión"); await wait(1500); if(process.env.DEBUG) console.log("[LOGOUT] click:",clicked,"| texto:",(await text(p2)).replace(/\n+/g," | ").slice(0,260));
-const after=await p2.evaluate(()=>new Promise(res=>{const r=indexedDB.open("luni-offline",1); r.onsuccess=()=>{const q=r.result.transaction("snapshots").objectStore("snapshots").count(); q.onsuccess=()=>res(q.result)}; r.onerror=()=>res(-1)}));
+const after=await p2.evaluate(()=>new Promise(res=>{const r=indexedDB.open("luni-offline"); r.onsuccess=()=>{const q=r.result.transaction("snapshots").objectStore("snapshots").count(); q.onsuccess=()=>res(q.result)}; r.onerror=()=>res(-1)}));
 check(`cerrar sesión borra la copia local (${before} -> ${after})`, before>0 && after===0);
 await p2.close();
 
