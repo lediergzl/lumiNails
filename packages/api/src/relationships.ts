@@ -67,6 +67,14 @@ async function listMyClientProviderBrandIconsRemote(): Promise<Array<{ provider_
   return (data ?? []) as Array<{ provider_id: string; brand_icon: string; avatar_path: string | null }>;
 }
 
+export type ClientProviderCode = { provider_id: string; business_code: string };
+
+async function listMyClientProviderCodesRemote(): Promise<ClientProviderCode[]> {
+  const { data, error } = await getSupabaseClient().rpc("luni_my_client_provider_codes");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClientProviderCode[];
+}
+
 export type ClientProviderBusinessDetails = {
   provider_id: string;
   business_phone: string | null;
@@ -95,4 +103,5 @@ async function listProviderClientsRemote(providerId: string): Promise<ProviderCl
 export const listMyClientProviders = withOfflineCache("listMyClientProviders", listMyClientProvidersRemote);
 export const listMyClientProviderBrandIcons = withOfflineCache("listMyClientProviderBrandIcons", listMyClientProviderBrandIconsRemote);
 export const listMyClientProviderBusinessDetails = withOfflineCache("listMyClientProviderBusinessDetails", listMyClientProviderBusinessDetailsRemote);
+export const listMyClientProviderCodes = withOfflineCache("listMyClientProviderCodes", listMyClientProviderCodesRemote);
 export const listProviderClients = withOfflineCache("listProviderClients", listProviderClientsRemote);
