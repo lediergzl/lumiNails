@@ -23,6 +23,7 @@ import {
   listMyClientProviders,
   listMyClientProviderBrandIcons,
   listMyClientProviderBusinessDetails,
+  listMyClientProviderCodes,
   listPublicPortfolio,
   previewProviderInvite,
   acceptProviderInvite,
@@ -73,6 +74,7 @@ export default function App() {
   const [appointmentSection, setAppointmentSection] = useState<"upcoming" | "history">("upcoming");
   const [homeSection, setHomeSection] = useState<"providers" | "services" | "inspiration">("providers");
   const [providers, setProviders] = useState<PublicProvider[]>([]);
+  const [providerCodes, setProviderCodes] = useState<Record<string, string>>({});
   const [publicWorks, setPublicWorks] = useState<PublicPortfolioItem[]>([]);
   const [servicesRaw, setServicesRaw] = useState<PublicService[]>([]);
   const [appointments, setAppointments] = useState<RemoteAppointment[]>([]);
@@ -139,14 +141,16 @@ export default function App() {
       const session = await getCurrentSession();
       if (!session) {
         setProviders([]);
+        setProviderCodes({});
         setServicesRaw([]);
         return;
       }
-      const [linked, publishedProviders, linkedBrandIcons, linkedBusinessDetails] = await Promise.all([
+      const [linked, publishedProviders, linkedBrandIcons, linkedBusinessDetails, linkedCodes] = await Promise.all([
         listMyClientProviders(),
         listPublishedProviders(),
         listMyClientProviderBrandIcons(),
         listMyClientProviderBusinessDetails(),
+        listMyClientProviderCodes(),
       ]);
       const publishedById = new Map(publishedProviders.map(p => [p.id, p]));
       const brandIconById = new Map(linkedBrandIcons.map(p => [p.provider_id, p.brand_icon]));
@@ -168,6 +172,7 @@ export default function App() {
       });
       const serviceGroups = await Promise.all(linked.map(p => listPublicServices(p.provider_id)));
       setProviders(providerRows);
+      setProviderCodes(Object.fromEntries(linkedCodes.map(row => [row.provider_id, row.business_code])));
       setServicesRaw(serviceGroups.flat());
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo conectar con Luni.");
@@ -362,7 +367,7 @@ export default function App() {
         !sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Tu cartera empieza con una invitación</h3><p>Para proteger la privacidad, Luni no tiene un directorio público. Introduce el código de invitación que te comparta tu manicurista.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div>
         : providers.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Aún no tienes manicuristas conectadas</h3><p>Pide a cada profesional su código de invitación. Cada cartera y su historial se mantienen independientes.</p></div>
         : <>
-          {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar studio-client-icon" aria-label={"Identidad de " + p.business_name}>{p.avatar_path ? <img className="provider-brand-logo" src={serviceImageUrl(p.avatar_path) ?? ""} alt={"Logotipo de " + p.business_name} loading="lazy" /> : (p.brand_icon || "💅")}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p>{p.business_phone && <p><a href={"tel:" + p.business_phone}>☎ {p.business_phone}</a></p>}{p.business_location && <p>⌖ {p.business_location}</p>}<small><span className="studio-card-icon">{p.avatar_path ? <img className="provider-brand-logo small" src={serviceImageUrl(p.avatar_path) ?? ""} alt="" loading="lazy" /> : (p.brand_icon || "💅")}</span> Tu cartera independiente</small></div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
+          {homeSection === "providers" && <div className="provider-portfolio-grid">{providers.map(p => <article className="provider-portfolio-card" key={p.id}><div className="portfolio-avatar studio-client-icon" aria-label={"Identidad de " + p.business_name}>{p.avatar_path ? <img className="provider-brand-logo" src={serviceImageUrl(p.avatar_path) ?? ""} alt={"Logotipo de " + p.business_name} loading="lazy" /> : (p.brand_icon || "💅")}</div><div className="portfolio-provider-info"><h3>{p.business_name}</h3><p>{p.bio || "Tu espacio de belleza"}</p>{p.business_phone && <p><a href={"tel:" + p.business_phone}>☎ {p.business_phone}</a></p>}{p.business_location && <p>⌖ {p.business_location}</p>}<small><span className="studio-card-icon">{p.avatar_path ? <img className="provider-brand-logo small" src={serviceImageUrl(p.avatar_path) ?? ""} alt="" loading="lazy" /> : (p.brand_icon || "💅")}</span> Tu cartera independiente</small>{providerCodes[p.id] && <div className="provider-link-code"><span><b>Código para compartir:</b> <strong>{providerCodes[p.id]}</strong></span><button type="button" onClick={async () => { const code = providerCodes[p.id]; const message = "Añade a " + p.business_name + " a tu cartera en Luni Cliente con el código de vinculación: " + code; try { if (navigator.share) await navigator.share({ title: "Código de " + p.business_name, text: message }); else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(message); setNotice("Código de " + p.business_name + " copiado para compartir."); } else window.prompt("Copia este mensaje para compartirlo:", message); } catch (e) { if (e instanceof Error && e.name !== "AbortError") window.prompt("Copia este mensaje para compartirlo:", message); } }}>Compartir ↗</button></div>}</div><button className="portfolio-remove" disabled={busy} onClick={async () => { if (!window.confirm("¿Quieres quitar a " + p.business_name + " de tu cartera? Tus citas anteriores seguirán en tu historial.")) return; setBusy(true); setError(""); try { await removeClientProvider(p.id); await loadCatalog(); setNotice("Manicurista quitada de tu cartera. El historial de citas se conserva."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar la manicurista."); } finally { setBusy(false); } }}>Quitar</button></article>)}</div>}
           {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">SERVICIOS DE TU CARTERA</span><h2>Reserva tu <em>próximo momento.</em></h2></div><span className="service-count">{services.length} servicios</span></div>{activeAppointment && <div className="provider-notice" role="status">Ya tienes una cita {activeAppointment.status === "confirmed" ? "confirmada" : "pendiente de confirmar"} para {formatChosen(activeAppointment.starts_at)}. No puedes reservar otra mientras siga activa. Puedes modificar la fecha y hora desde «Mis citas» o cancelar esta cita.</div>}
           <div className="service-grid">{visible.map(service => <article className="service-card" key={service.id}><div className={"service-art " + service.tone}>{service.card_path && <img className="service-photo" src={serviceImageUrl(service.card_path) ?? ""} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}<div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div><div className="service-info"><h3>{service.name}</h3><p>{service.description || service.providerName}<br/><b><span className="studio-card-icon">{service.providerLogoPath ? <img className="provider-brand-logo small" src={serviceImageUrl(service.providerLogoPath) ?? ""} alt="" loading="lazy" /> : service.providerIcon}</span> {service.providerName}</b></p><div className="service-meta"><span>◷ {service.duration_minutes} min</span><b>{money(service.price_cents, service.currency)}</b></div><button className="button-outline" disabled={!!activeAppointment} title={activeAppointment ? "Ya tienes una cita activa; modifica o cancela esa cita primero." : "Reservar este servicio"} onClick={() => { if (activeAppointment) return; setReschedulingAppointmentId(null); setSelected(service); setError(""); }}> {activeAppointment ? "Ya tienes una cita activa" : "Reservar este servicio"} <span>↗</span></button><div aria-label={"Logotipo de " + service.providerName} title={service.providerName} style={{ marginTop: 10, marginLeft: "auto", width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: "2px solid #e8cbd3", background: "#fff8fa", display: "grid", placeItems: "center", boxShadow: "0 3px 10px rgba(80,40,55,.12)" }}>{service.providerLogoPath ? <img src={serviceImageUrl(service.providerLogoPath) ?? ""} alt={"Logotipo de " + service.providerName} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{service.providerIcon || "💅"}</span>}</div></div></article>)}</div>
           {visible.length === 0 && <p className="empty-state">No encontramos servicios con ese nombre en tus carteras.</p>}</>}
