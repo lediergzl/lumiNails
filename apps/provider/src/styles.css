@@ -495,3 +495,7 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 /* ---- Aviso de conexión / datos guardados ---- */
 .offline-banner{background:#f5edda;color:#6f5f3a;font-size:13px;text-align:center;padding:9px 16px;border-bottom:1px solid #eadfc2}
+
+.offline-conflicts{background:#f8e6e3;color:#7b3a35;font-size:13px;padding:10px 16px;border-bottom:1px solid #eccac6}
+.offline-conflicts p{margin:0 0 6px}
+.offline-conflicts button{background:none;border:1px solid currentColor;color:inherit;padding:6px 14px;font-size:12px;cursor:pointer}
