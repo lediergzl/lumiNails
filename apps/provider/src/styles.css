@@ -492,3 +492,6 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .provider-service-card{display:block}
   .provider-service-art{height:auto;min-height:0;aspect-ratio:4/3}
 }
+
+/* ---- Aviso de conexión / datos guardados ---- */
+.offline-banner{background:#f5edda;color:#6f5f3a;font-size:13px;text-align:center;padding:9px 16px;border-bottom:1px solid #eadfc2}

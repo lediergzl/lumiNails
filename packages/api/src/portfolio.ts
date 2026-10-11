@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "./client";
+import { withOfflineCache } from "./offline";
 
 export type PortfolioItem = {
   id: string;
@@ -17,7 +18,7 @@ export type PublicPortfolioItem = PortfolioItem & {
   provider_bio: string;
 };
 
-export async function listMyPortfolio(providerId: string): Promise<PortfolioItem[]> {
+async function listMyPortfolioRemote(providerId: string): Promise<PortfolioItem[]> {
   const { data, error } = await getSupabaseClient()
     .from("provider_portfolio_items")
     .select("id,provider_id,title,description,category,image_paths,is_published,created_at")
@@ -28,7 +29,7 @@ export async function listMyPortfolio(providerId: string): Promise<PortfolioItem
   return (data ?? []) as PortfolioItem[];
 }
 
-export async function listPublicPortfolio(): Promise<PublicPortfolioItem[]> {
+async function listPublicPortfolioRemote(): Promise<PublicPortfolioItem[]> {
   const { data, error } = await getSupabaseClient().rpc("luni_public_portfolio");
   if (error) throw new Error(error.message);
   return ((data ?? []) as Array<Record<string, unknown>>).map(row => ({
@@ -99,3 +100,6 @@ export async function deletePortfolioItem(providerId: string, itemId: string): P
     .eq("id", itemId).eq("provider_id", providerId);
   if (error) throw new Error(error.message);
 }
+
+export const listMyPortfolio = withOfflineCache("listMyPortfolio", listMyPortfolioRemote);
+export const listPublicPortfolio = withOfflineCache("listPublicPortfolio", listPublicPortfolioRemote);

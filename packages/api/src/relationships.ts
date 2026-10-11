@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "./client";
+import { withOfflineCache } from "./offline";
 
 export type ClientProvider = {
   provider_id: string;
@@ -54,13 +55,13 @@ export async function acceptProviderInvite(token: string): Promise<void> {
   }
 }
 
-export async function listMyClientProviders(): Promise<ClientProvider[]> {
+async function listMyClientProvidersRemote(): Promise<ClientProvider[]> {
   const { data, error } = await getSupabaseClient().rpc("luni_my_client_providers");
   if (error) throw new Error(error.message);
   return (data ?? []) as ClientProvider[];
 }
 
-export async function listMyClientProviderBrandIcons(): Promise<Array<{ provider_id: string; brand_icon: string; avatar_path: string | null }>> {
+async function listMyClientProviderBrandIconsRemote(): Promise<Array<{ provider_id: string; brand_icon: string; avatar_path: string | null }>> {
   const { data, error } = await getSupabaseClient().rpc("luni_my_client_provider_branding");
   if (error) throw new Error(error.message);
   return (data ?? []) as Array<{ provider_id: string; brand_icon: string; avatar_path: string | null }>;
@@ -72,7 +73,7 @@ export type ClientProviderBusinessDetails = {
   business_location: string | null;
 };
 
-export async function listMyClientProviderBusinessDetails(): Promise<ClientProviderBusinessDetails[]> {
+async function listMyClientProviderBusinessDetailsRemote(): Promise<ClientProviderBusinessDetails[]> {
   const { data, error } = await getSupabaseClient().rpc("luni_my_client_provider_business_details");
   if (error) throw new Error(error.message);
   return (data ?? []) as ClientProviderBusinessDetails[];
@@ -84,9 +85,14 @@ export async function removeClientProvider(providerId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function listProviderClients(providerId: string): Promise<ProviderClient[]> {
+async function listProviderClientsRemote(providerId: string): Promise<ProviderClient[]> {
   const { data, error } = await getSupabaseClient()
     .rpc("luni_provider_clients", { p_provider_id: providerId });
   if (error) throw new Error(error.message);
   return (data ?? []) as ProviderClient[];
 }
+
+export const listMyClientProviders = withOfflineCache("listMyClientProviders", listMyClientProvidersRemote);
+export const listMyClientProviderBrandIcons = withOfflineCache("listMyClientProviderBrandIcons", listMyClientProviderBrandIconsRemote);
+export const listMyClientProviderBusinessDetails = withOfflineCache("listMyClientProviderBusinessDetails", listMyClientProviderBusinessDetailsRemote);
+export const listProviderClients = withOfflineCache("listProviderClients", listProviderClientsRemote);

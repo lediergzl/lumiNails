@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "./client";
+import { withOfflineCache } from "./offline";
 
 /** Un tramo de atención. weekday sigue ISO: 1 = lunes … 7 = domingo. Horas en "HH:MM" (hora local del estudio). */
 export type WeeklyWindow = { weekday: number; start: string; end: string };
@@ -54,7 +55,7 @@ export async function listAvailableSlots(
 }
 
 /** Horario semanal de la manicurista con sesión iniciada (RLS solo devuelve el suyo). */
-export async function getMyWeeklySchedule(): Promise<WeeklyWindow[]> {
+async function getMyWeeklyScheduleRemote(): Promise<WeeklyWindow[]> {
   const { data, error } = await getSupabaseClient()
     .from("weekly_schedule")
     .select("weekday,start_time,end_time")
@@ -75,7 +76,7 @@ export async function saveMyWeeklySchedule(windows: WeeklyWindow[]): Promise<voi
 }
 
 /** Días bloqueados activos que aún no terminaron. */
-export async function listMyDayBlocks(providerId: string): Promise<DayBlock[]> {
+async function listMyDayBlocksRemote(providerId: string): Promise<DayBlock[]> {
   const { data, error } = await getSupabaseClient()
     .from("availability")
     .select("id,starts_at,ends_at")
@@ -105,7 +106,7 @@ export async function unblockDay(blockId: string): Promise<void> {
 
 
 /** Límite diario configurable de citas activas para el estudio autenticado. */
-export async function getMyDailyAppointmentLimit(providerId: string): Promise<number> {
+async function getMyDailyAppointmentLimitRemote(providerId: string): Promise<number> {
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
     .select("daily_appointment_limit")
@@ -137,7 +138,7 @@ export type ProviderTurn = {
   status: "active" | "inactive";
 };
 
-export async function listMyTurns(providerId: string, fromDay: string, toDay: string): Promise<ProviderTurn[]> {
+async function listMyTurnsRemote(providerId: string, fromDay: string, toDay: string): Promise<ProviderTurn[]> {
   const { data, error } = await getSupabaseClient()
     .from("provider_turns")
     .select("id,provider_id,turn_date,start_time,buffer_after_minutes,status")
@@ -201,7 +202,7 @@ export type WeeklyProviderTurn = {
   buffer_after_minutes: number;
 };
 
-export async function listMyWeeklyTurns(providerId: string, weekday: number): Promise<WeeklyProviderTurn[]> {
+async function listMyWeeklyTurnsRemote(providerId: string, weekday: number): Promise<WeeklyProviderTurn[]> {
   const { data, error } = await getSupabaseClient()
     .from("provider_weekly_turns")
     .select("id,provider_id,weekday,start_time,buffer_after_minutes")
@@ -266,3 +267,9 @@ export async function setMyTurnDayOverride(day: string, enabled: boolean): Promi
   });
   if (error) fail(error);
 }
+
+export const getMyWeeklySchedule = withOfflineCache("getMyWeeklySchedule", getMyWeeklyScheduleRemote);
+export const listMyDayBlocks = withOfflineCache("listMyDayBlocks", listMyDayBlocksRemote);
+export const getMyDailyAppointmentLimit = withOfflineCache("getMyDailyAppointmentLimit", getMyDailyAppointmentLimitRemote);
+export const listMyTurns = withOfflineCache("listMyTurns", listMyTurnsRemote);
+export const listMyWeeklyTurns = withOfflineCache("listMyWeeklyTurns", listMyWeeklyTurnsRemote);

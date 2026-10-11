@@ -8,3 +8,4 @@ export * from "./serviceImages";
 export * from "./relationships";
 
 export * from "./portfolio";
+export * from "./offline";

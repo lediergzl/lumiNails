@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "./client";
+import { isNetworkError, withOfflineCache } from "./offline";
 import { clearServiceImage } from "./serviceImages";
 
 export type ProviderProfile = {
@@ -48,7 +49,7 @@ export type ProviderAppointment = {
   client_phone?: string | null;
 };
 
-export async function getMyProviderProfile(): Promise<ProviderProfile | null> {
+async function getMyProviderProfileRemote(): Promise<ProviderProfile | null> {
   const { data: { user }, error: userError } = await getSupabaseClient().auth.getUser();
   if (userError) throw new Error(userError.message);
   if (!user) return null;
@@ -79,7 +80,7 @@ export async function createMyProviderProfile(businessName: string, bio = "", br
   return data as ProviderProfile;
 }
 
-export async function listMyProviderServices(providerId: string): Promise<ProviderService[]> {
+async function listMyProviderServicesRemote(providerId: string): Promise<ProviderService[]> {
   const { data, error } = await getSupabaseClient()
     .from("services")
     .select("id,provider_id,name,description,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
@@ -135,7 +136,7 @@ export async function deleteProviderService(providerId: string, serviceId: strin
   if (!data?.length) throw new Error("No se pudo eliminar el servicio. Es posible que ya no exista.");
 }
 
-export async function listProviderAppointments(providerId: string): Promise<ProviderAppointment[]> {
+async function listProviderAppointmentsRemote(providerId: string): Promise<ProviderAppointment[]> {
   const { data, error } = await getSupabaseClient()
     .rpc("luni_provider_appointments_with_contacts", { p_provider_id: providerId });
   if (error) throw new Error(error.message);
@@ -156,3 +157,17 @@ export async function setProviderAppointmentStatus(
     .eq("id", appointmentId);
   if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN") ? "Esa cita ya no admite este cambio. Actualiza la lista." : error.message);
 }
+
+export const getMyProviderProfile = withOfflineCache("getMyProviderProfile", getMyProviderProfileRemote);
+export const listMyProviderServices = withOfflineCache("listMyProviderServices", listMyProviderServicesRemote);
+export const listProviderAppointments = withOfflineCache("listProviderAppointments", listProviderAppointmentsRemote);
+
+async function getIsAdminRemote(): Promise<boolean> {
+  const { data, error } = await getSupabaseClient().rpc("luni_is_admin");
+  if (error) {
+    if (isNetworkError(error.message)) throw new Error(error.message); // sin red: que decida la copia guardada
+    return false;
+  }
+  return data === true;
+}
+export const getIsAdmin = withOfflineCache("getIsAdmin", getIsAdminRemote);

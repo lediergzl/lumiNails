@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "./client";
+import { withOfflineCache } from "./offline";
 
 export type CreateAppointmentInput = {
   id: string;
@@ -63,7 +64,7 @@ export async function createAppointment(
   return data as RemoteAppointment;
 }
 
-export async function listMyAppointments(): Promise<RemoteAppointment[]> {
+async function listMyAppointmentsRemote(): Promise<RemoteAppointment[]> {
   const { data, error } = await getSupabaseClient()
     .from("appointments")
     .select("id,provider_id,client_id,service_id,starts_at,ends_at,status,notes,client_service_name,client_price_cents,client_currency,cancellation_reason")
@@ -108,3 +109,5 @@ export async function rescheduleMyAppointment(appointmentId: string, startsAt: s
   if (!data) throw new Error("El servidor no devolvió la cita modificada.");
   return data as RemoteAppointment;
 }
+
+export const listMyAppointments = withOfflineCache("listMyAppointments", listMyAppointmentsRemote);

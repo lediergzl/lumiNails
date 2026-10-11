@@ -1,0 +1,10 @@
+{
+  "name": "luni-e2e-offline",
+  "private": true,
+  "type": "module",
+  "description": "Prueba de extremo a extremo del modo sin conexión (Chromium portátil, sin servidor real)",
+  "dependencies": {
+    "@sparticuz/chromium": "^138.0.0",
+    "puppeteer-core": "^24.0.0"
+  }
+}

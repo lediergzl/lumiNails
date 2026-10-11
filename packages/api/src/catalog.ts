@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "./client";
+import { withOfflineCache } from "./offline";
 
 export type PublicProvider = {
   id: string;
@@ -25,7 +26,7 @@ export type PublicService = {
   blurhash: string | null;
 };
 
-export async function listPublishedProviders(): Promise<PublicProvider[]> {
+async function listPublishedProvidersRemote(): Promise<PublicProvider[]> {
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
     .select("id,slug,business_name,bio,business_phone,business_location,avatar_path,brand_icon")
@@ -36,7 +37,7 @@ export async function listPublishedProviders(): Promise<PublicProvider[]> {
   return (data ?? []) as PublicProvider[];
 }
 
-export async function listPublicServices(providerId?: string): Promise<PublicService[]> {
+async function listPublicServicesRemote(providerId?: string): Promise<PublicService[]> {
   let query = getSupabaseClient()
     .from("services")
     .select("id,provider_id,name,description,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
@@ -50,3 +51,6 @@ export async function listPublicServices(providerId?: string): Promise<PublicSer
   if (error) throw new Error(error.message);
   return (data ?? []) as PublicService[];
 }
+
+export const listPublishedProviders = withOfflineCache("listPublishedProviders", listPublishedProvidersRemote);
+export const listPublicServices = withOfflineCache("listPublicServices", listPublicServicesRemote);

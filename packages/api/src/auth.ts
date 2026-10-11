@@ -1,5 +1,6 @@
 import type { AuthError, Session, User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "./client";
+import { clearOfflineData, isNetworkError, networkFailureSignal, readStoredSession, withOfflineCache } from "./offline";
 
 export type AuthResult = {
   user: User;
@@ -108,11 +109,27 @@ export async function resetPasswordWithCode(
 
 export async function signOut(): Promise<void> {
   const { error } = await getSupabaseClient().auth.signOut();
+  await clearOfflineData(); // nada de la cuenta debe quedar guardado en el dispositivo
   throwAuthError(error);
 }
 
 export async function getCurrentSession(): Promise<Session | null> {
-  const { data, error } = await getSupabaseClient().auth.getSession();
+  const stored = readStoredSession();
+  // Sin red no se puede renovar un token caducado: se conserva la sesión guardada en lugar de cerrarla.
+  if (stored && typeof navigator !== "undefined" && navigator.onLine === false) return stored;
+  const pending = getSupabaseClient().auth.getSession();
+  // Si la renovación va muy lenta (la librería reintenta durante bastante tiempo), se sigue con la guardada.
+  const failure = networkFailureSignal();
+  const result = stored
+    ? await Promise.race([
+        pending,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5_000)),
+        failure.promise.then(() => null),
+      ]).finally(failure.cancel)
+    : await pending.finally(failure.cancel);
+  if (result === null) return stored;
+  const { data, error } = result;
+  if (error && isNetworkError(error)) return stored;
   throwAuthError(error);
   return data.session;
 }
@@ -128,7 +145,7 @@ export function onAuthStateChange(
 
 
 /** Teléfono de contacto del cliente autenticado. */
-export async function getMyProfilePhone(): Promise<string> {
+async function getMyProfilePhoneRemote(): Promise<string> {
   const { data: { user }, error: userError } = await getSupabaseClient().auth.getUser();
   if (userError) throw new Error(userError.message);
   if (!user) return "";
@@ -157,3 +174,5 @@ export async function saveMyProfilePhone(phone: string): Promise<void> {
     .eq("id", user.id);
   if (error) throw new Error(error.message);
 }
+
+export const getMyProfilePhone = withOfflineCache("getMyProfilePhone", getMyProfilePhoneRemote);

@@ -211,3 +211,6 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .booking-modal h2{font-size:32px;margin:6px 0 16px}
   .booking-modal>.full-button{position:sticky;bottom:0;box-shadow:0 -10px 14px -4px var(--cream)}
 }
+
+/* ---- Aviso de conexión / datos guardados ---- */
+.offline-banner{background:#f5edda;color:#6f5f3a;font-size:13px;text-align:center;padding:9px 16px;border-bottom:1px solid #eadfc2}

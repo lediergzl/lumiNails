@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AuthPanel from "./AuthPanel";
 import {
+  friendlyError,
+  getOfflineStatus,
+  onReconnect,
+  subscribeOfflineStatus,
+  timeAgo,
   createAppointment,
   rescheduleMyAppointment,
   serviceImageUrl,
@@ -86,7 +91,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
   const [reschedulingAppointmentId, setReschedulingAppointmentId] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [error, setErrorRaw] = useState("");
+  const setError = useCallback((message: string) => setErrorRaw(friendlyError(message)), []);
+  const net = useSyncExternalStore(subscribeOfflineStatus, getOfflineStatus);
   const [notice, setNotice] = useState("");
   const [inviteToken, setInviteToken] = useState(() => new URLSearchParams(window.location.search).get("invite") ?? "");
   const [inviteCodeInput, setInviteCodeInput] = useState("");
@@ -172,6 +179,9 @@ export default function App() {
       void refreshAppointments().catch(e => setError(e instanceof Error ? e.message : "No se pudo actualizar la sesión."));
     });
   }, [loadCatalog, refreshAppointments]);
+
+  // Al recuperar la red se vuelve a pedir todo, sin que haya que reabrir la app.
+  useEffect(() => onReconnect(() => { void loadCatalog(); }), [loadCatalog]);
 
   const renderAppointment = (a: (typeof appointments)[number]) => {
     const when = new Date(a.starts_at);
@@ -293,6 +303,7 @@ export default function App() {
       <div className="brand-lockup"><div className="brand-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div>
       <button className="avatar-button" aria-label="Perfil" onClick={() => setTab("perfil")}>{(sessionName || sessionEmail) ? (sessionName || sessionEmail)[0].toUpperCase() : "A"}</button>
     </header>
+    {(!net.online || net.stale) && <div className="offline-banner" role="status">{!net.online ? "Sin conexión" : net.slow ? "Conexión lenta" : "Sin conexión con el servidor"}{net.savedAt ? " · datos guardados " + timeAgo(net.savedAt) : ""}</div>}
     <nav className="client-tabs" aria-label="Navegación principal">
       {([["inicio", "Descubrir", "✧"], ["citas", "Mis citas", "▦"], ["perfil", "Mi perfil", "♡"]] as const).map(([id, label, icon]) =>
         <button key={id} className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><span className="tab-icon" aria-hidden="true">{icon}</span><span>{label}</span></button>)}
@@ -371,6 +382,6 @@ export default function App() {
           : <div className="time-options">{slots.map(iso => <button type="button" key={iso} className={slot === iso ? "time-chip chosen" : "time-chip"} aria-pressed={slot === iso} onClick={() => setSlot(iso)}>{formatSlot(iso)}</button>)}</div>}
         </div>}
         {slot && <p className="chosen-summary" role="status">Tu cita: <b>{formatChosen(slot)}</b></p>}
-        <label className="field-label">Teléfono de contacto <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="Ej. +53 5XXXXXXX" autoComplete="tel" required /></label><p className="muted">La manicurista utilizará este número para contactarte sobre tu cita.</p><p className="booking-disclaimer">{reschedulingAppointmentId ? "Se cambiará la fecha y hora de la misma cita; no se creará una segunda reserva." : "Solo ves horarios que están libres ahora mismo. Tu solicitud queda pendiente hasta que el estudio la confirme."}</p><button className="button-dark full-button" disabled={busy || !slot || (!reschedulingAppointmentId && clientPhone.trim().replace(/[^0-9]/g, "").length < 7)} onClick={() => void submitBooking()}>{busy ? (reschedulingAppointmentId ? "Modificando…" : "Enviando…") : !slot ? "Elige una hora" : (!reschedulingAppointmentId && clientPhone.trim().replace(/[^0-9]/g, "").length < 7) ? "Añade tu teléfono" : reschedulingAppointmentId ? "Guardar cambios" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
+        <label className="field-label">Teléfono de contacto <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="Ej. +53 5XXXXXXX" autoComplete="tel" required /></label><p className="muted">La manicurista utilizará este número para contactarte sobre tu cita.</p><p className="booking-disclaimer">{reschedulingAppointmentId ? "Se cambiará la fecha y hora de la misma cita; no se creará una segunda reserva." : "Solo ves horarios que están libres ahora mismo. Tu solicitud queda pendiente hasta que el estudio la confirme."}</p><button className="button-dark full-button" disabled={busy || !net.online || !slot || (!reschedulingAppointmentId && clientPhone.trim().replace(/[^0-9]/g, "").length < 7)} onClick={() => void submitBooking()}>{busy ? (reschedulingAppointmentId ? "Modificando…" : "Enviando…") : !net.online ? "Sin conexión" : !slot ? "Elige una hora" : (!reschedulingAppointmentId && clientPhone.trim().replace(/[^0-9]/g, "").length < 7) ? "Añade tu teléfono" : reschedulingAppointmentId ? "Guardar cambios" : "Enviar solicitud"} <span>↗</span></button>{!sessionEmail && <p className="muted">Debes iniciar sesión. Puedes hacerlo desde “Mi perfil” sin perder el servicio seleccionado.</p>}</section></div>}
   </main>;
 }
