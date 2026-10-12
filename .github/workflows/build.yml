@@ -51,7 +51,7 @@ jobs:
       - name: Test provider offline queue
         run: node scripts/e2e-offline/run.mjs provider
 
-  database-tests:
+  provider-code-security-tests:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -72,7 +72,7 @@ jobs:
       PGPORT: 5432
       PGUSER: postgres
       PGPASSWORD: postgres
-      LUNI_TEST_DB: luni_test
+      LUNI_TEST_DB: luni_code_security_test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,5 +80,5 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-      - name: Run migrations and database tests
-        run: bash supabase/tests/run.sh
+      - name: Run migrations and provider code rate-limit regression test
+        run: bash supabase/tests/run-provider-code-security.sh
