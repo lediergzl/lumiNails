@@ -547,7 +547,7 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .color-mixer .color-photo-tool{margin:14px 0;padding:13px;border:1px solid #eadbd5;border-radius:12px;background:#fffaf7}
 .color-mixer .color-photo-tool>p{margin:0 0 10px;overflow-wrap:anywhere;font-size:12px}
 .color-mixer .color-photo-canvas{position:relative;width:100%;max-height:420px;overflow:hidden;border-radius:10px;background:#eee5e1;display:grid;place-items:center}
-.color-mixer .color-photo-canvas img{display:block;width:100%;max-height:420px;object-fit:contain;cursor:crosshair;touch-action:manipulation}
+.color-mixer .color-photo-canvas img{display:block;width:auto;max-width:100%;height:auto;max-height:420px;object-fit:contain;cursor:crosshair;touch-action:manipulation}
 .color-mixer .color-photo-crosshair{position:absolute;width:36px;height:36px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #493638,0 1px 8px #0007;transform:translate(-50%,-50%);pointer-events:none;display:grid;place-items:center}
 .color-mixer .color-photo-crosshair i{width:4px;height:4px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px #493638}
 .color-mixer .color-photo-tool label{display:flex;flex-direction:column;gap:8px;margin:13px 0}
