@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { crearBuscadorRecetas } from "./BuscadorRecetas";
+import ColorCapture from "./ColorCapture";
 
 type Esmalte = { id: string; nombre: string; hex: string; ml: number };
 type Ingrediente = { esmalteId: string; nombre: string; hex: string; porcentaje: number; ml: number };
@@ -126,7 +127,7 @@ export default function ColorMixer() {
   const [name, setName] = useState("");
   const [newHex, setNewHex] = useState("#D8799B");
   const [ml, setMl] = useState("10");
-  const [tab, setTab] = useState<"mezclar" | "buscar" | "inventario" | "recetas">("mezclar");
+  const [tab, setTab] = useState<"mezclar" | "buscar" | "inventario" | "recetas" | "capturar">("mezclar");
   const [result, setResult] = useState<Array<{ hex: string; deltaE: number; ingredientes: Ingrediente[] }>>([]);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
@@ -375,7 +376,7 @@ export default function ColorMixer() {
   return <section className="workspace color-mixer">
     <div className="welcome-row"><div><span className="eyebrow">COLORIMETRÍA PARA TU ESTUDIO</span><h1>Mezclador <em>de colores.</em></h1><p>Prueba mezclas, encuentra una receta cercana y guarda tus fórmulas sin conexión.</p></div></div>
     <div className="section-tabs" role="tablist" aria-label="Herramientas de color">
-      {([["mezclar","Mezclar"],["buscar","Buscar color"],["inventario","Mis esmaltes"],["recetas","Recetas guardadas"]] as const).map(([id,label]) => <button key={id} role="tab" aria-selected={tab===id} className={tab===id?"selected":""} onClick={()=>setTab(id)}>{label}</button>)}
+      {([["mezclar","Mezclar"],["buscar","Buscar color"],["capturar","Capturar color"],["inventario","Mis esmaltes"],["recetas","Recetas guardadas"]] as const).map(([id,label]) => <button key={id} role="tab" aria-selected={tab===id} className={tab===id?"selected":""} onClick={()=>setTab(id)}>{label}</button>)}
     </div>
     {message && <p className="form-notice" role="status">{message}</p>}
     {tab === "mezclar" && <div className="color-mixer-grid">
@@ -458,5 +459,6 @@ export default function ColorMixer() {
       {inventory.length===0?<p>Aún no has añadido esmaltes.</p>:<div className="mixer-inventory-list">{inventory.map(e=><div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.hex} · {e.ml} ml</small></div><label className="stock-label">ml<input aria-label={`Cantidad de ${e.nombre}`} type="number" min="0" step=".1" value={e.ml} onChange={ev=>persistInventory(inventory.map(x=>x.id===e.id?{...x,ml:Math.max(0,Number(ev.target.value))}:x))}/></label><button className="provider-secondary" onClick={()=>persistInventory(inventory.filter(x=>x.id!==e.id))}>Eliminar</button></div>)}</div>}
     </div>}
     {tab === "recetas" && <div className="provider-card color-mixer-card"><h2>Mis recetas guardadas</h2>{recipes.length===0?<p>Aún no has guardado recetas.</p>:recipes.map(recipe=><article className="saved-recipe" key={recipe.id}><NailPreview hex={recipe.hex}/><div className="saved-recipe-content"><b>{recipe.nombre}</b><span className="color-hex">{recipe.hex}</span>{recipe.objetivoHex && <><div className="saved-recipe-comparison" aria-label="Comparación entre color objetivo y resultado"><div><span className="saved-recipe-color-dot" style={{background:recipe.objetivoHex}}/><small>Objetivo</small><code>{recipe.objetivoHex}</code></div><span className="saved-recipe-compare-arrow" aria-hidden="true">→</span><div><span className="saved-recipe-color-dot" style={{background:recipe.hex}}/><small>Resultado</small><code>{recipe.hex}</code></div></div><small>ΔE00 {recipe.deltaE.toFixed(2)} · {status(recipe.deltaE)}</small></>}<p className="saved-recipe-drops">Receta para {recipe.totalGotas ?? 12} gotas</p><ul>{recipe.ingredientes.map((x,i)=><li key={x.esmalteId+i}>{capitalizar(x.nombre)}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>persistRecipes(recipes.filter(x=>x.id!==recipe.id))}>Eliminar receta</button></div></article>)}</div>}
+    {tab === "capturar" && <ColorCapture onColorCaptured={hex => { setTarget(hex); setTargetHexInput(hex); setTab("buscar"); setMessage("Color capturado y guardado como objetivo. Ahora puedes buscar una receta en tu inventario."); }} />}
   </section>;
 }
