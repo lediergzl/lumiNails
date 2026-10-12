@@ -58,7 +58,7 @@ returns table (
   invite_valid boolean
 )
 language plpgsql
-stable
+volatile
 security definer
 set search_path = public, extensions, pg_temp
 as $fn$
@@ -130,8 +130,10 @@ begin
     limit 1;
   end if;
 
+  -- Devuelve cero filas en vez de lanzar una excepción: así queda registrado
+  -- el intento fallido y no se revierte el contador por rollback.
   if v_provider_id is null then
-    raise exception 'INVITE_INVALID_OR_EXPIRED' using errcode = 'P0002';
+    return;
   end if;
 
   insert into public.client_provider_relationships as rel
