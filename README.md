@@ -2,6 +2,8 @@
 
 Luni es una plataforma SaaS para manicuristas y clientes.
 
+Consulta la [especificación funcional y matriz de estado](docs/funciones.md), que distingue las funciones observadas en el código de las verificaciones pendientes.
+
 ## Apps
 - Luni Cliente
 - Luni Manicurista
