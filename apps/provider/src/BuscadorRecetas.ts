@@ -1,4 +1,4 @@
-import type { RecetaSugerida } from "./RecetaSugerida";
+import type { RecetaSugerida } from "./RecetaSugerida.ts";
 
 export type EsmalteInventario = {
   id: string;
