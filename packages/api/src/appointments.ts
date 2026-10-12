@@ -147,8 +147,7 @@ export async function cancelMyAppointment(appointmentId: string, reason = "", la
 registerOutboxHandler("appointment.cancel_mine", (p: { appointmentId: string; reason: string }) => cancelMyAppointmentRemote(p.appointmentId, p.reason));
 
 
-/** Cambia la fecha/hora de la cita activa sin crear una segunda cita. */
-export async function rescheduleMyAppointment(appointmentId: string, startsAt: string): Promise<RemoteAppointment> {
+async function rescheduleMyAppointmentRemote(appointmentId: string, startsAt: string): Promise<RemoteAppointment> {
   const { data, error } = await getSupabaseClient().rpc("luni_reschedule_appointment", {
     p_appointment_id: appointmentId,
     p_starts_at: startsAt,
@@ -170,5 +169,37 @@ export async function rescheduleMyAppointment(appointmentId: string, startsAt: s
   if (!data) throw new Error("El servidor no devolvió la cita modificada.");
   return data as RemoteAppointment;
 }
+
+/** Reprograma la misma cita; sin conexión se encola y el horario queda sujeto a validación del servidor. */
+export async function rescheduleMyAppointment(
+  appointmentId: string,
+  startsAt: string
+): Promise<{ queued: boolean; appointment?: RemoteAppointment }> {
+  const existing = (await listMyAppointments().catch(() => [] as RemoteAppointment[])).find(a => a.id === appointmentId);
+  const duration = existing
+    ? Math.max(1, (Date.parse(existing.ends_at) - Date.parse(existing.starts_at)) / 60_000)
+    : 30;
+  const startMs = Date.parse(startsAt);
+  const changes = {
+    starts_at: startsAt,
+    ends_at: new Date(startMs + duration * 60_000).toISOString(),
+  };
+  const outcome = await writeOrQueue(
+    {
+      type: "appointment.reschedule_mine",
+      payload: { appointmentId, startsAt },
+      label: "Modificar fecha y hora de la cita",
+      patches: [{ read: "listMyAppointments", op: "merge", id: appointmentId, changes }],
+    },
+    () => rescheduleMyAppointmentRemote(appointmentId, startsAt)
+  );
+  return outcome.queued
+    ? { queued: true, appointment: existing ? { ...existing, ...changes } : undefined }
+    : { queued: false, appointment: outcome.result };
+}
+
+registerOutboxHandler("appointment.reschedule_mine", (p: { appointmentId: string; startsAt: string }) =>
+  rescheduleMyAppointmentRemote(p.appointmentId, p.startsAt)
+);
 
 export const listMyAppointments = withOfflineCache("listMyAppointments", listMyAppointmentsRemote);
