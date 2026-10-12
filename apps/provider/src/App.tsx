@@ -328,8 +328,10 @@ export default function App() {
       if (!itemId) itemId = await savePortfolioItem({ providerId: profile.id, title: workTitle, description: workDescription, category: workCategory, imagePaths: [], isPublished: true });
       const paths = [...(old?.image_paths ?? [])];
       for (const file of workPhotos) {
-        const processed = await processImageLocally(file);
-        const variant = processed.variants.find(v => v.variant === "detail") ?? processed.variants.find(v => v.variant === "card") ?? processed.variants[0];
+        // Las fotos de trabajos se muestran grandes en Inspiración y deben conservar detalle.
+        // A diferencia de las fotos pequeñas de servicios, aquí se sube la variante de 2048 px.
+        const processed = await processImageLocally(file, ["original"]);
+        const variant = processed.variants.find(v => v.variant === "original");
         if (!variant) throw new Error("No se pudo preparar una de las fotos.");
         const ext = variant.file.type === "image/webp" ? "webp" : "jpg";
         const path = profile.id + "/" + itemId + "/" + variant.sha256.slice(0, 12) + "-" + crypto.randomUUID().slice(0, 8) + "-work." + ext;
