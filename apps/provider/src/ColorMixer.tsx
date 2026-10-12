@@ -179,7 +179,7 @@ export default function ColorMixer() {
   const gotasTexto = (cantidad: number) => cantidad === 1 ? "1 gota" : cantidad + " gotas";
   const abrirTamanoReceta = (recipe: Receta) => {
     const total = recipe.totalGotas;
-    setTamanoReceta(total === 4 || total === 12 || total === 20 ? String(total) as "4" | "12" | "20" : "custom");
+    setTamanoReceta(total == null ? "12" : total === 4 || total === 12 || total === 20 ? String(total) as "4" | "12" | "20" : "custom");
     setGotasRecetaPersonalizadas(String(total ?? 12));
     setRecetaEditandoGotas(recipe.id);
   };
