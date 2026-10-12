@@ -272,12 +272,14 @@ export default function App() {
       if (!slot) throw new Error("Elige un horario disponible.");
       await saveMyProfilePhone(clientPhone);
       if (reschedulingAppointmentId) {
-        await rescheduleMyAppointment(reschedulingAppointmentId, slot);
+        const reschedule = await rescheduleMyAppointment(reschedulingAppointmentId, slot);
         await refreshAppointments();
         setSelected(null);
         setReschedulingAppointmentId(null);
         setTab("citas");
-        setNotice("Cita modificada correctamente. Se conservó la misma cita y su estado.");
+        setNotice(reschedule.queued
+          ? "Cambio guardado en este teléfono y pendiente de sincronización. El nuevo horario todavía no está confirmado por el servidor."
+          : "Cita modificada correctamente. Se conservó la misma cita y su estado.");
       } else {
         if (activeAppointment) throw new Error("Ya tienes una cita pendiente o confirmada. Modifica esa cita o cancélala antes de reservar otra.");
         const designNotes = selectedDesign && selectedDesign.provider_id === selected.provider_id
