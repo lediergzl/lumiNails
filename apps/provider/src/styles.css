@@ -581,3 +581,13 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .suggested-recipe{padding:14px 0;border-bottom:1px solid #f0e7e2}
 .suggested-recipe:last-child{border-bottom:0}
 @media(max-width:650px){.target-palette{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.target-palette-color>span{width:31px;height:31px}.target-palette-color{padding:7px 1px}.target-palette-color small{font-size:9px}}
+
+
+/* Comparación de color objetivo y resultado en recetas del buscador inverso */
+.saved-recipe-comparison{display:flex;align-items:center;justify-content:center;gap:16px;margin:12px 0;padding:12px;background:#fffdf9;border:1px solid #f0e7e2;border-radius:12px}
+.saved-recipe-comparison>div{display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;gap:5px}
+.saved-recipe-color-dot{display:block;width:48px;height:48px;max-width:100%;border-radius:50%;border:2px solid #ffffff;box-shadow:0 0 0 1px #d9c9c4,0 2px 7px #00000012}
+.saved-recipe-comparison small{font-size:11px;color:#735c58}
+.saved-recipe-comparison code{font-size:11px;color:#594746;font-weight:600}
+.saved-recipe-compare-arrow{font-size:20px;color:#a67b79}
+@media(max-width:420px){.saved-recipe-comparison{gap:8px;padding:10px}.saved-recipe-color-dot{width:40px;height:40px}.saved-recipe-comparison code{font-size:10px}}
