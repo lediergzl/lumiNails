@@ -294,14 +294,21 @@ export default function ColorMixer() {
   const addPolishToMix = (esmalteId: string) => {
     const esmalte = inventory.find(item => item.id === esmalteId);
     if (!esmalte || manual.some(item => item.id === esmalte.id) || esmalte.ml <= 0) return;
-    const current = manual.map(item => ({ ...item }));
-    const total = current.reduce((sum, item) => sum + item.porcentaje, 0);
-    if (total >= 100) {
-      const largest = current.reduce((best, item) => item.porcentaje > best.porcentaje ? item : best, current[0]);
-      if (largest && largest.porcentaje >= 10) largest.porcentaje -= 10;
-      else return;
+    const current = manual.filter(item => item.porcentaje > 0).map(item => ({ ...item }));
+    let total = current.reduce((sum, item) => sum + item.porcentaje, 0);
+    let toAdd = Math.min(10, Math.max(0, 100 - total));
+    if (toAdd < 10 && total + 10 > 100) {
+      let excess = total + 10 - 100;
+      for (const item of [...current].sort((a, b) => b.porcentaje - a.porcentaje)) {
+        const reduction = Math.min(item.porcentaje, excess);
+        item.porcentaje -= reduction;
+        excess -= reduction;
+        if (excess <= 0) break;
+      }
+      total = current.reduce((sum, item) => sum + item.porcentaje, 0);
+      toAdd = 10;
     }
-    setManual([...current, { id: esmalte.id, porcentaje: 10 }]);
+    setManual([...current, { id: esmalte.id, porcentaje: toAdd }]);
     const names = [...current.filter(item => item.porcentaje > 0).map(item => inventory.find(e => e.id === item.id)?.nombre), esmalte.nombre]
       .filter((itemName): itemName is string => Boolean(itemName));
     setRecipeName(names.map(capitalizar).join(" + "));
