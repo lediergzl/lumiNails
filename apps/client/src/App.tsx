@@ -283,19 +283,27 @@ export default function App() {
         const designNotes = selectedDesign && selectedDesign.provider_id === selected.provider_id
           ? `DISEÑO ELEGIDO POR LA CLIENTA\nTrabajo: ${selectedDesign.title || selectedDesign.category}\nCategoría: ${selectedDesign.category}\nPublicación Luni: ${selectedDesign.id}\nFoto: ${selectedDesign.image_paths[0] ?? "sin foto"}`
           : "";
-        await createAppointment({
+        const booking = await createAppointment({
           id: makeId(),
           providerId: selected.provider_id,
           serviceId: selected.id,
           startsAt: slot,
           idempotencyKey: makeId(),
           notes: designNotes,
+          serviceName: selected.name,
+          priceCents: selected.price_cents,
+          currency: selected.currency,
+          durationMinutes: selected.duration_minutes,
         });
         await refreshAppointments();
         setSelected(null);
         setSelectedDesign(null);
         setTab("citas");
-        setNotice("Solicitud enviada" + (designNotes ? " con el diseño elegido adjunto a la cita" : " con diseño libre") + ". La cita queda pendiente hasta que el estudio la confirme.");
+        setNotice(booking.queued
+          ? "Solicitud guardada en este teléfono y pendiente de sincronización. El horario no está confirmado y podría dejar de estar disponible. Cuando vuelva la conexión, Luni verificará la disponibilidad."
+          : booking.appointment?.status === "confirmed"
+            ? "Cita confirmada automáticamente por el estudio." + (designNotes ? " Se adjuntó el diseño elegido." : "")
+            : "Solicitud enviada" + (designNotes ? " con el diseño elegido adjunto a la cita" : " con diseño libre") + ". La cita queda pendiente hasta que el estudio la confirme.");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo enviar la solicitud.");
