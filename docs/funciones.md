@@ -151,3 +151,10 @@ Orden recomendado: primero cambios de citas y disponibilidad, luego operaciones 
 | Android Manifest | No localizado en los archivos consultables de GitHub | Confirmar archivo nativo generado y permisos/features reales |
 | Compilación Android tras últimos cambios | No confirmada aquí | Ejecutar build y probar APK en dispositivo/emulador |
 
+
+
+## Seguridad del código permanente de estudio
+
+La migración `20261023010000_provider_code_rate_limit.sql` limita la consulta del código a **30 intentos de vista previa** y **8 intentos de vinculación por usuario autenticado en cada ventana fija de 15 minutos**. Las RPC de vista previa y vinculación ya no se conceden a `anon`; los intentos fallidos devuelven cero resultados para que el contador quede guardado en la transacción.
+
+El código de seis dígitos es un **identificador compartible, no una contraseña**. Este control reduce la adivinación desde una cuenta, pero no sustituye un límite por IP ni evita que alguien cree cuentas repetidas. La limitación por IP queda pendiente de una capa HTTP/Edge Function; no se debe afirmar que ya existe. El código permanente tampoco es revocable por sí mismo: si se necesita revocación, debe diseñarse un mecanismo separado para cambiarlo y actualizar las referencias compartidas.
