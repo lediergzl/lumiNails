@@ -7,6 +7,21 @@ type Receta = { id: string; nombre: string; hex: string; deltaE: number; objetiv
 type Lab = { L: number; a: number; b: number };
 type Rgb = { r: number; g: number; b: number };
 
+const COLOR_PALETTE = [
+  { nombre: "Rojo", hex: "#C83E4D" },
+  { nombre: "Naranja", hex: "#F07835" },
+  { nombre: "Amarillo", hex: "#F2C94C" },
+  { nombre: "Verde", hex: "#3C8D56" },
+  { nombre: "Turquesa", hex: "#36A6A0" },
+  { nombre: "Azul", hex: "#356AC3" },
+  { nombre: "Violeta", hex: "#8055A5" },
+  { nombre: "Morado", hex: "#6B3FA0" },
+  { nombre: "Rosa", hex: "#D8799B" },
+  { nombre: "Fucsia", hex: "#C43B82" },
+  { nombre: "Marrón", hex: "#8B5E3C" },
+  { nombre: "Blanco", hex: "#F4F0E8" }
+] as const;
+
 const INVENTORY_KEY = "luni.colorMixer.inventory.v1";
 const RECIPES_KEY = "luni.colorMixer.recipes.v1";
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -285,6 +300,38 @@ export default function ColorMixer() {
     setRecipeName(selectedNames.length ? selectedNames.map(capitalizar).join(" + ") : "Mi mezcla");
   };
   const status = (d: number) => d < 2 ? "Idéntico" : d < 5 ? "Muy parecido" : d < 10 ? "Aceptable" : "Lejos";
+  const categoriaDeColor = (hex: string): string => {
+    const lab = hexToLab(hex);
+    return COLOR_PALETTE.reduce((best, category) =>
+      deltaE2000(lab, hexToLab(category.hex)) < deltaE2000(lab, hexToLab(best.hex)) ? category : best
+    , COLOR_PALETTE[0]).nombre;
+  };
+  const categoriasQueAyudan: Record<string, string[]> = {
+    "Rojo": ["Naranja", "Rosa", "Fucsia", "Marrón"],
+    "Naranja": ["Rojo", "Amarillo"],
+    "Amarillo": ["Naranja", "Verde", "Marrón"],
+    "Verde": ["Amarillo", "Turquesa", "Azul"],
+    "Turquesa": ["Verde", "Azul"],
+    "Azul": ["Turquesa", "Violeta", "Morado"],
+    "Violeta": ["Azul", "Rojo", "Fucsia"],
+    "Morado": ["Azul", "Rojo", "Fucsia"],
+    "Rosa": ["Rojo", "Fucsia", "Magenta"],
+    "Fucsia": ["Rosa", "Rojo", "Violeta"],
+    "Marrón": ["Rojo", "Naranja", "Amarillo"],
+    "Blanco": ["Rojo", "Azul", "Amarillo"]
+  };
+  const categoriasInventario = new Set(inventory.map(esmalte => categoriaDeColor(esmalte.hex)));
+  const categoriasFaltantes = (objetivo: string): string[] => {
+    const helpers = categoriasQueAyudan[objetivo] ?? [];
+    const normalizarCategoria = (categoria: string) => categoria === "Magenta" ? "Fucsia" : categoria;
+    return [...new Set(helpers)]
+      .filter(categoria => !categoriasInventario.has(normalizarCategoria(categoria)))
+      .map(normalizarCategoria);
+  };
+  const objetivoCategoria = categoriaDeColor(target);
+  const faltantesObjetivo = categoriasFaltantes(objetivoCategoria);
+  const advertirFaltaVariedad = result.length > 0 && result[0].deltaE >= 15;
+  const resultadosVisibles = result.length > 0 && result[0].deltaE >= 30 ? result.slice(0, 1) : result;
 
   return <section className="workspace color-mixer">
     <div className="welcome-row"><div><span className="eyebrow">COLORIMETRÍA PARA TU ESTUDIO</span><h1>Mezclador <em>de colores.</em></h1><p>Prueba mezclas, encuentra una receta cercana y guarda tus fórmulas sin conexión.</p></div></div>
@@ -317,11 +364,7 @@ export default function ColorMixer() {
             onBlur={()=>{const value=targetHexInput.trim().toUpperCase();const normalized=value.startsWith("#")?value:"#"+value;if(/^#[0-9A-F]{6}$/.test(normalized)){setTarget(normalized);setTargetHexInput(normalized);}else{setTargetHexInput(target);}}}/>
         </label>
         <div className="target-palette" aria-label="Paleta de colores predefinidos">
-          {[
-            ["Rojo","#C83E4D"],["Naranja","#F07835"],["Amarillo","#F2C94C"],["Verde","#3C8D56"],
-            ["Turquesa","#36A6A0"],["Azul","#356AC3"],["Violeta","#8055A5"],["Morado","#6B3FA0"],
-            ["Rosa","#D8799B"],["Fucsia","#C43B82"],["Marrón","#8B5E3C"],["Blanco","#F4F0E8"]
-          ].map(([nombre,hex])=><button type="button" key={hex} className={target===hex?"target-palette-color selected":"target-palette-color"} aria-label={`Elegir ${nombre} ${hex}`} title={`${nombre} · ${hex}`} onClick={()=>{setTarget(hex);setTargetHexInput(hex);}}>
+          {COLOR_PALETTE.map(({ nombre, hex })=><button type="button" key={hex} className={target===hex?"target-palette-color selected":"target-palette-color"} aria-label={`Elegir ${nombre} ${hex}`} title={`${nombre} · ${hex}`} onClick={()=>{setTarget(hex);setTargetHexInput(hex);}}>
             <span style={{background:hex}}/><small>{nombre}</small>
           </button>)}
         </div>
@@ -333,7 +376,14 @@ export default function ColorMixer() {
       <article className="provider-card color-mixer-card"><h2>Recetas sugeridas</h2>
         {working && <div className="recipe-search-loading" role="status"><span className="recipe-spinner" aria-hidden="true"/><p>Comparando combinaciones de tu inventario…</p></div>}
         {!working && result.length===0 && <p>Elige un color objetivo y pulsa «Buscar recetas en mi inventario».</p>}
-        {result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+":"+x.porcentaje).join("-")}>
+        {!working && advertirFaltaVariedad && <div className="recipe-warning" role="alert">
+          <div className="recipe-warning-title"><span aria-hidden="true">⚠️</span><strong>Ninguna de tus mezclas se acerca al color objetivo.</strong></div>
+          <p>ΔE más bajo: {result[0].deltaE.toFixed(2)}. Te falta variedad de esmaltes.</p>
+          {objetivoCategoria === "Rosa" && !["Rojo", "Rosa", "Fucsia", "Marrón"].some(category => categoriasInventario.has(category))
+            ? <p>Sumá un rojo, magenta o fucsia para cubrir el canal rojo.</p>
+            : faltantesObjetivo.length > 0 && <div><strong>Categorías que podrían ayudarte:</strong><ul>{faltantesObjetivo.map(category=><li key={category}>{category}</li>)}</ul></div>}
+        </div>}
+        {resultadosVisibles.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+":"+x.porcentaje).join("-")}>
           <div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1}</b><small>{item.hex} · ΔE2000 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div>
           <div className="recipe-ingredients">{item.ingredientes.map(x=><div className="recipe-ingredient" key={x.esmalteId}>
             <span className="polish-dot" style={{background:x.hex}}/><span><b>{capitalizar(x.nombre)}</b><small>{x.hex}</small></span><strong>{x.porcentaje}%</strong>
