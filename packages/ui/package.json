@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Tokens de diseño y fuentes compartidas de Luni Cliente y Luni Studio.",
+  "description": "Tokens de dise\u00f1o y fuentes compartidas de Luni Cliente y Luni Studio.",
   "exports": {
     "./index.css": "./index.css",
     "./tokens.css": "./tokens.css",
-    "./fonts.css": "./fonts.css"
+    "./fonts.css": "./fonts.css",
+    "./CachedImage": "./CachedImage.tsx"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
-    "@fontsource/playfair-display": "^5.2.8"
+    "@fontsource/playfair-display": "^5.2.8",
+    "@lumi/api": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19"
   }
 }

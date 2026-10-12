@@ -13,7 +13,9 @@
 
 ## Escribir sin conexión (Fase 2)
 Estos cambios se guardan en una cola en el teléfono (IndexedDB) y se envían solos, en orden, al volver la red:
-- Manicurista: confirmar, rechazar, completar y cancelar citas; crear, editar y eliminar servicios.
+- Manicurista: confirmar, rechazar, completar y cancelar citas; crear, editar y eliminar servicios; añadir,
+  cambiar o quitar la foto de un servicio (se guardan las dos versiones ya optimizadas, ~70 KB, y la foto se
+  ve en pantalla desde el teléfono hasta que se suba).
 - Clienta: cancelar su cita.
 
 Cómo funciona (`packages/api/src/offline.ts`):
@@ -27,11 +29,19 @@ Cómo funciona (`packages/api/src/offline.ts`):
   un id generado en el teléfono).
 - Cerrar sesión borra la cola; por eso la app pide confirmación si hay cambios sin enviar.
 
+## Fotos sin conexión (Fase 3)
+- Toda imagen que se ve (fotos de servicios, logotipos, trabajos) se guarda en el teléfono la primera vez
+  que se muestra, sin descargas extra (`packages/api/src/imageCache.ts`, componente `CachedImage` en `@lumi/ui`).
+  Los nombres de archivo llevan el hash del contenido, así que una copia guardada nunca queda desactualizada.
+- Tope de 200 imágenes / 25 MB: al pasarlo se descartan las más antiguas.
+- Cerrar sesión borra también las imágenes guardadas.
+
 ## Qué no hace todavía
 - Reservar o modificar una cita (los horarios libres los decide el servidor): exige conexión.
 - Sin cola: horarios y turnos, bloqueos de día, portafolio, invitaciones, teléfono del perfil, logotipo.
-- Fotos de servicios: se suben con conexión (un servicio creado sin red recibe la foto después, con «Editar»).
-- Las fotos ya vistas dependen de la caché del navegador.
+- Las fotos que nunca se vieron con conexión no se pueden ver sin ella (no se descargan por adelantado
+  para no gastar datos).
+- Logotipo del estudio y fotos del portafolio: subirlos exige conexión.
 
 ## Prueba
 `scripts/e2e-offline/` corta la red en un navegador real y comprueba todo lo anterior (ver su README).

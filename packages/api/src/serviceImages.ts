@@ -1,4 +1,6 @@
 import { getSupabaseClient } from "./client";
+import { removeStoredImages, storeImage } from "./imageCache";
+import { registerOutboxHandler, writeOrQueue } from "./offline";
 
 export const SERVICE_IMAGE_BUCKET = "service-images";
 
@@ -78,7 +80,7 @@ async function readPaths(providerId: string, serviceId: string): Promise<StoredP
 }
 
 /** Sube las variantes (la más pequeña primero), enlaza la foto al servicio y borra la anterior. */
-export async function setServiceImage(
+async function setServiceImageRemote(
   providerId: string,
   serviceId: string,
   image: ServiceImageUpload,
@@ -125,7 +127,7 @@ export async function setServiceImage(
 }
 
 /** Quita la foto del servicio y libera el espacio. */
-export async function clearServiceImage(providerId: string, serviceId: string): Promise<void> {
+export async function clearServiceImageRemote(providerId: string, serviceId: string): Promise<void> {
   const previous = await readPaths(providerId, serviceId);
   const { error } = await getSupabaseClient()
     .from("services")
@@ -135,6 +137,55 @@ export async function clearServiceImage(providerId: string, serviceId: string): 
   if (error) throw new Error(error.message);
   await removeFiles([previous?.thumb_path, previous?.card_path, previous?.detail_path]);
 }
+
+const localPath = (v: { variant: string; sha256: string }) => `local:${v.sha256.slice(0, 16)}-${v.variant}`;
+
+/**
+ * Sube la foto del servicio. Sin conexión queda en cola (las versiones ya optimizadas, ~70 KB) y se ve en
+ * pantalla desde el teléfono hasta que se envíe.
+ */
+export async function setServiceImage(
+  providerId: string,
+  serviceId: string,
+  image: ServiceImageUpload,
+  onProgress?: (progress: ServiceImageProgress) => void
+): Promise<{ queued: boolean }> {
+  const variants = image.variants.map(({ variant, file, sha256 }) => ({ variant, file, sha256 }));
+  const local: Record<string, string> = {};
+  for (const v of variants) { local[v.variant] = localPath(v); await storeImage(local[v.variant], v.file); }
+  const outcome = await writeOrQueue(
+    {
+      type: "service.image",
+      payload: { providerId, serviceId, image: { blurhash: image.blurhash, variants } },
+      label: "Foto del servicio",
+      timeoutMs: 120_000, // dos archivos pequeños, pero la conexión puede ser muy lenta
+      patches: [{ read: "listMyProviderServices", op: "merge", id: serviceId, changes: { thumb_path: local.thumb ?? null, card_path: local.card ?? null } }],
+    },
+    () => setServiceImageRemote(providerId, serviceId, image, onProgress)
+  );
+  if (!outcome.queued) await removeStoredImages(Object.values(local)); // ya está en el servidor: no hace falta la copia provisional
+  return { queued: outcome.queued };
+}
+
+/** Quita la foto del servicio (sin conexión queda en cola). */
+export async function clearServiceImage(providerId: string, serviceId: string): Promise<{ queued: boolean }> {
+  const outcome = await writeOrQueue(
+    {
+      type: "service.image.clear",
+      payload: { providerId, serviceId },
+      label: "Quitar la foto del servicio",
+      patches: [{ read: "listMyProviderServices", op: "merge", id: serviceId, changes: { thumb_path: null, card_path: null } }],
+    },
+    () => clearServiceImageRemote(providerId, serviceId)
+  );
+  return { queued: outcome.queued };
+}
+
+registerOutboxHandler("service.image", async (p: { providerId: string; serviceId: string; image: ServiceImageUpload }) => {
+  await setServiceImageRemote(p.providerId, p.serviceId, p.image);
+  await removeStoredImages(p.image.variants.map(localPath));
+});
+registerOutboxHandler("service.image.clear", (p: { providerId: string; serviceId: string }) => clearServiceImageRemote(p.providerId, p.serviceId));
 
 export function serviceImageUrl(path: string | null | undefined): string | null {
   if (!path) return null;

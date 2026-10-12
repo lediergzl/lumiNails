@@ -9,6 +9,7 @@ import { getAuthStorageKey } from "./client";
 const DB_NAME = "luni-offline";
 const STORE = "snapshots";
 const OUTBOX = "outbox";
+export const IMAGES = "images";
 // Con copia guardada, no se espera más que esto a una red lenta antes de mostrar lo guardado.
 // (La librería reintenta cada lectura fallida con esperas crecientes: sin este tope, cada lectura
 // tardaría ~7 s en rendirse y, al ir encadenadas, la pantalla tardaría decenas de segundos.)
@@ -171,11 +172,12 @@ function openDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === "undefined") return Promise.resolve(null);
   return new Promise((resolve) => {
     try {
-      const request = indexedDB.open(DB_NAME, 2);
+      const request = indexedDB.open(DB_NAME, 3);
       request.onupgradeneeded = () => {
         const database = request.result;
         if (!database.objectStoreNames.contains(STORE)) database.createObjectStore(STORE);
         if (!database.objectStoreNames.contains(OUTBOX)) database.createObjectStore(OUTBOX);
+        if (!database.objectStoreNames.contains(IMAGES)) database.createObjectStore(IMAGES);
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => resolve(null);
@@ -185,7 +187,8 @@ function openDb(): Promise<IDBDatabase | null> {
 }
 const db = () => (dbPromise ??= openDb());
 
-async function idb<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>, storeName = STORE): Promise<T | null> {
+/** Acceso mínimo a un almacén de IndexedDB (devuelve null si no hay IndexedDB o la operación falla). */
+export async function idb<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>, storeName = STORE): Promise<T | null> {
   const database = await db();
   if (!database) return null;
   return new Promise((resolve) => {
@@ -205,6 +208,7 @@ const writeSnapshot = (key: string, value: unknown) =>
 export async function clearOfflineData(): Promise<void> {
   await idb("readwrite", (s) => s.clear());
   await idb("readwrite", (s) => s.clear(), OUTBOX);
+  await idb("readwrite", (s) => s.clear(), IMAGES);
   entries = [];
   staleKeys.clear();
   recompute();
@@ -285,7 +289,7 @@ export type Patch = {
   item?: Record<string, unknown>;
 };
 
-export type WriteSpec = { type: string; payload: unknown; label: string; patches?: Patch[] };
+export type WriteSpec = { type: string; payload: unknown; label: string; patches?: Patch[]; /** Tiempo máximo (ms) por intento; más largo para subidas de fotos. */ timeoutMs?: number };
 
 type OutboxEntry = {
   id: string;
@@ -295,6 +299,7 @@ type OutboxEntry = {
   label: string;
   patches: Patch[];
   createdAt: number;
+  timeoutMs?: number;
   state: "pending" | "conflict";
   error?: string;
 };
@@ -343,6 +348,7 @@ async function enqueue(spec: WriteSpec): Promise<void> {
     label: spec.label,
     patches: spec.patches ?? [],
     createdAt: Date.now(),
+    timeoutMs: spec.timeoutMs,
     state: "pending",
   };
   entries = [...entries, entry];
@@ -391,7 +397,7 @@ function runFlush(): Promise<number> {
         try {
           await Promise.race([
             handler(entry.payload as never),
-            sleep(ENTRY_TIMEOUT_MS).then(() => { throw new Error("Failed to fetch"); }),
+            sleep(entry.timeoutMs ?? ENTRY_TIMEOUT_MS).then(() => { throw new Error("Failed to fetch"); }),
           ]);
           await removeEntry(entry.id);
           applied++;
@@ -438,7 +444,7 @@ export async function writeOrQueue<T>(spec: WriteSpec, run: () => Promise<T>): P
   try {
     const attempt = run();
     attempt.catch(() => undefined);
-    const first = await Promise.race([attempt, sleep(WRITE_TIMEOUT_MS).then(() => SLOW), failure.promise.then(() => FAILED)]);
+    const first = await Promise.race([attempt, sleep(spec.timeoutMs ?? WRITE_TIMEOUT_MS).then(() => SLOW), failure.promise.then(() => FAILED)]);
     if (first === SLOW || first === FAILED) return queue();
     return { queued: false, result: first as T };
   } catch (error) {

@@ -4,7 +4,8 @@ import http from "http"; import fs from "fs"; import path from "path";
 const APP = process.argv[2];
 if (!["client","provider"].includes(APP)) { console.error("Uso: node run.mjs client|provider"); process.exit(2); }
 // JPEG mínimo de 1x1 px para las fotos de servicios
-const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=","base64");
+// PNG válido de 1x1 px para las fotos de servicios
+const JPEG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==","base64");
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const root = path.join(REPO, "apps", APP, "dist");
 const srv = http.createServer((q,r)=>{ let f=path.join(root, q.url.split("?")[0]); if(!fs.existsSync(f)||fs.statSync(f).isDirectory()) f=path.join(root,"index.html");
@@ -32,7 +33,7 @@ const tables={profiles:[{phone:"55501234"}],provider_profiles:[providerRow],serv
 const rpcs={luni_my_client_providers:[{provider_id:P,business_name:"Denise Nails",slug:"denisse-nails",bio:"Spa de uñas en La Habana Vieja",relationship_id:"r1",linked_at:new Date().toISOString()}],luni_available_days:days,luni_available_slots:slots,luni_provider_appointments_with_contacts:appts,luni_provider_clients:[{client_id:"c1",display_name:"Camila Pérez",phone:"55501234",linked_at:day(-30,0),appointment_count:4,last_appointment_at:day(-3,11)},{client_id:"c2",display_name:"Marta León",phone:"55509876",linked_at:day(-10,0),appointment_count:1,last_appointment_at:null}],luni_create_provider_invite:[{token:"LUNI-7K2P-9QXD"}]};
 
 let results=[]; const check=(name,ok)=>{ results.push(ok); console.log((ok?"PASS ":"FAIL ")+name); };
-const ctl={offline:false,delay:0,expired:false,noActive:false,rejectWrites:false,writes:[]};
+const ctl={offline:false,delay:0,expired:false,noActive:false,rejectWrites:false,writes:[],uploads:[]};
 const bro = await puppeteer.launch({ args: chromium.args, executablePath: await chromium.executablePath(), headless: "shell" });
 async function boot(expired=false){
   const p = await bro.newPage(); await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true });
@@ -55,11 +56,15 @@ async function boot(expired=false){
       if(r.method()==="POST"){ rows.push({is_active:true,...body}); return json(r,[{id:body.id}],201); }
       return json(r,[]);
     }
-    if(u.pathname.startsWith("/storage/")) return r.respond({status:200,contentType:"image/jpeg",headers:{"access-control-allow-origin":"*"},body:JPEG});
+    if(u.pathname.startsWith("/storage/")){
+      if(r.method()==="GET") return r.respond({status:200,contentType:"image/png",headers:{"access-control-allow-origin":"*"},body:JPEG});
+      if(r.method()==="POST") ctl.uploads.push(u.pathname);
+      return json(r,{Key:u.pathname.replace("/storage/v1/object/","")});
+    }
     if(u.pathname.startsWith("/auth/v1/user")) return json(r,user);
     if(u.pathname.startsWith("/auth/v1/")) return json(r,{...session,expires_at:Math.floor(Date.now()/1000)+36000});
     if(u.pathname.startsWith("/rest/v1/rpc/")){ const n=u.pathname.split("/").pop(); return json(r,rpcs[n]??[]); }
-    if(u.pathname.startsWith("/rest/v1/")){ const t=u.pathname.split("/").pop(); let rows=tables[t]??[]; if(ctl.noActive&&t==="appointments") rows=rows.filter(a=>["completed","rejected"].includes(a.status)); const single=(r.headers().accept||"").includes("pgrst.object"); return json(r, single?(rows[0]??null):rows); }
+    if(u.pathname.startsWith("/rest/v1/")){ const t=u.pathname.split("/").pop(); let rows=tables[t]??[]; if(ctl.noActive&&t==="appointments") rows=rows.filter(a=>["completed","rejected"].includes(a.status)); if((u.searchParams.get("id")||"").startsWith("eq.")) rows=rows.filter(x=>x.id===u.searchParams.get("id").slice(3)); const single=(r.headers().accept||"").includes("pgrst.object"); return json(r, single?(rows[0]??null):rows); }
     json(r,{});
   });
   if(process.env.DEBUG){ p.on("console",m=>{ if(["error","warning"].includes(m.type())) console.log("[console."+m.type()+"]",m.text().slice(0,200)); }); p.on("pageerror",e=>console.log("[pageerror]",e.message.slice(0,200))); }
@@ -179,6 +184,45 @@ if(APP==="client"){
   ctl.rejectWrites=false;
 }
 await p.close();
+}
+
+
+// 6c) fotos: las ya vistas se ven sin conexión; añadir una foto sin conexión queda en cola
+{
+  ctl.delay=0; ctl.offline=false; ctl.rejectWrites=false;
+  const clickX=(p,label)=>p.evaluate(l=>{ const el=[...document.querySelectorAll("button")].find(e=>e.innerText&&e.innerText.trim().toLowerCase()===l.toLowerCase()); if(el){el.click();return true} return false },label);
+  const scrollAll=p=>p.evaluate(async()=>{ for(let y=0;y<document.body.scrollHeight+400;y+=350){ window.scrollTo(0,y); await new Promise(r=>setTimeout(r,160)); } window.scrollTo(0,0); });
+  const wrote=(table,re)=>ctl.writes.some(w=>w.table===table&&re.test(JSON.stringify(w.body)));
+  const photos=p=>p.evaluate(()=>[...document.querySelectorAll("img.service-photo")].map(i=>({blob:i.src.startsWith("blob:"),ok:i.complete&&i.naturalWidth>0})));
+  const p = await boot(); await open(p);
+  await click(p,"Servicios"); await wait(800); await scrollAll(p); await wait(1200);
+  const before=(await photos(p)).length;
+  ctl.offline=true; await p.reload({waitUntil:"networkidle0"}).catch(()=>{}); await wait(2500);
+  await click(p,"Servicios"); await wait(800); await scrollAll(p); await wait(1000);
+  const after=await photos(p);
+  check(`sin red: las fotos de servicios ya vistas se siguen mostrando desde el teléfono (${after.length} de ${before})`,before>0&&after.length===before&&after.every(x=>x.blob&&x.ok));
+  if(APP==="provider"){
+    // añadir una foto sin conexión
+    const jpeg=await p.evaluate(()=>{ const c=document.createElement("canvas"); c.width=1200; c.height=800; const x=c.getContext("2d"); x.fillStyle="#d88"; x.fillRect(0,0,1200,800); x.fillStyle="#fff"; x.fillRect(150,120,400,300); return c.toDataURL("image/jpeg",0.92); });
+    const file=path.join(REPO,"scripts/e2e-offline","foto-prueba.jpg"); fs.writeFileSync(file,Buffer.from(jpeg.split(",")[1],"base64"));
+    ctl.writes.length=0; ctl.uploads.length=0;
+    await click(p,"Servicios"); await wait(500); await clickX(p,"Editar"); await wait(600);
+    const input=await p.$(".provider-modal input[type=file]"); await input.uploadFile(file);
+    let ready=false; for(let i=0;i<20&&!ready;i++){ await wait(400); ready=/Lista para subir/.test(await text(p)); }
+    await clickX(p,"Guardar servicio"); await wait(2000);
+    t=await text(p);
+    const local=(await photos(p)).filter(x=>x.blob&&x.ok).length;
+    check("manicurista sin red: la foto nueva queda en cola, se ve ya en pantalla y avisa 'sin enviar'",ready&&/Guardado en este teléfono, con su foto/.test(t)&&/cambios? sin enviar/.test(t)&&local>=1);
+    await p.reload({waitUntil:"networkidle0"}).catch(()=>{}); await wait(2500); await click(p,"Servicios"); await wait(1000);
+    t=await text(p);
+    check("manicurista: tras recargar sin red la foto pendiente sigue visible",/cambios? sin enviar/.test(t)&&(await photos(p)).some(x=>x.blob&&x.ok));
+    ctl.offline=false; await p.evaluate(()=>window.dispatchEvent(new Event("online")));
+    let sent=false; for(let i=0;i<20&&!sent;i++){ await wait(500); t=await text(p); sent=ctl.uploads.length>=2&&wrote("services",/card_path/)&&!/sin enviar/.test(t); }
+    if(process.env.DEBUG){ console.log("[SEND] uploads:",JSON.stringify(ctl.uploads),"| writes:",JSON.stringify(ctl.writes.map(w=>w.method+" "+w.table+" "+JSON.stringify(w.body).slice(0,90)))); console.log("[SEND] texto:",t.replace(/\n+/g," | ").slice(0,300)); }
+    check(`manicurista: al volver la red se suben miniatura y foto y se enlazan al servicio (${ctl.uploads.length} archivos)`,sent);
+    try{ fs.unlinkSync(file); }catch{}
+  }
+  await p.close();
 }
 
 // 7) cerrar sesión borra la copia

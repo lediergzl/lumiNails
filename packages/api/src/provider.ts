@@ -1,6 +1,6 @@
 import { getSupabaseClient } from "./client";
 import { isNetworkError, registerOutboxHandler, withOfflineCache, writeOrQueue } from "./offline";
-import { clearServiceImage } from "./serviceImages";
+import { clearServiceImageRemote } from "./serviceImages";
 
 export type ProviderProfile = {
   id: string;
@@ -159,7 +159,7 @@ export async function saveProviderService(input: ServiceInput): Promise<{ id: st
 
 /** Borrado lógico: las citas existentes conservan nombre y precio en su propia copia. */
 async function deleteProviderServiceRemote(providerId: string, serviceId: string): Promise<void> {
-  await clearServiceImage(providerId, serviceId).catch(() => undefined); // liberar espacio; si falla, el borrado sigue
+  await clearServiceImageRemote(providerId, serviceId).catch(() => undefined); // liberar espacio; si falla, el borrado sigue
   const { data, error } = await getSupabaseClient()
     .from("services")
     .update({ is_active: false, deleted_at: new Date().toISOString() })
