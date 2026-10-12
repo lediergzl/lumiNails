@@ -8,6 +8,11 @@ export type CreateAppointmentInput = {
   startsAt: string;
   idempotencyKey: string;
   notes?: string;
+  /** Optional local metadata used only to render a queued offline request. */
+  serviceName?: string;
+  priceCents?: number;
+  currency?: string;
+  durationMinutes?: number;
 };
 
 export type RemoteAppointment = {
