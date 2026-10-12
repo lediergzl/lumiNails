@@ -499,3 +499,42 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .offline-conflicts{background:#f8e6e3;color:#7b3a35;font-size:13px;padding:10px 16px;border-bottom:1px solid #eccac6}
 .offline-conflicts p{margin:0 0 6px}
 .offline-conflicts button{background:none;border:1px solid currentColor;color:inherit;padding:6px 14px;font-size:12px;cursor:pointer}
+
+
+/* ---- Mezclador de colores Luni ---- */
+.color-mixer{padding-bottom:28px}
+.color-mixer .color-mixer-grid{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:18px;align-items:start;margin-top:18px}
+.color-mixer .color-mixer-card{background:#fffdfb;border:1px solid #eadfdc;border-radius:18px;padding:20px;min-width:0}
+.color-mixer .color-mixer-card h2{font-size:18px;margin:0 0 16px;color:#4b3c3d}
+.color-mixer .color-mixer-card p{color:#786a69;font-size:13px;line-height:1.55}
+.color-mixer .color-mixer-card label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#6b5959;margin:12px 0}
+.color-mixer .color-mixer-card input:not([type=color]){min-width:0;width:100%;box-sizing:border-box;border:1px solid #dfd0ce;border-radius:10px;padding:10px 11px;background:#fff;color:#443638}
+.color-mixer .color-mixer-card input[type=color]{width:48px;height:42px;border:1px solid #dfd0ce;border-radius:10px;background:#fff;padding:3px}
+.color-mixer .color-hex{text-align:center;font-weight:700;letter-spacing:.7px;color:#594749}
+.color-mixer .mixer-polish-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0e8e6}
+.color-mixer .polish-dot{width:28px;height:28px;flex:0 0 28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #e2d5d2}
+.color-mixer .polish-dot.large{width:38px;height:38px;flex-basis:38px}
+.color-mixer .polish-meta{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.color-mixer .polish-meta b{font-size:13px;overflow-wrap:anywhere}
+.color-mixer .polish-meta small,.color-mixer .muted-small{font-size:11px;color:#887978}
+.color-mixer .mixer-polish-row input[type=number]{width:74px;flex:0 0 74px}
+.color-mixer .mixer-inventory-form{display:grid;grid-template-columns:minmax(120px,1fr) 65px 110px auto;gap:10px;align-items:end}
+.color-mixer .mixer-inventory-form label{min-width:0}
+.color-mixer .mixer-inventory-form .provider-primary{white-space:nowrap;margin-bottom:12px}
+.color-mixer .target-color-row{display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0}
+.color-mixer .target-color-row span{font-weight:700;font-size:13px}
+.color-mixer .target-color-row input[type=color]{width:58px;height:48px}
+.color-mixer .suggested-recipe{padding:14px 0;border-bottom:1px solid #eee4e1}
+.color-mixer .suggested-recipe-head{display:flex;align-items:center;gap:12px}
+.color-mixer .suggested-recipe-head div{display:flex;flex-direction:column;gap:4px}
+.color-mixer .suggested-recipe-head small{font-size:12px;color:#7e6d6c}
+.color-mixer .suggested-recipe ul,.color-mixer .saved-recipe ul{font-size:13px;line-height:1.7;color:#5f5050;padding-left:20px}
+.color-mixer .saved-recipe{display:flex;align-items:center;gap:18px;padding:14px 0;border-bottom:1px solid #eee4e1}
+.color-mixer .saved-recipe>svg{flex:0 0 90px;width:90px}
+.color-mixer .saved-recipe-content{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.color-mixer .saved-recipe-content .color-hex{text-align:left;margin:0}
+.color-mixer .stock-label{width:78px;margin:0!important}
+.color-mixer .stock-label input{padding:7px!important}
+.color-mixer .form-notice{background:#f8f0e8;border:1px solid #eddfd2;color:#725846;border-radius:10px;padding:10px 13px;font-size:13px}
+.color-mixer .provider-primary:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:760px){.color-mixer .color-mixer-grid{grid-template-columns:minmax(0,1fr)}.color-mixer .mixer-inventory-form{grid-template-columns:minmax(0,1fr) 64px}.color-mixer .mixer-inventory-form label:first-child{grid-column:1/-1}.color-mixer .mixer-inventory-form .provider-primary{margin-bottom:12px}.color-mixer .saved-recipe{gap:8px}.color-mixer .saved-recipe>svg{flex-basis:75px;width:75px}}
