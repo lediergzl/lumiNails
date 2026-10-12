@@ -122,8 +122,8 @@ export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (he
     setPuntoEsmalte(null);
     setPuntoBlanco(best?.point ?? null);
     setDeteccionAutomatica(Boolean(best && best.score > 0.5));
-    dibujarFoto(data, false);
     setPaso("referencia");
+    requestAnimationFrame(() => dibujarFoto(data, false));
     setError(best && best.score > 0.5
       ? "Detectamos una posible zona blanca. Confirma el punto sobre el fondo blanco."
       : "No encontramos un blanco fiable automáticamente. Toca una zona blanca de la foto.");
