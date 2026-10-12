@@ -16,6 +16,7 @@ export type ProviderProfile = {
   license_expires_at: string | null;
   license_status: "trial" | "active" | "grace" | "expired" | "suspended";
   is_published: boolean;
+  auto_confirm_appointments: boolean;
   timezone: string;
 };
 
@@ -55,7 +56,7 @@ async function getMyProviderProfileRemote(): Promise<ProviderProfile | null> {
   if (!user) return null;
   const { data, error } = await getSupabaseClient()
     .from("provider_profiles")
-    .select("id,user_id,slug,business_name,bio,business_phone,business_location,avatar_path,brand_icon,trial_started_at,license_expires_at,license_status,is_published,timezone")
+    .select("id,user_id,slug,business_name,bio,business_phone,business_location,avatar_path,brand_icon,trial_started_at,license_expires_at,license_status,is_published,auto_confirm_appointments,timezone")
     .eq("user_id", user.id)
     .is("deleted_at", null)
     .maybeSingle();
