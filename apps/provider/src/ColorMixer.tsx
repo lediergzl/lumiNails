@@ -121,6 +121,34 @@ export default function ColorMixer() {
   const manualHex = manualItems.length ? mixColors(manualItems.map(x => ({ hex: x.esmalte.hex, porcentaje: x.porcentaje }))) : target;
   const totalManual = manualItems.reduce((s, x) => s + x.porcentaje, 0);
 
+  const readTargetPhoto = (file?: File) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 32; canvas.height = 32;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) throw new Error("No se pudo leer la foto.");
+        context.drawImage(image, 0, 0, 32, 32);
+        const pixels = context.getImageData(0, 0, 32, 32).data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i + 3] < 32) continue;
+          r += pixels[i]; g += pixels[i + 1]; b += pixels[i + 2]; count++;
+        }
+        if (!count) throw new Error("La foto no contiene píxeles válidos.");
+        setTarget(rgbHex({ r: r / count, g: g / count, b: b / count }));
+        setMessage("Color aproximado extraído de la foto. La iluminación puede cambiar el resultado.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "No se pudo extraer el color.");
+      } finally { URL.revokeObjectURL(url); }
+    };
+    image.onerror = () => { URL.revokeObjectURL(url); setMessage("No se pudo abrir esa foto."); };
+    image.src = url;
+  };
+
   const searchRecipes = async () => {
     if (active.length < 2) { setMessage("Añade al menos dos esmaltes con cantidad disponible."); return; }
     setWorking(true); setMessage("Buscando combinaciones en el inventario…"); setResult([]);
@@ -191,7 +219,7 @@ export default function ColorMixer() {
       </article>
     </div>}
     {tab === "buscar" && <div className="color-mixer-grid">
-      <article className="provider-card color-mixer-card"><h2>Color que quieres conseguir</h2><div className="target-color-row"><input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>setTarget(e.target.value.toUpperCase())}/><span>{target}</span></div><NailPreview hex={target}/><button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Calculando…":"Buscar las 3 mejores recetas"}</button><p className="muted-small">Solo se consideran los 15 esmaltes disponibles más cercanos al objetivo; cada fórmula combina 2 o 3 colores en proporciones de 10 %.</p></article>
+      <article className="provider-card color-mixer-card"><h2>Color que quieres conseguir</h2><div className="target-color-row"><input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>setTarget(e.target.value.toUpperCase())}/><span>{target}</span></div><label className="target-photo-label">O extraer un color de una foto<input type="file" accept="image/*" capture="environment" aria-label="Elegir foto para extraer color" onChange={e=>readTargetPhoto(e.target.files?.[0])}/></label><NailPreview hex={target}/><button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Calculando…":"Buscar las 3 mejores recetas"}</button><p className="muted-small">Solo se consideran los 15 esmaltes disponibles más cercanos al objetivo; cada fórmula combina 2 o 3 colores en proporciones de 10 %.</p></article>
       <article className="provider-card color-mixer-card"><h2>Recetas sugeridas</h2>{result.length===0&&!working&&<p>Selecciona un color y busca una combinación.</p>}{result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+x.porcentaje).join("-")}><div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1} · {item.hex}</b><small>ΔE00 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div><ul>{item.ingredientes.map(x=><li key={x.esmalteId}>{x.nombre}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>saveRecipe(item,`Opción ${i+1}`)}>Guardar esta receta</button></div>)}</article>
     </div>}
     {tab === "inventario" && <div className="provider-card color-mixer-card"><h2>Inventario de esmaltes</h2><p>El inventario se guarda en este dispositivo y está disponible sin conexión.</p><form className="mixer-inventory-form" onSubmit={e=>{e.preventDefault();if(!name.trim()||Number(ml)<0)return;persistInventory([...inventory,{id:uid(),nombre:name.trim(),hex:newHex.toUpperCase(),ml:Number(ml)}]);setName("");setMl("10");setMessage("Esmalte añadido al inventario.");}}><label>Nombre<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Rojo cereza"/></label><label>Color<input type="color" value={newHex} onChange={e=>setNewHex(e.target.value.toUpperCase())}/></label><label>Cantidad (ml)<input type="number" min="0" step=".1" required value={ml} onChange={e=>setMl(e.target.value)}/></label><button className="provider-primary" type="submit">Añadir esmalte</button></form>
