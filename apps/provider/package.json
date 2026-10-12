@@ -10,7 +10,8 @@
     "android:debug": "npm run build && npm run cap:sync && node ../../scripts/gradle.mjs assembleDebug",
     "android:release": "npm run build && npm run cap:sync && node ../../scripts/gradle.mjs assembleRelease",
     "cap:add": "npx cap add android && npm run assets:android",
-    "assets:android": "npx @capacitor/assets generate --android"
+    "assets:android": "npx @capacitor/assets generate --android",
+    "test:recipes": "node --experimental-strip-types --test tests/BuscadorRecetas.test.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^7.0.3",
