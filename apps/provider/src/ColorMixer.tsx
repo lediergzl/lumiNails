@@ -161,7 +161,11 @@ export default function ColorMixer() {
     if (!activeInMix.length) return [] as Array<{ id: string; cantidad: number; exacta: number }>;
     const exactas = activeInMix.map(item => ({ id: item.esmalte.id, exacta: item.porcentaje / 100 * totalGotas }));
     const cantidades = exactas.map(item => Math.round(item.exacta));
-    cantidades[cantidades.length - 1] += totalGotas - cantidades.reduce((sum, amount) => sum + amount, 0);
+    const diff = totalGotas - cantidades.reduce((sum, amount) => sum + amount, 0);
+    if (diff !== 0) {
+      const idx = activeInMix.reduce((best, item, index, all) => item.porcentaje > all[best].porcentaje ? index : best, 0);
+      cantidades[idx] = Math.max(0, cantidades[idx] + diff);
+    }
     return exactas.map((item, index) => ({ id: item.id, exacta: item.exacta, cantidad: cantidades[index] }));
   }, [activeInMix, totalGotas]);
   const gotasPorId = (id: string) => gotasPorEsmalte.find(item => item.id === id);
