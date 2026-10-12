@@ -48,6 +48,7 @@ export type ProviderAppointment = {
   cancellation_reason?: string;
   client_display_name?: string;
   client_phone?: string | null;
+  payment_received?: boolean;
 };
 
 async function getMyProviderProfileRemote(): Promise<ProviderProfile | null> {
