@@ -18,6 +18,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Test inverse recipe search
+        run: npm --workspace @lumi/provider run test:recipes
       - name: Build both apps
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
