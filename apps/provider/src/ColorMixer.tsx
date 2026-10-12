@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { crearBuscadorRecetas } from "./BuscadorRecetas";
 
 type Esmalte = { id: string; nombre: string; hex: string; ml: number };
 type Ingrediente = { esmalteId: string; nombre: string; hex: string; porcentaje: number; ml: number };
@@ -104,6 +105,7 @@ export default function ColorMixer() {
   const [inventory, setInventory] = useState<Esmalte[]>(() => readStore<Esmalte>(INVENTORY_KEY));
   const [recipes, setRecipes] = useState<Receta[]>(() => readStore<Receta>(RECIPES_KEY));
   const [target, setTarget] = useState("#3C8D56");
+  const [targetHexInput, setTargetHexInput] = useState("#3C8D56");
   const [name, setName] = useState("");
   const [newHex, setNewHex] = useState("#D8799B");
   const [ml, setMl] = useState("10");
@@ -189,6 +191,7 @@ export default function ColorMixer() {
         const confidence = rejected / (reds.length + rejected) > 0.45 ? "Baja: muchos reflejos o sombras" : rejected / (reds.length + rejected) > 0.2 ? "Media: revisa la iluminación" : "Buena: zona relativamente uniforme";
         setPhotoSample({ hex, confidence, pixels: reds.length });
         setTarget(hex);
+        setTargetHexInput(hex);
         setMessage("Color calculado con la mediana de los píxeles útiles de la zona seleccionada.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "No se pudo extraer el color.");
@@ -213,47 +216,42 @@ export default function ColorMixer() {
     setPhotoSample(null);
   };
 
+  const buscarRecetasEnInventario = useMemo(
+    () => crearBuscadorRecetas({ mezclar: mixColors, hexToLab, deltaE2000 }),
+    []
+  );
+
   const searchRecipes = async () => {
-    if (active.length < 2) { setMessage("Añade al menos dos esmaltes con cantidad disponible."); return; }
-    setWorking(true); setMessage("Buscando combinaciones en el inventario…"); setResult([]);
-    // El cálculo se divide en bloques para mantener la interfaz interactiva en móviles.
-    await new Promise<void>(resolve => setTimeout(resolve, 20));
-    const targetLab = hexToLab(target);
-    const nearest = active.map(e => ({ e, d: deltaE2000(hexToLab(e.hex), targetLab) })).sort((a, b) => a.d - b.d).slice(0, 15).map(x => x.e);
-    const candidates: Array<{ hex: string; deltaE: number; ingredientes: Ingrediente[] }> = [];
-    const evaluate = (chosen: Esmalte[], portions: number[]) => {
-      const hex = mixColors(chosen.map((e, i) => ({ hex: e.hex, porcentaje: portions[i] })));
-      const deltaE = deltaE2000(hexToLab(hex), targetLab);
-      const ingredientes = chosen.map((e, i) => ({ esmalteId: e.id, nombre: e.nombre, hex: e.hex, porcentaje: portions[i], ml: Number((portions[i] / 100).toFixed(2)) }));
-      candidates.push({ hex, deltaE, ingredientes });
-    };
-    let count = 0;
-    const portions = (n: number): number[][] => {
-      const rows: number[][] = [];
-      const visit = (left: number, prefix: number[]) => {
-        if (prefix.length === n - 1) { if (left >= 10 && left <= 90 && left % 10 === 0) rows.push([...prefix, left]); return; }
-        for (let v = 10; v <= left - 10 * (n - prefix.length - 1); v += 10) visit(left - v, [...prefix, v]);
-      };
-      visit(100, []); return rows;
-    };
-    const p2 = portions(2), p3 = portions(3);
-    for (let i = 0; i < nearest.length; i++) for (let j = i + 1; j < nearest.length; j++) {
-      for (const p of p2) evaluate([nearest[i], nearest[j]], p);
-      for (let k = j + 1; k < nearest.length; k++) for (const p of p3) evaluate([nearest[i], nearest[j], nearest[k]], p);
-      count++;
-      if (count % 12 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0));
+    if (active.length < 2) {
+      setResult([]);
+      setMessage("Necesitás al menos 2 esmaltes en tu inventario para buscar recetas.");
+      return;
     }
-    candidates.sort((a, b) => a.deltaE - b.deltaE);
-    const unique: typeof candidates = [];
-    const seen = new Set<string>();
-    for (const candidate of candidates) {
-      const key = candidate.ingredientes.map(x => x.esmalteId + ":" + x.porcentaje).join("|");
-      if (!seen.has(key)) { seen.add(key); unique.push(candidate); }
-      if (unique.length === 3) break;
+    setWorking(true);
+    setMessage("Buscando recetas en tu inventario…");
+    setResult([]);
+    try {
+      const sugeridas = await buscarRecetasEnInventario(target, inventory, 3);
+      setResult(sugeridas.map(receta => ({
+        hex: receta.hexResultante,
+        deltaE: receta.deltaE,
+        ingredientes: receta.ingredientes.map(item => ({
+          esmalteId: item.esmalteId,
+          nombre: item.nombre,
+          hex: item.hex,
+          porcentaje: item.porcentaje,
+          ml: Number((item.porcentaje / 100).toFixed(2))
+        }))
+      })));
+      setMessage(sugeridas.length
+        ? "Estas son las mejores recetas encontradas con tu inventario."
+        : "No hay combinaciones posibles con los esmaltes disponibles.");
+    } catch (error) {
+      setResult([]);
+      setMessage(error instanceof Error ? error.message : "No se pudo completar la búsqueda.");
+    } finally {
+      setWorking(false);
     }
-    setResult(unique);
-    setWorking(false);
-    setMessage(unique.length ? "Mejores recetas encontradas para tu inventario." : "No hay combinaciones posibles.");
   };
 
   const saveRecipe = (item: { hex: string; deltaE: number; ingredientes: Ingrediente[] }, label = recipeName) => {
@@ -261,7 +259,7 @@ export default function ColorMixer() {
     persistRecipes([recipe, ...recipes]);
     setMessage("Receta guardada en este dispositivo.");
   };
-  const status = (d: number) => d < 1 ? "Idéntico" : d < 3 ? "Muy parecido" : d < 6 ? "Aceptable" : "Diferencia visible";
+  const status = (d: number) => d < 2 ? "Idéntico" : d < 5 ? "Muy parecido" : d < 10 ? "Aceptable" : "Lejos";
 
   return <section className="workspace color-mixer">
     <div className="welcome-row"><div><span className="eyebrow">COLORIMETRÍA PARA TU ESTUDIO</span><h1>Mezclador <em>de colores.</em></h1><p>Prueba mezclas, encuentra una receta cercana y guarda tus fórmulas sin conexión.</p></div></div>
@@ -283,10 +281,41 @@ export default function ColorMixer() {
       </article>
     </div>}
     {tab === "buscar" && <div className="color-mixer-grid">
-      <article className="provider-card color-mixer-card"><h2>Color que quieres conseguir</h2><div className="target-color-row"><input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>setTarget(e.target.value.toUpperCase())}/><span>{target}</span></div><label className="target-photo-label">Analizar una foto del esmalte<input type="file" accept="image/*" capture="environment" aria-label="Elegir foto para analizar el color" onChange={e=>readTargetPhoto(e.target.files?.[0])}/></label>
-      {photoUrl && <div className="color-photo-tool"><p><b>{photoName}</b> · Toca el centro de la superficie de esmalte; evita el fondo de la foto.</p><div className="color-photo-canvas"><img src={photoUrl} alt="Foto para seleccionar el color" onClick={choosePhotoPoint} /><span className="color-photo-crosshair" style={{left:`${photoDisplayPoint.x*100}%`,top:`${photoDisplayPoint.y*100}%`,width:`${sampleSize}%`}} aria-hidden="true"><i/></span></div><label>Área de muestreo <b>{sampleSize}%</b><input type="range" min="6" max="36" step="2" value={sampleSize} onChange={e=>{setSampleSize(Number(e.target.value));setPhotoSample(null);}}/></label><button className="provider-secondary" onClick={samplePhotoRegion}>Analizar zona seleccionada</button>{photoSample && <div className="color-photo-result"><span className="polish-dot large" style={{background:photoSample.hex}}/><div><b>{photoSample.hex}</b><small>{photoSample.pixels} píxeles útiles · Confianza: {photoSample.confidence}</small></div><button className="provider-secondary" onClick={()=>setTarget(photoSample.hex)}>Usar este color</button></div>}</div>}
-      <NailPreview hex={target}/><p className="muted-small">El muestreo por mediana reduce el impacto de píxeles extremos, pero no puede corregir por completo la iluminación ni el balance de blancos de la cámara.</p><button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Calculando…":"Buscar las 3 mejores recetas"}</button><p className="muted-small">Solo se consideran los 15 esmaltes disponibles más cercanos al objetivo; cada fórmula combina 2 o 3 colores en proporciones de 10 %.</p></article>
-      <article className="provider-card color-mixer-card"><h2>Recetas sugeridas</h2>{result.length===0&&!working&&<p>Selecciona un color y busca una combinación.</p>}{result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+x.porcentaje).join("-")}><div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1} · {item.hex}</b><small>ΔE00 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div><ul>{item.ingredientes.map(x=><li key={x.esmalteId}>{x.nombre}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>saveRecipe(item,`Opción ${i+1}`)}>Guardar esta receta</button></div>)}</article>
+      <article className="provider-card color-mixer-card"><h2>Color objetivo</h2>
+        <div className="target-color-row">
+          <input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>{setTarget(e.target.value.toUpperCase());setTargetHexInput(e.target.value.toUpperCase());}}/>
+          <span>{target}</span>
+        </div>
+        <label className="target-hex-field">Código HEX
+          <input aria-label="Código HEX del color objetivo" value={targetHexInput} placeholder="#F07835" maxLength={7}
+            onChange={e=>{const value=e.target.value.toUpperCase();setTargetHexInput(value);const normalized=value.startsWith("#")?value:"#"+value;if(/^#[0-9A-F]{6}$/.test(normalized)){setTarget(normalized);}}}
+            onBlur={()=>{const value=targetHexInput.trim().toUpperCase();const normalized=value.startsWith("#")?value:"#"+value;if(/^#[0-9A-F]{6}$/.test(normalized)){setTarget(normalized);setTargetHexInput(normalized);}else{setTargetHexInput(target);}}}/>
+        </label>
+        <div className="target-palette" aria-label="Paleta de colores predefinidos">
+          {[
+            ["Rojo","#C83E4D"],["Naranja","#F07835"],["Amarillo","#F2C94C"],["Verde","#3C8D56"],
+            ["Turquesa","#36A6A0"],["Azul","#356AC3"],["Violeta","#8055A5"],["Morado","#6B3FA0"],
+            ["Rosa","#D8799B"],["Fucsia","#C43B82"],["Marrón","#8B5E3C"],["Blanco","#F4F0E8"]
+          ].map(([nombre,hex])=><button type="button" key={hex} className={target===hex?"target-palette-color selected":"target-palette-color"} aria-label={`Elegir ${nombre} ${hex}`} title={`${nombre} · ${hex}`} onClick={()=>{setTarget(hex);setTargetHexInput(hex);}}>
+            <span style={{background:hex}}/><small>{nombre}</small>
+          </button>)}
+        </div>
+        <NailPreview hex={target}/>
+        <p className="muted-small">Se comparan los colores en CIELAB con ΔE2000. La búsqueda usa hasta 15 esmaltes disponibles y prueba mezclas de 2 o 3 colores con proporciones en pasos del 10 %.</p>
+        {active.length<2 && <p className="form-notice" role="status">Necesitás al menos 2 esmaltes en tu inventario para buscar recetas.</p>}
+        <button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Buscando recetas…":"Buscar recetas en mi inventario"}</button>
+      </article>
+      <article className="provider-card color-mixer-card"><h2>Recetas sugeridas</h2>
+        {working && <div className="recipe-search-loading" role="status"><span className="recipe-spinner" aria-hidden="true"/><p>Comparando combinaciones de tu inventario…</p></div>}
+        {!working && result.length===0 && <p>Elige un color objetivo y pulsa «Buscar recetas en mi inventario».</p>}
+        {result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+":"+x.porcentaje).join("-")}>
+          <div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1}</b><small>{item.hex} · ΔE2000 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div>
+          <div className="recipe-ingredients">{item.ingredientes.map(x=><div className="recipe-ingredient" key={x.esmalteId}>
+            <span className="polish-dot" style={{background:x.hex}}/><span><b>{x.nombre}</b><small>{x.hex}</small></span><strong>{x.porcentaje}%</strong>
+          </div>)}</div>
+          <button className="provider-primary" onClick={()=>{setManual(item.ingredientes.map(x=>({id:x.esmalteId,porcentaje:x.porcentaje})));setTab("mezclar");setMessage("Receta precargada en el mezclador. Puedes ajustarla antes de guardarla.");}}>Usar esta receta</button>
+        </div>)}
+      </article>
     </div>}
     {tab === "inventario" && <div className="provider-card color-mixer-card"><h2>Inventario de esmaltes</h2><p>El inventario se guarda en este dispositivo y está disponible sin conexión.</p><form className="mixer-inventory-form" onSubmit={e=>{e.preventDefault();if(!name.trim()||Number(ml)<0)return;persistInventory([...inventory,{id:uid(),nombre:name.trim(),hex:newHex.toUpperCase(),ml:Number(ml)}]);setName("");setMl("10");setMessage("Esmalte añadido al inventario.");}}><label>Nombre<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Rojo cereza"/></label><label>Color<input type="color" value={newHex} onChange={e=>setNewHex(e.target.value.toUpperCase())}/></label><label>Cantidad (ml)<input type="number" min="0" step=".1" required value={ml} onChange={e=>setMl(e.target.value)}/></label><button className="provider-primary" type="submit">Añadir esmalte</button></form>
       {inventory.length===0?<p>Aún no has añadido esmaltes.</p>:<div className="mixer-inventory-list">{inventory.map(e=><div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{e.nombre}</b><small>{e.hex} · {e.ml} ml</small></div><label className="stock-label">ml<input aria-label={`Cantidad de ${e.nombre}`} type="number" min="0" step=".1" value={e.ml} onChange={ev=>persistInventory(inventory.map(x=>x.id===e.id?{...x,ml:Math.max(0,Number(ev.target.value))}:x))}/></label><button className="provider-secondary" onClick={()=>persistInventory(inventory.filter(x=>x.id!==e.id))}>Eliminar</button></div>)}</div>}
