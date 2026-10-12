@@ -1,0 +1,202 @@
+import { useMemo, useState } from "react";
+
+type Esmalte = { id: string; nombre: string; hex: string; ml: number };
+type Ingrediente = { esmalteId: string; nombre: string; hex: string; porcentaje: number; ml: number };
+type Receta = { id: string; nombre: string; hex: string; deltaE: number; ingredientes: Ingrediente[]; creada: string };
+type Lab = { L: number; a: number; b: number };
+type Rgb = { r: number; g: number; b: number };
+
+const INVENTORY_KEY = "luni.colorMixer.inventory.v1";
+const RECIPES_KEY = "luni.colorMixer.recipes.v1";
+const uid = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const clamp = (n: number, min = 0, max = 1) => Math.min(max, Math.max(min, n));
+const toHex = (n: number) => Math.round(clamp(n, 0, 255)).toString(16).padStart(2, "0").toUpperCase();
+function parseHex(hex: string): Rgb {
+  const value = hex.replace("#", "").trim();
+  const full = value.length === 3 ? value.split("").map(c => c + c).join("") : value;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return { r: 255, g: 255, b: 255 };
+  return { r: parseInt(full.slice(0, 2), 16), g: parseInt(full.slice(2, 4), 16), b: parseInt(full.slice(4, 6), 16) };
+}
+const rgbHex = (c: Rgb) => "#" + toHex(c.r) + toHex(c.g) + toHex(c.b);
+function rgbToRyb(input: Rgb) {
+  let { r, g, b } = { r: input.r / 255, g: input.g / 255, b: input.b / 255 };
+  const white = Math.min(r, g, b); r -= white; g -= white; b -= white;
+  const maxG = Math.max(r, g, b);
+  let y = Math.min(r, g); r -= y; g -= y;
+  if (b > 0 && g > 0) { b *= 0.5; g *= 0.5; }
+  y += g; b += g;
+  const maxY = Math.max(r, y, b);
+  if (maxY > 0) { const n = maxG / maxY; r *= n; y *= n; b *= n; }
+  r += white; y += white; b += white;
+  return { r: clamp(r), y: clamp(y), b: clamp(b) };
+}
+function rybToRgb(input: { r: number; y: number; b: number }): Rgb {
+  let { r, y, b } = input;
+  const white = Math.min(r, y, b); r -= white; y -= white; b -= white;
+  const maxY = Math.max(r, y, b);
+  let g = Math.min(y, b); y -= g; b -= g;
+  if (b > 0 && g > 0) { b *= 2; g *= 2; }
+  r += y; g += y;
+  const maxG = Math.max(r, g, b);
+  if (maxG > 0) { const n = maxY / maxG; r *= n; g *= n; b *= n; }
+  r += white; g += white; b += white;
+  return { r: clamp(r) * 255, g: clamp(g) * 255, b: clamp(b) * 255 };
+}
+function mixColors(items: Array<{ hex: string; porcentaje: number }>): string {
+  const total = items.reduce((s, x) => s + x.porcentaje, 0) || 1;
+  const rybs = items.map(x => ({ c: rgbToRyb(parseHex(x.hex)), w: x.porcentaje / total }));
+  const mixed = rybs.reduce((acc, item) => ({
+    r: acc.r + item.c.r * item.w, y: acc.y + item.c.y * item.w, b: acc.b + item.c.b * item.w
+  }), { r: 0, y: 0, b: 0 });
+  // Un esmalte al 100 % debe conservar exactamente su código de color.
+  if (items.length === 1) return items[0].hex.toUpperCase();
+  return rgbHex(rybToRgb(mixed));
+}
+function hexToLab(hex: string): Lab {
+  const c = parseHex(hex);
+  const linear = (v: number) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const r = linear(c.r), g = linear(c.g), b = linear(c.b);
+  const x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
+  const y = (r * 0.2126729 + g * 0.7151522 + b * 0.0721750);
+  const z = (r * 0.0193339 + g * 0.1191920 + b * 0.9503041) / 1.08883;
+  const f = (v: number) => v > 216 / 24389 ? Math.cbrt(v) : (24389 / 27 * v + 16) / 116;
+  const fx = f(x), fy = f(y), fz = f(z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+function deltaE2000(lab1: Lab, lab2: Lab): number {
+  const rad = Math.PI / 180, deg = (v: number) => v / rad;
+  const C1 = Math.hypot(lab1.a, lab1.b), C2 = Math.hypot(lab2.a, lab2.b), Cbar = (C1 + C2) / 2;
+  const G = 0.5 * (1 - Math.sqrt(Math.pow(Cbar, 7) / (Math.pow(Cbar, 7) + Math.pow(25, 7))));
+  const a1p = (1 + G) * lab1.a, a2p = (1 + G) * lab2.a;
+  const C1p = Math.hypot(a1p, lab1.b), C2p = Math.hypot(a2p, lab2.b);
+  const hp = (a: number, b: number) => { const h = deg(Math.atan2(b, a)); return (h + 360) % 360; };
+  const h1p = C1p < 1e-7 ? 0 : hp(a1p, lab1.b), h2p = C2p < 1e-7 ? 0 : hp(a2p, lab2.b);
+  const dLp = lab2.L - lab1.L, dCp = C2p - C1p;
+  let dhp = 0;
+  if (C1p * C2p >= 1e-7) { const d = h2p - h1p; dhp = Math.abs(d) <= 180 ? d : d > 180 ? d - 360 : d + 360; }
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(dhp * rad / 2);
+  const Lbar = (lab1.L + lab2.L) / 2, Cpbar = (C1p + C2p) / 2;
+  let hbar = h1p + h2p;
+  if (C1p * C2p < 1e-7) hbar = h1p + h2p;
+  else if (Math.abs(h1p - h2p) <= 180) hbar /= 2;
+  else hbar = (hbar + (hbar < 360 ? 360 : -360)) / 2;
+  const T = 1 - 0.17 * Math.cos((hbar - 30) * rad) + 0.24 * Math.cos(2 * hbar * rad) + 0.32 * Math.cos((3 * hbar + 6) * rad) - 0.20 * Math.cos((4 * hbar - 63) * rad);
+  const dTheta = 30 * Math.exp(-Math.pow((hbar - 275) / 25, 2));
+  const Rc = 2 * Math.sqrt(Math.pow(Cpbar, 7) / (Math.pow(Cpbar, 7) + Math.pow(25, 7)));
+  const Sl = 1 + 0.015 * Math.pow(Lbar - 50, 2) / Math.sqrt(20 + Math.pow(Lbar - 50, 2));
+  const Sc = 1 + 0.045 * Cpbar, Sh = 1 + 0.015 * Cpbar * T;
+  const Rt = -Math.sin(2 * dTheta * rad) * Rc;
+  return Math.sqrt(Math.pow(dLp / Sl, 2) + Math.pow(dCp / Sc, 2) + Math.pow(dHp / Sh, 2) + Rt * (dCp / Sc) * (dHp / Sh));
+}
+function readStore<T>(key: string): T[] {
+  try { const value = JSON.parse(localStorage.getItem(key) ?? "[]"); return Array.isArray(value) ? value : []; } catch { return []; }
+}
+function NailPreview({ hex }: { hex: string }) {
+  return <svg viewBox="0 0 150 180" role="img" aria-label={`Vista previa de uña ${hex}`} style={{ width: 110, maxWidth: "100%", display: "block", margin: "0 auto" }}>
+    <defs><linearGradient id="nailGloss" x1="0" x2="1"><stop offset="0" stopColor="#ffffff" stopOpacity=".25"/><stop offset=".4" stopColor="#ffffff" stopOpacity="0"/><stop offset="1" stopColor="#ffffff" stopOpacity=".18"/></linearGradient></defs>
+    <path d="M48 165 C37 150 27 126 28 91 C29 58 38 19 75 12 C112 19 121 58 122 91 C123 126 113 150 102 165 C89 177 61 177 48 165Z" fill="#f5d8ca" stroke="#d9b8a9" strokeWidth="2"/>
+    <path d="M43 156 C34 139 35 113 36 86 C38 52 47 26 75 21 C103 26 112 52 114 86 C115 113 116 139 107 156 C94 171 56 171 43 156Z" fill={hex} stroke="#ffffff" strokeOpacity=".65" strokeWidth="2"/>
+    <path d="M43 58 C48 36 58 27 69 25 C57 49 53 78 53 108 C53 126 55 143 61 160 C48 153 42 137 41 116 C39 93 39 74 43 58Z" fill="url(#nailGloss)"/>
+  </svg>;
+}
+
+export default function ColorMixer() {
+  const [inventory, setInventory] = useState<Esmalte[]>(() => readStore<Esmalte>(INVENTORY_KEY));
+  const [recipes, setRecipes] = useState<Receta[]>(() => readStore<Receta>(RECIPES_KEY));
+  const [target, setTarget] = useState("#3C8D56");
+  const [name, setName] = useState("");
+  const [newHex, setNewHex] = useState("#D8799B");
+  const [ml, setMl] = useState("10");
+  const [tab, setTab] = useState<"mezclar" | "buscar" | "inventario" | "recetas">("mezclar");
+  const [result, setResult] = useState<Array<{ hex: string; deltaE: number; ingredientes: Ingrediente[] }>>([]);
+  const [working, setWorking] = useState(false);
+  const [message, setMessage] = useState("");
+  const [recipeName, setRecipeName] = useState("Mi mezcla");
+  const [manual, setManual] = useState<Array<{ id: string; porcentaje: number }>>([]);
+
+  const active = useMemo(() => inventory.filter(e => e.ml > 0), [inventory]);
+  const persistInventory = (next: Esmalte[]) => { setInventory(next); localStorage.setItem(INVENTORY_KEY, JSON.stringify(next)); };
+  const persistRecipes = (next: Receta[]) => { setRecipes(next); localStorage.setItem(RECIPES_KEY, JSON.stringify(next)); };
+  const manualItems = manual.map(item => ({ esmalte: inventory.find(e => e.id === item.id), porcentaje: item.porcentaje })).filter((x): x is { esmalte: Esmalte; porcentaje: number } => Boolean(x.esmalte));
+  const manualHex = manualItems.length ? mixColors(manualItems.map(x => ({ hex: x.esmalte.hex, porcentaje: x.porcentaje }))) : target;
+  const totalManual = manualItems.reduce((s, x) => s + x.porcentaje, 0);
+
+  const searchRecipes = async () => {
+    if (active.length < 2) { setMessage("Añade al menos dos esmaltes con cantidad disponible."); return; }
+    setWorking(true); setMessage("Buscando combinaciones en el inventario…"); setResult([]);
+    // El cálculo se divide en bloques para mantener la interfaz interactiva en móviles.
+    await new Promise<void>(resolve => setTimeout(resolve, 20));
+    const targetLab = hexToLab(target);
+    const nearest = active.map(e => ({ e, d: deltaE2000(hexToLab(e.hex), targetLab) })).sort((a, b) => a.d - b.d).slice(0, 15).map(x => x.e);
+    const candidates: Array<{ hex: string; deltaE: number; ingredientes: Ingrediente[] }> = [];
+    const evaluate = (chosen: Esmalte[], portions: number[]) => {
+      const hex = mixColors(chosen.map((e, i) => ({ hex: e.hex, porcentaje: portions[i] })));
+      const deltaE = deltaE2000(hexToLab(hex), targetLab);
+      const ingredientes = chosen.map((e, i) => ({ esmalteId: e.id, nombre: e.nombre, hex: e.hex, porcentaje: portions[i], ml: Number((portions[i] / 100).toFixed(2)) }));
+      candidates.push({ hex, deltaE, ingredientes });
+    };
+    let count = 0;
+    const portions = (n: number): number[][] => {
+      const rows: number[][] = [];
+      const visit = (left: number, prefix: number[]) => {
+        if (prefix.length === n - 1) { if (left >= 10 && left <= 90 && left % 10 === 0) rows.push([...prefix, left]); return; }
+        for (let v = 10; v <= left - 10 * (n - prefix.length - 1); v += 10) visit(left - v, [...prefix, v]);
+      };
+      visit(100, []); return rows;
+    };
+    const p2 = portions(2), p3 = portions(3);
+    for (let i = 0; i < nearest.length; i++) for (let j = i + 1; j < nearest.length; j++) {
+      for (const p of p2) evaluate([nearest[i], nearest[j]], p);
+      for (let k = j + 1; k < nearest.length; k++) for (const p of p3) evaluate([nearest[i], nearest[j], nearest[k]], p);
+      count++;
+      if (count % 12 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0));
+    }
+    candidates.sort((a, b) => a.deltaE - b.deltaE);
+    const unique: typeof candidates = [];
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      const key = candidate.ingredientes.map(x => x.esmalteId + ":" + x.porcentaje).join("|");
+      if (!seen.has(key)) { seen.add(key); unique.push(candidate); }
+      if (unique.length === 3) break;
+    }
+    setResult(unique);
+    setWorking(false);
+    setMessage(unique.length ? "Mejores recetas encontradas para tu inventario." : "No hay combinaciones posibles.");
+  };
+
+  const saveRecipe = (item: { hex: string; deltaE: number; ingredientes: Ingrediente[] }, label = recipeName) => {
+    const recipe: Receta = { id: uid(), nombre: label.trim() || "Mi mezcla", hex: item.hex, deltaE: item.deltaE, ingredientes: item.ingredientes, creada: new Date().toISOString() };
+    persistRecipes([recipe, ...recipes]);
+    setMessage("Receta guardada en este dispositivo.");
+  };
+  const status = (d: number) => d < 1 ? "Idéntico" : d < 3 ? "Muy parecido" : d < 6 ? "Aceptable" : "Diferencia visible";
+
+  return <section className="workspace color-mixer">
+    <div className="welcome-row"><div><span className="eyebrow">COLORIMETRÍA PARA TU ESTUDIO</span><h1>Mezclador <em>de colores.</em></h1><p>Prueba mezclas, encuentra una receta cercana y guarda tus fórmulas sin conexión.</p></div></div>
+    <div className="section-tabs" role="tablist" aria-label="Herramientas de color">
+      {([["mezclar","Mezclar"],["buscar","Buscar color"],["inventario","Mis esmaltes"],["recetas","Recetas guardadas"]] as const).map(([id,label]) => <button key={id} role="tab" aria-selected={tab===id} className={tab===id?"selected":""} onClick={()=>setTab(id)}>{label}</button>)}
+    </div>
+    {message && <p className="form-notice" role="status">{message}</p>}
+    {tab === "mezclar" && <div className="color-mixer-grid">
+      <article className="provider-card color-mixer-card"><h2>Vista previa</h2><NailPreview hex={manualHex}/><p className="color-hex">{manualHex}</p><label>Nombre de la receta<input value={recipeName} onChange={e=>setRecipeName(e.target.value)} /></label>
+        <p className="muted-small">Suma de proporciones: {totalManual}%</p>
+        <button className="provider-primary" disabled={!manualItems.length || totalManual !== 100} onClick={()=>saveRecipe({hex:manualHex,deltaE:deltaE2000(hexToLab(manualHex),hexToLab(target)),ingredientes:manualItems.map(x=>({esmalteId:x.esmalte.id,nombre:x.esmalte.nombre,hex:x.esmalte.hex,porcentaje:x.porcentaje,ml:Number((x.porcentaje/100).toFixed(2))}))})}>Guardar receta</button>
+      </article>
+      <article className="provider-card color-mixer-card"><h2>Selecciona esmaltes</h2>
+        {active.length===0 ? <p>Aún no hay esmaltes disponibles. Añádelos en “Mis esmaltes”.</p> : active.map(e => {
+          const chosen = manual.find(m=>m.id===e.id);
+          return <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{e.nombre}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={chosen?.porcentaje ?? 0} onChange={ev=>{const n=Number(ev.target.value);setManual(prev=>n<=0?prev.filter(x=>x.id!==e.id):[...prev.filter(x=>x.id!==e.id),{id:e.id,porcentaje:Math.min(100,Math.max(0,n))}]);}} /></div>;
+        })}
+        <p className="muted-small">Introduce proporciones en incrementos de 10 %. La suma debe ser 100 % para guardar.</p>
+      </article>
+    </div>}
+    {tab === "buscar" && <div className="color-mixer-grid">
+      <article className="provider-card color-mixer-card"><h2>Color que quieres conseguir</h2><div className="target-color-row"><input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>setTarget(e.target.value.toUpperCase()}/><span>{target}</span></div><NailPreview hex={target}/><button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Calculando…":"Buscar las 3 mejores recetas"}</button><p className="muted-small">Solo se consideran los 15 esmaltes disponibles más cercanos al objetivo; cada fórmula combina 2 o 3 colores en proporciones de 10 %.</p></article>
+      <article className="provider-card color-mixer-card"><h2>Recetas sugeridas</h2>{result.length===0&&!working&&<p>Selecciona un color y busca una combinación.</p>}{result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+x.porcentaje).join("-")}><div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1} · {item.hex}</b><small>ΔE00 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div><ul>{item.ingredientes.map(x=><li key={x.esmalteId}>{x.nombre}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>saveRecipe(item,`Opción ${i+1}`)}>Guardar esta receta</button></div>)}</article>
+    </div>}
+    {tab === "inventario" && <div className="provider-card color-mixer-card"><h2>Inventario de esmaltes</h2><p>El inventario se guarda en este dispositivo y está disponible sin conexión.</p><form className="mixer-inventory-form" onSubmit={e=>{e.preventDefault();if(!name.trim()||Number(ml)<0)return;persistInventory([...inventory,{id:uid(),nombre:name.trim(),hex:newHex.toUpperCase(),ml:Number(ml)}]);setName("");setMl("10");setMessage("Esmalte añadido al inventario.");}}><label>Nombre<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Rojo cereza"/></label><label>Color<input type="color" value={newHex} onChange={e=>setNewHex(e.target.value.toUpperCase())}/></label><label>Cantidad (ml)<input type="number" min="0" step=".1" required value={ml} onChange={e=>setMl(e.target.value)}/></label><button className="provider-primary" type="submit">Añadir esmalte</button></form>
+      {inventory.length===0?<p>Aún no has añadido esmaltes.</p>:<div className="mixer-inventory-list">{inventory.map(e=><div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{e.nombre}</b><small>{e.hex} · {e.ml} ml</small></div><label className="stock-label">ml<input aria-label={`Cantidad de ${e.nombre}`} type="number" min="0" step=".1" value={e.ml} onChange={ev=>persistInventory(inventory.map(x=>x.id===e.id?{...x,ml:Math.max(0,Number(ev.target.value))}:x))}/></label><button className="provider-secondary" onClick={()=>persistInventory(inventory.filter(x=>x.id!==e.id))}>Eliminar</button></div>)}</div>}
+    </div>}
+    {tab === "recetas" && <div className="provider-card color-mixer-card"><h2>Mis recetas guardadas</h2>{recipes.length===0?<p>Aún no has guardado recetas.</p>:recipes.map(recipe=><article className="saved-recipe" key={recipe.id}><NailPreview hex={recipe.hex}/><div className="saved-recipe-content"><b>{recipe.nombre}</b><span className="color-hex">{recipe.hex}</span><small>ΔE00 {recipe.deltaE.toFixed(2)} · {status(recipe.deltaE)}</small><ul>{recipe.ingredientes.map((x,i)=><li key={x.esmalteId+i}>{x.nombre}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>persistRecipes(recipes.filter(x=>x.id!==recipe.id))}>Eliminar receta</button></div></article>)}</div>}
+  </section>;
+}
