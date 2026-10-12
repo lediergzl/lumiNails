@@ -116,6 +116,7 @@ export default function ColorMixer() {
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoName, setPhotoName] = useState("");
   const [photoPoint, setPhotoPoint] = useState({ x: 0.5, y: 0.5 });
+  const [photoDisplayPoint, setPhotoDisplayPoint] = useState({ x: 0.5, y: 0.5 });
   const [sampleSize, setSampleSize] = useState(18);
   const [photoSample, setPhotoSample] = useState<{ hex: string; confidence: string; pixels: number } | null>(null);
 
@@ -136,6 +137,7 @@ export default function ColorMixer() {
       setPhotoUrl(reader.result);
       setPhotoName(file.name);
       setPhotoPoint({ x: 0.5, y: 0.5 });
+      setPhotoDisplayPoint({ x: 0.5, y: 0.5 });
       setPhotoSample(null);
       setMessage("Toca el centro del esmalte en la foto para seleccionar la zona que quieres analizar.");
     };
@@ -168,6 +170,10 @@ export default function ColorMixer() {
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i], g = data[i + 1], b = data[i + 2], alpha = data[i + 3];
           if (alpha < 200) { rejected++; continue; }
+          // La máscara circular mantiene el muestreo dentro del área elegida, no en las esquinas.
+          const px = x0 + (i / 4) % (x1 - x0);
+          const py = y0 + Math.floor((i / 4) / (x1 - x0));
+          if (Math.pow((px - cx) / radius, 2) + Math.pow((py - cy) / radius, 2) > 1) { rejected++; continue; }
           const max = Math.max(r, g, b), min = Math.min(r, g, b);
           // Excluye reflejos casi blancos y sombras casi negras que sesgan el color del esmalte.
           if ((min > 232 && max - min < 28) || max < 18) { rejected++; continue; }
@@ -194,10 +200,16 @@ export default function ColorMixer() {
 
   const choosePhotoPoint = (event: React.MouseEvent<HTMLImageElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    setPhotoPoint({
-      x: clamp((event.clientX - rect.left) / rect.width),
-      y: clamp((event.clientY - rect.top) / rect.height)
-    });
+    const imageX = clamp((event.clientX - rect.left) / rect.width);
+    const imageY = clamp((event.clientY - rect.top) / rect.height);
+    const canvas = event.currentTarget.parentElement;
+    const canvasRect = canvas?.getBoundingClientRect();
+    setPhotoPoint({ x: imageX, y: imageY });
+    // Coordenadas de la marca visual respecto al contenedor, aunque la foto tenga márgenes laterales.
+    setPhotoDisplayPoint(canvasRect ? {
+      x: clamp((event.clientX - canvasRect.left) / canvasRect.width),
+      y: clamp((event.clientY - canvasRect.top) / canvasRect.height)
+    } : { x: imageX, y: imageY });
     setPhotoSample(null);
   };
 
@@ -272,7 +284,7 @@ export default function ColorMixer() {
     </div>}
     {tab === "buscar" && <div className="color-mixer-grid">
       <article className="provider-card color-mixer-card"><h2>Color que quieres conseguir</h2><div className="target-color-row"><input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>setTarget(e.target.value.toUpperCase())}/><span>{target}</span></div><label className="target-photo-label">Analizar una foto del esmalte<input type="file" accept="image/*" capture="environment" aria-label="Elegir foto para analizar el color" onChange={e=>readTargetPhoto(e.target.files?.[0])}/></label>
-      {photoUrl && <div className="color-photo-tool"><p><b>{photoName}</b> · Toca el centro de la superficie de esmalte; evita el fondo de la foto.</p><div className="color-photo-canvas"><img src={photoUrl} alt="Foto para seleccionar el color" onClick={choosePhotoPoint} /><span className="color-photo-crosshair" style={{left:`${photoPoint.x*100}%`,top:`${photoPoint.y*100}%`}} aria-hidden="true"><i/></span></div><label>Área de muestreo <b>{sampleSize}%</b><input type="range" min="6" max="36" step="2" value={sampleSize} onChange={e=>{setSampleSize(Number(e.target.value));setPhotoSample(null);}}/></label><button className="provider-secondary" onClick={samplePhotoRegion}>Analizar zona seleccionada</button>{photoSample && <div className="color-photo-result"><span className="polish-dot large" style={{background:photoSample.hex}}/><div><b>{photoSample.hex}</b><small>{photoSample.pixels} píxeles útiles · Confianza: {photoSample.confidence}</small></div><button className="provider-secondary" onClick={()=>setTarget(photoSample.hex)}>Usar este color</button></div>}</div>}
+      {photoUrl && <div className="color-photo-tool"><p><b>{photoName}</b> · Toca el centro de la superficie de esmalte; evita el fondo de la foto.</p><div className="color-photo-canvas"><img src={photoUrl} alt="Foto para seleccionar el color" onClick={choosePhotoPoint} /><span className="color-photo-crosshair" style={{left:`${photoDisplayPoint.x*100}%`,top:`${photoDisplayPoint.y*100}%`,width:`${sampleSize}%`,height:`${sampleSize}%`}} aria-hidden="true"><i/></span></div><label>Área de muestreo <b>{sampleSize}%</b><input type="range" min="6" max="36" step="2" value={sampleSize} onChange={e=>{setSampleSize(Number(e.target.value));setPhotoSample(null);}}/></label><button className="provider-secondary" onClick={samplePhotoRegion}>Analizar zona seleccionada</button>{photoSample && <div className="color-photo-result"><span className="polish-dot large" style={{background:photoSample.hex}}/><div><b>{photoSample.hex}</b><small>{photoSample.pixels} píxeles útiles · Confianza: {photoSample.confidence}</small></div><button className="provider-secondary" onClick={()=>setTarget(photoSample.hex)}>Usar este color</button></div>}</div>}
       <NailPreview hex={target}/><p className="muted-small">El muestreo por mediana reduce el impacto de píxeles extremos, pero no puede corregir por completo la iluminación ni el balance de blancos de la cámara.</p><button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Calculando…":"Buscar las 3 mejores recetas"}</button><p className="muted-small">Solo se consideran los 15 esmaltes disponibles más cercanos al objetivo; cada fórmula combina 2 o 3 colores en proporciones de 10 %.</p></article>
       <article className="provider-card color-mixer-card"><h2>Recetas sugeridas</h2>{result.length===0&&!working&&<p>Selecciona un color y busca una combinación.</p>}{result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+x.porcentaje).join("-")}><div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1} · {item.hex}</b><small>ΔE00 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div><ul>{item.ingredientes.map(x=><li key={x.esmalteId}>{x.nombre}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>saveRecipe(item,`Opción ${i+1}`)}>Guardar esta receta</button></div>)}</article>
     </div>}
