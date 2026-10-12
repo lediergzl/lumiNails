@@ -3,7 +3,7 @@ import { crearBuscadorRecetas } from "./BuscadorRecetas";
 
 type Esmalte = { id: string; nombre: string; hex: string; ml: number };
 type Ingrediente = { esmalteId: string; nombre: string; hex: string; porcentaje: number; ml: number };
-type Receta = { id: string; nombre: string; hex: string; deltaE: number; objetivoHex?: string | null; ingredientes: Ingrediente[]; creada: string };
+type Receta = { id: string; nombre: string; hex: string; deltaE: number; objetivoHex?: string | null; totalGotas?: number; ingredientes: Ingrediente[]; creada: string };
 type Lab = { L: number; a: number; b: number };
 type Rgb = { r: number; g: number; b: number };
 
@@ -133,6 +133,8 @@ export default function ColorMixer() {
   const [recipeName, setRecipeName] = useState("Mi mezcla");
   const [manual, setManual] = useState<Array<{ id: string; porcentaje: number }>>([]);
   const [showAddPolish, setShowAddPolish] = useState(false);
+  const [volumenGotas, setVolumenGotas] = useState<"4" | "12" | "20" | "custom">("12");
+  const [gotasPersonalizadas, setGotasPersonalizadas] = useState("12");
   // Solo se establece al cargar una receta desde el buscador inverso. Las mezclas libres conservan null.
   const [manualObjetivoHex, setManualObjetivoHex] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState("");
@@ -150,6 +152,15 @@ export default function ColorMixer() {
   const availableToAdd = active.filter(esmalte => !manual.some(item => item.id === esmalte.id));
   const manualHex = manualItems.length ? mixColors(manualItems.map(x => ({ hex: x.esmalte.hex, porcentaje: x.porcentaje }))) : target;
   const totalManual = manualItems.reduce((s, x) => s + x.porcentaje, 0);
+  const totalGotas = volumenGotas === "custom" ? Math.max(1, Math.min(10000, Math.floor(Number(gotasPersonalizadas) || 1))) : Number(volumenGotas);
+  const gotasPorEsmalte = useMemo(() => {
+    if (!activeInMix.length) return [] as Array<{ id: string; cantidad: number; exacta: number }>;
+    const exactas = activeInMix.map(item => ({ id: item.esmalte.id, exacta: item.porcentaje / 100 * totalGotas }));
+    const cantidades = exactas.map(item => Math.round(item.exacta));
+    cantidades[cantidades.length - 1] += totalGotas - cantidades.reduce((sum, amount) => sum + amount, 0);
+    return exactas.map((item, index) => ({ id: item.id, exacta: item.exacta, cantidad: cantidades[index] }));
+  }, [activeInMix, totalGotas]);
+  const gotasPorId = (id: string) => gotasPorEsmalte.find(item => item.id === id);
 
   const readTargetPhoto = (file?: File) => {
     if (!file) return;
@@ -285,6 +296,7 @@ export default function ColorMixer() {
       hex: item.hex,
       deltaE,
       objetivoHex: objetivoHex ?? null,
+      totalGotas,
       ingredientes: item.ingredientes,
       creada: new Date().toISOString()
     };
@@ -373,7 +385,7 @@ export default function ColorMixer() {
       </article>
       <article className="provider-card color-mixer-card"><h2>Selecciona esmaltes</h2>
         {activeInMix.map(({ esmalte: e, porcentaje }) =>
-          <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={porcentaje} onChange={ev=>updateManualPercentage(e, ev.target.value)} /><button type="button" className="provider-secondary" aria-label={`Quitar ${capitalizar(e.nombre)} de la mezcla`} onClick={()=>{setManual(prev=>prev.filter(item=>item.id!==e.id));setRecipeName(prev=>prev.split(" + ").filter(name=>name.toLocaleLowerCase("es")!==e.nombre.toLocaleLowerCase("es")).join(" + ") || "Mi mezcla");}}>Quitar</button></div>
+          <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.ml} ml disponibles · {e.hex}</small><small className="drop-count">{(gotasPorId(e.id)?.cantidad ?? 0) <= 20 ? "●".repeat(Math.max(0, gotasPorId(e.id)?.cantidad ?? 0)) : "● ×" + gotasPorId(e.id)?.cantidad}</small><small>{gotasPorId(e.id)?.cantidad ?? 0} gotas</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={porcentaje} onChange={ev=>updateManualPercentage(e, ev.target.value)} /><button type="button" className="provider-secondary" aria-label={`Quitar ${capitalizar(e.nombre)} de la mezcla`} onClick={()=>{setManual(prev=>prev.filter(item=>item.id!==e.id));setRecipeName(prev=>prev.split(" + ").filter(name=>name.toLocaleLowerCase("es")!==e.nombre.toLocaleLowerCase("es")).join(" + ") || "Mi mezcla");}}>Quitar</button></div>
         )}
         <div className="mixer-add-polish">
           <button type="button" className="provider-secondary" disabled={availableToAdd.length===0} onClick={()=>setShowAddPolish(value=>!value)}>+ Agregar esmalte</button>
@@ -387,6 +399,18 @@ export default function ColorMixer() {
           </div>}
           {activeInMix.length===0 && <p className="muted-small">No hay esmaltes activos. Agrega uno para comenzar la mezcla.</p>}
         </div>
+        <section className="mix-volume-section" aria-labelledby="mix-volume-heading">
+          <h3 id="mix-volume-heading">¿Cuánto preparar?</h3>
+          <div className="mix-volume-segmented" role="group" aria-label="Volumen de la mezcla">
+            <button type="button" aria-pressed={volumenGotas==="4"} className={volumenGotas==="4"?"selected":""} onClick={()=>setVolumenGotas("4")}>Uña sola <small>4 gotas</small></button>
+            <button type="button" aria-pressed={volumenGotas==="12"} className={volumenGotas==="12"?"selected":""} onClick={()=>setVolumenGotas("12")}>Mano completa <small>12 gotas</small></button>
+            <button type="button" aria-pressed={volumenGotas==="20"} className={volumenGotas==="20"?"selected":""} onClick={()=>setVolumenGotas("20")}>Dos manos <small>20 gotas</small></button>
+            <button type="button" aria-pressed={volumenGotas==="custom"} className={volumenGotas==="custom"?"selected":""} onClick={()=>setVolumenGotas("custom")}>Personalizado</button>
+          </div>
+          {volumenGotas==="custom" && <label className="custom-drops-label">Gotas totales<input type="number" min="1" max="10000" step="1" value={gotasPersonalizadas} onChange={event=>setGotasPersonalizadas(event.target.value)} /></label>}
+          <p className="muted-small">Total: <strong>{totalGotas} gotas</strong>. Las cantidades se redondean y el ajuste final garantiza que sumen exactamente el total.</p>
+          {activeInMix.filter(item=>(item.porcentaje/100*totalGotas)<1).map(item=><p className="drop-warning" role="alert" key={item.esmalte.id}>⚠️ {capitalizar(item.esmalte.nombre)} queda en menos de 1 gota. El resultado puede no coincidir con la vista previa. Probá con una mezcla más grande.</p>)}
+        </section>
         <p className="muted-small">Introduce proporciones en incrementos de 10 %. La suma debe ser 100 % para guardar.</p>
       </article>
     </div>}
@@ -433,6 +457,6 @@ export default function ColorMixer() {
     {tab === "inventario" && <div className="provider-card color-mixer-card"><h2>Inventario de esmaltes</h2><p>El inventario se guarda en este dispositivo y está disponible sin conexión.</p><form className="mixer-inventory-form" onSubmit={e=>{e.preventDefault();if(!name.trim()||Number(ml)<0)return;persistInventory([...inventory,{id:uid(),nombre:name.trim(),hex:newHex.toUpperCase(),ml:Number(ml)}]);setName("");setMl("10");setMessage("Esmalte añadido al inventario.");}}><label>Nombre<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Rojo cereza"/></label><label>Color<input type="color" value={newHex} onChange={e=>setNewHex(e.target.value.toUpperCase())}/></label><label>Cantidad (ml)<input type="number" min="0" step=".1" required value={ml} onChange={e=>setMl(e.target.value)}/></label><button className="provider-primary" type="submit">Añadir esmalte</button></form>
       {inventory.length===0?<p>Aún no has añadido esmaltes.</p>:<div className="mixer-inventory-list">{inventory.map(e=><div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.hex} · {e.ml} ml</small></div><label className="stock-label">ml<input aria-label={`Cantidad de ${e.nombre}`} type="number" min="0" step=".1" value={e.ml} onChange={ev=>persistInventory(inventory.map(x=>x.id===e.id?{...x,ml:Math.max(0,Number(ev.target.value))}:x))}/></label><button className="provider-secondary" onClick={()=>persistInventory(inventory.filter(x=>x.id!==e.id))}>Eliminar</button></div>)}</div>}
     </div>}
-    {tab === "recetas" && <div className="provider-card color-mixer-card"><h2>Mis recetas guardadas</h2>{recipes.length===0?<p>Aún no has guardado recetas.</p>:recipes.map(recipe=><article className="saved-recipe" key={recipe.id}><NailPreview hex={recipe.hex}/><div className="saved-recipe-content"><b>{recipe.nombre}</b><span className="color-hex">{recipe.hex}</span>{recipe.objetivoHex && <><div className="saved-recipe-comparison" aria-label="Comparación entre color objetivo y resultado"><div><span className="saved-recipe-color-dot" style={{background:recipe.objetivoHex}}/><small>Objetivo</small><code>{recipe.objetivoHex}</code></div><span className="saved-recipe-compare-arrow" aria-hidden="true">→</span><div><span className="saved-recipe-color-dot" style={{background:recipe.hex}}/><small>Resultado</small><code>{recipe.hex}</code></div></div><small>ΔE00 {recipe.deltaE.toFixed(2)} · {status(recipe.deltaE)}</small></>}<ul>{recipe.ingredientes.map((x,i)=><li key={x.esmalteId+i}>{capitalizar(x.nombre)}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>persistRecipes(recipes.filter(x=>x.id!==recipe.id))}>Eliminar receta</button></div></article>)}</div>}
+    {tab === "recetas" && <div className="provider-card color-mixer-card"><h2>Mis recetas guardadas</h2>{recipes.length===0?<p>Aún no has guardado recetas.</p>:recipes.map(recipe=><article className="saved-recipe" key={recipe.id}><NailPreview hex={recipe.hex}/><div className="saved-recipe-content"><b>{recipe.nombre}</b><span className="color-hex">{recipe.hex}</span>{recipe.objetivoHex && <><div className="saved-recipe-comparison" aria-label="Comparación entre color objetivo y resultado"><div><span className="saved-recipe-color-dot" style={{background:recipe.objetivoHex}}/><small>Objetivo</small><code>{recipe.objetivoHex}</code></div><span className="saved-recipe-compare-arrow" aria-hidden="true">→</span><div><span className="saved-recipe-color-dot" style={{background:recipe.hex}}/><small>Resultado</small><code>{recipe.hex}</code></div></div><small>ΔE00 {recipe.deltaE.toFixed(2)} · {status(recipe.deltaE)}</small></>}<p className="saved-recipe-drops">Receta para {recipe.totalGotas ?? 12} gotas</p><ul>{recipe.ingredientes.map((x,i)=><li key={x.esmalteId+i}>{capitalizar(x.nombre)}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>persistRecipes(recipes.filter(x=>x.id!==recipe.id))}>Eliminar receta</button></div></article>)}</div>}
   </section>;
 }
