@@ -73,7 +73,7 @@ export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (he
     }
   };
 
-  const dibujarFoto = (data: ImageData, corregir: boolean) => {
+  const dibujarFoto = (data: ImageData, corregir: boolean, balance: RGB = factores) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d", { willReadFrequently: true });
     if (!canvas || !ctx) return;
@@ -82,9 +82,9 @@ export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (he
     const copia = new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
     if (corregir) {
       for (let i = 0; i < copia.data.length; i += 4) {
-        copia.data[i] = limitar(copia.data[i] * factores.r);
-        copia.data[i + 1] = limitar(copia.data[i + 1] * factores.g);
-        copia.data[i + 2] = limitar(copia.data[i + 2] * factores.b);
+        copia.data[i] = limitar(copia.data[i] * balance.r);
+        copia.data[i + 1] = limitar(copia.data[i + 1] * balance.g);
+        copia.data[i + 2] = limitar(copia.data[i + 2] * balance.b);
       }
     }
     ctx.putImageData(copia, 0, 0);
@@ -151,7 +151,7 @@ export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (he
     setFactores(next);
     setPaso("esmalte");
     setError("Balance de blancos configurado. Ahora toca el centro del esmalte, evitando reflejos.");
-    dibujarFoto(data, true);
+    dibujarFoto(data, true, next);
   };
 
   const elegirEsmalte = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -187,7 +187,7 @@ export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (he
         {puntoBlanco && <span className="color-point-marker white-point" style={{ left: (puntoBlanco.x * 100) + "%", top: (puntoBlanco.y * 100) + "%" }} aria-label="Punto de referencia blanca" />}
         {puntoEsmalte && <span className="color-point-marker polish-point" style={{ left: (puntoEsmalte.x * 100) + "%", top: (puntoEsmalte.y * 100) + "%" }} aria-label="Punto de color seleccionado" />}
       </div>
-      {paso === "referencia" && <button type="button" className="provider-primary" onClick={() => { if (!puntoBlanco || !originalRef.current) { setError("Toca una zona blanca de la foto para continuar."); return; } const data = originalRef.current; const rgb = promedio(data.data, data.width, Math.round(puntoBlanco.x * (data.width - 1)), Math.round(puntoBlanco.y * (data.height - 1)), Math.max(2, Math.round(Math.min(data.width, data.height) / 100))); if (!rgb || (rgb.r + rgb.g + rgb.b) / 3 < 90) { setError("El punto no parece blanco. Selecciona una zona blanca más iluminada."); return; } const next = { r: Math.min(2.5, 245 / Math.max(1, rgb.r)), g: Math.min(2.5, 245 / Math.max(1, rgb.g)), b: Math.min(2.5, 245 / Math.max(1, rgb.b)) }; setFactores(next); setPaso("esmalte"); setError("Balance de blancos configurado. Toca el centro del esmalte, evitando reflejos."); dibujarFoto(data, true); }}>Confirmar blanco y continuar</button>}
+      {paso === "referencia" && <button type="button" className="provider-primary" onClick={() => { if (!puntoBlanco || !originalRef.current) { setError("Toca una zona blanca de la foto para continuar."); return; } const data = originalRef.current; const rgb = promedio(data.data, data.width, Math.round(puntoBlanco.x * (data.width - 1)), Math.round(puntoBlanco.y * (data.height - 1)), Math.max(2, Math.round(Math.min(data.width, data.height) / 100))); if (!rgb || (rgb.r + rgb.g + rgb.b) / 3 < 90) { setError("El punto no parece blanco. Selecciona una zona blanca más iluminada."); return; } const next = { r: Math.min(2.5, 245 / Math.max(1, rgb.r)), g: Math.min(2.5, 245 / Math.max(1, rgb.g)), b: Math.min(2.5, 245 / Math.max(1, rgb.b)) }; setFactores(next); setPaso("esmalte"); setError("Balance de blancos configurado. Toca el centro del esmalte, evitando reflejos."); dibujarFoto(data, true, next); }}>Confirmar blanco y continuar</button>}
       {paso === "esmalte" && <p className="muted-small">Toca el centro del esmalte en la foto corregida. Evita el brillo de la luz y los bordes del frasco.</p>}
       {paso === "resultado" && <div className="captured-color-result"><span className="captured-color-swatch" style={{ background: color }} /><div><strong>{color}</strong><small>Color corregido · {deteccionAutomatica ? "referencia detectada automáticamente" : "referencia seleccionada manualmente"}</small></div></div>}
       <div className="color-capture-actions">
