@@ -625,3 +625,31 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   padding-left: 20px;
   font-weight: 700;
 }
+
+
+.mixer-add-polish {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.mixer-add-polish-picker {
+  padding: 12px;
+  border: 1px solid #f0e2dc;
+  border-radius: 10px;
+  background: #fffdf9;
+}
+.mixer-add-polish-picker label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mixer-add-polish-picker select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #e5d4cc;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+}
