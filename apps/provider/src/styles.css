@@ -736,3 +736,33 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Captura de color desde la cámara: mantiene el lenguaje visual de Luni. */
+.color-capture-card{display:grid;gap:18px;align-content:start}
+.color-capture-heading h2{margin:6px 0 8px}
+.color-capture-heading p,.color-capture-instructions p{color:#76656a;line-height:1.55}
+.color-capture-instructions{display:grid;gap:14px;max-width:620px}
+.white-reference-illustration{position:relative;min-height:190px;border:1px solid #e6ddd6;border-radius:14px;background:linear-gradient(135deg,#fff 0%,#f8f7f2 100%);display:grid;place-items:center;overflow:hidden;color:#b7aaa5}
+.white-reference-illustration span{position:absolute;left:16px;top:14px;font-size:10px;letter-spacing:2px}
+.white-reference-illustration i{display:block;width:94px;height:116px;border-radius:25px 25px 18px 18px;border:2px solid #d9c8c0;background:linear-gradient(90deg,#e5c6bb,#fff0e8 45%,#d6b5a9);box-shadow:0 8px 16px #6f51451a;transform:rotate(-7deg)}
+.white-reference-illustration b{position:absolute;bottom:16px;right:16px;font-size:12px;color:#9b8580}
+.color-camera-preview{position:relative;overflow:hidden;background:#171515;border-radius:14px;min-height:260px;aspect-ratio:4/3;display:grid;place-items:center}
+.color-camera-preview video{width:100%;height:100%;position:absolute;inset:0;object-fit:cover}
+.color-camera-guide{position:absolute;width:54%;height:68%;border:2px dashed #fff;border-radius:14px;box-shadow:0 0 0 999px #0002;pointer-events:none}
+.color-camera-tip{position:absolute;bottom:12px;left:12px;right:12px;text-align:center;background:#211b1bd9;color:#fff;border-radius:9px;padding:10px;font-size:12px;line-height:1.4}
+.color-capture-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.color-capture-actions button{flex:1 1 150px}
+.color-canvas-wrap{position:relative;overflow:hidden;border-radius:12px;border:1px solid #e8ddd7;background:#f7f3ef;line-height:0}
+.color-captured-canvas{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain;cursor:crosshair;touch-action:manipulation}
+.color-captured-canvas.read-only{cursor:default}
+.color-point-marker{position:absolute;width:23px;height:23px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+.white-point{border:2px dashed #fff;box-shadow:0 0 0 1px #514542,0 0 0 5px #ffffff65}
+.polish-point{border:2px solid #fff;box-shadow:0 0 0 2px #a86f75,0 0 0 6px #ffffff66}
+.captured-color-result{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid #eaded8;border-radius:12px;background:#fffaf7}
+.captured-color-swatch{width:72px;height:72px;flex:0 0 72px;border-radius:12px;border:1px solid #00000018;box-shadow:inset 0 0 0 1px #ffffff42}
+.captured-color-result strong,.captured-color-result small{display:block}
+.captured-color-result strong{font-size:20px;letter-spacing:1px}
+.captured-color-result small{margin-top:5px;color:#806f73;line-height:1.4}
+.color-capture-disclaimer{margin-top:4px}
+.color-capture-error{display:grid;gap:12px}
+@media(max-width:520px){.color-camera-preview{min-height:220px}.color-capture-card{padding:16px}.captured-color-swatch{width:58px;height:58px;flex-basis:58px}}
