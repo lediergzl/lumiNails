@@ -11,6 +11,8 @@ const INVENTORY_KEY = "luni.colorMixer.inventory.v1";
 const RECIPES_KEY = "luni.colorMixer.recipes.v1";
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const clamp = (n: number, min = 0, max = 1) => Math.min(max, Math.max(min, n));
+// Solo transforma el texto presentado en pantalla; no modifica los datos guardados.
+const capitalizar = (nombre: string): string => nombre.length ? nombre.charAt(0).toLocaleUpperCase("es") + nombre.slice(1) : nombre;
 const toHex = (n: number) => Math.round(clamp(n, 0, 255)).toString(16).padStart(2, "0").toUpperCase();
 function parseHex(hex: string): Rgb {
   const value = hex.replace("#", "").trim();
@@ -271,6 +273,17 @@ export default function ColorMixer() {
     persistRecipes([recipe, ...recipes]);
     setMessage("Receta guardada en este dispositivo.");
   };
+  const updateManualPercentage = (esmalte: Esmalte, value: string) => {
+    const n = Number(value);
+    const next = n <= 0
+      ? manual.filter(item => item.id !== esmalte.id)
+      : [...manual.filter(item => item.id !== esmalte.id), { id: esmalte.id, porcentaje: Math.min(100, Math.max(0, n)) }];
+    setManual(next);
+    const selectedNames = next
+      .map(item => inventory.find(itemInventory => itemInventory.id === item.id)?.nombre)
+      .filter((itemName): itemName is string => Boolean(itemName));
+    setRecipeName(selectedNames.length ? selectedNames.map(capitalizar).join(" + ") : "Mi mezcla");
+  };
   const status = (d: number) => d < 2 ? "Idéntico" : d < 5 ? "Muy parecido" : d < 10 ? "Aceptable" : "Lejos";
 
   return <section className="workspace color-mixer">
@@ -287,7 +300,7 @@ export default function ColorMixer() {
       <article className="provider-card color-mixer-card"><h2>Selecciona esmaltes</h2>
         {active.length===0 ? <p>Aún no hay esmaltes disponibles. Añádelos en “Mis esmaltes”.</p> : active.map(e => {
           const chosen = manual.find(m=>m.id===e.id);
-          return <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{e.nombre}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={chosen?.porcentaje ?? 0} onChange={ev=>{const n=Number(ev.target.value);setManual(prev=>n<=0?prev.filter(x=>x.id!==e.id):[...prev.filter(x=>x.id!==e.id),{id:e.id,porcentaje:Math.min(100,Math.max(0,n))}]);}} /></div>;
+          return <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={chosen?.porcentaje ?? 0} onChange={ev=>updateManualPercentage(e, ev.target.value)} /></div>;
         })}
         <p className="muted-small">Introduce proporciones en incrementos de 10 %. La suma debe ser 100 % para guardar.</p>
       </article>
@@ -323,15 +336,15 @@ export default function ColorMixer() {
         {result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+":"+x.porcentaje).join("-")}>
           <div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1}</b><small>{item.hex} · ΔE2000 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div>
           <div className="recipe-ingredients">{item.ingredientes.map(x=><div className="recipe-ingredient" key={x.esmalteId}>
-            <span className="polish-dot" style={{background:x.hex}}/><span><b>{x.nombre}</b><small>{x.hex}</small></span><strong>{x.porcentaje}%</strong>
+            <span className="polish-dot" style={{background:x.hex}}/><span><b>{capitalizar(x.nombre)}</b><small>{x.hex}</small></span><strong>{x.porcentaje}%</strong>
           </div>)}</div>
           <button className="provider-primary" onClick={()=>{setManual(item.ingredientes.map(x=>({id:x.esmalteId,porcentaje:x.porcentaje})));setManualObjetivoHex(target);setRecipeName("Receta para "+target);setTab("mezclar");setMessage("Receta precargada en el mezclador. Se conservará el color objetivo al guardarla.");}}>Usar esta receta</button>
         </div>)}
       </article>
     </div>}
     {tab === "inventario" && <div className="provider-card color-mixer-card"><h2>Inventario de esmaltes</h2><p>El inventario se guarda en este dispositivo y está disponible sin conexión.</p><form className="mixer-inventory-form" onSubmit={e=>{e.preventDefault();if(!name.trim()||Number(ml)<0)return;persistInventory([...inventory,{id:uid(),nombre:name.trim(),hex:newHex.toUpperCase(),ml:Number(ml)}]);setName("");setMl("10");setMessage("Esmalte añadido al inventario.");}}><label>Nombre<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Rojo cereza"/></label><label>Color<input type="color" value={newHex} onChange={e=>setNewHex(e.target.value.toUpperCase())}/></label><label>Cantidad (ml)<input type="number" min="0" step=".1" required value={ml} onChange={e=>setMl(e.target.value)}/></label><button className="provider-primary" type="submit">Añadir esmalte</button></form>
-      {inventory.length===0?<p>Aún no has añadido esmaltes.</p>:<div className="mixer-inventory-list">{inventory.map(e=><div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{e.nombre}</b><small>{e.hex} · {e.ml} ml</small></div><label className="stock-label">ml<input aria-label={`Cantidad de ${e.nombre}`} type="number" min="0" step=".1" value={e.ml} onChange={ev=>persistInventory(inventory.map(x=>x.id===e.id?{...x,ml:Math.max(0,Number(ev.target.value))}:x))}/></label><button className="provider-secondary" onClick={()=>persistInventory(inventory.filter(x=>x.id!==e.id))}>Eliminar</button></div>)}</div>}
+      {inventory.length===0?<p>Aún no has añadido esmaltes.</p>:<div className="mixer-inventory-list">{inventory.map(e=><div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.hex} · {e.ml} ml</small></div><label className="stock-label">ml<input aria-label={`Cantidad de ${e.nombre}`} type="number" min="0" step=".1" value={e.ml} onChange={ev=>persistInventory(inventory.map(x=>x.id===e.id?{...x,ml:Math.max(0,Number(ev.target.value))}:x))}/></label><button className="provider-secondary" onClick={()=>persistInventory(inventory.filter(x=>x.id!==e.id))}>Eliminar</button></div>)}</div>}
     </div>}
-    {tab === "recetas" && <div className="provider-card color-mixer-card"><h2>Mis recetas guardadas</h2>{recipes.length===0?<p>Aún no has guardado recetas.</p>:recipes.map(recipe=><article className="saved-recipe" key={recipe.id}><NailPreview hex={recipe.hex}/><div className="saved-recipe-content"><b>{recipe.nombre}</b><span className="color-hex">{recipe.hex}</span>{recipe.objetivoHex && <><div className="saved-recipe-comparison" aria-label="Comparación entre color objetivo y resultado"><div><span className="saved-recipe-color-dot" style={{background:recipe.objetivoHex}}/><small>Objetivo</small><code>{recipe.objetivoHex}</code></div><span className="saved-recipe-compare-arrow" aria-hidden="true">→</span><div><span className="saved-recipe-color-dot" style={{background:recipe.hex}}/><small>Resultado</small><code>{recipe.hex}</code></div></div><small>ΔE00 {recipe.deltaE.toFixed(2)} · {status(recipe.deltaE)}</small></>}<ul>{recipe.ingredientes.map((x,i)=><li key={x.esmalteId+i}>{x.nombre}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>persistRecipes(recipes.filter(x=>x.id!==recipe.id))}>Eliminar receta</button></div></article>)}</div>}
+    {tab === "recetas" && <div className="provider-card color-mixer-card"><h2>Mis recetas guardadas</h2>{recipes.length===0?<p>Aún no has guardado recetas.</p>:recipes.map(recipe=><article className="saved-recipe" key={recipe.id}><NailPreview hex={recipe.hex}/><div className="saved-recipe-content"><b>{recipe.nombre}</b><span className="color-hex">{recipe.hex}</span>{recipe.objetivoHex && <><div className="saved-recipe-comparison" aria-label="Comparación entre color objetivo y resultado"><div><span className="saved-recipe-color-dot" style={{background:recipe.objetivoHex}}/><small>Objetivo</small><code>{recipe.objetivoHex}</code></div><span className="saved-recipe-compare-arrow" aria-hidden="true">→</span><div><span className="saved-recipe-color-dot" style={{background:recipe.hex}}/><small>Resultado</small><code>{recipe.hex}</code></div></div><small>ΔE00 {recipe.deltaE.toFixed(2)} · {status(recipe.deltaE)}</small></>}<ul>{recipe.ingredientes.map((x,i)=><li key={x.esmalteId+i}>{capitalizar(x.nombre)}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>persistRecipes(recipes.filter(x=>x.id!==recipe.id))}>Eliminar receta</button></div></article>)}</div>}
   </section>;
 }
