@@ -68,10 +68,18 @@ Cómo funciona:
 
 ### Probar la base de datos
 
-`supabase/tests/run.sh` aplica las migraciones sobre un PostgreSQL local (con `btree_gist` y `pgcrypto`) y ejecuta 60 comprobaciones: validación del horario, horas libres, solapes, bloqueos, licencia, huso horario y privacidad entre cuentas (RLS). Falla si algo no pasa.
+`supabase/tests/run.sh` intenta ejecutar la suite completa de regresión (60 comprobaciones declaradas). **La suite completa no está verde todavía**: el CI detectó fallos heredados en permisos de funciones y en varios tests que interpolan variables de `psql`; no debe tomarse como prueba de que todas las reglas pasan.
+
+La migración del límite de intentos tiene una prueba aislada que aplica todas las migraciones y comprueba los límites 30/8:
 
 ```bash
-supabase/tests/run.sh          # usa la base luni_test y las variables PG* habituales
+bash supabase/tests/run-provider-code-security.sh
+```
+
+La suite completa se ejecuta con:
+
+```bash
+bash supabase/tests/run.sh
 ```
 
 ## Reservas
