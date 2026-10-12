@@ -541,3 +541,19 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 .color-mixer .target-photo-label{display:flex;flex-direction:column;gap:7px;margin:14px 0;color:#6b5959;font-size:12px}
 .color-mixer .target-photo-label input[type=file]{font-size:12px;max-width:100%;border:1px dashed #dfd0ce;border-radius:10px;padding:10px;background:#fffaf8}
+
+
+/* Extractor fotográfico: selección de zona y muestra de color representativa. */
+.color-mixer .color-photo-tool{margin:14px 0;padding:13px;border:1px solid #eadbd5;border-radius:12px;background:#fffaf7}
+.color-mixer .color-photo-tool>p{margin:0 0 10px;overflow-wrap:anywhere;font-size:12px}
+.color-mixer .color-photo-canvas{position:relative;width:100%;max-height:420px;overflow:hidden;border-radius:10px;background:#eee5e1;display:grid;place-items:center}
+.color-mixer .color-photo-canvas img{display:block;width:100%;max-height:420px;object-fit:contain;cursor:crosshair;touch-action:manipulation}
+.color-mixer .color-photo-crosshair{position:absolute;width:36px;height:36px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #493638,0 1px 8px #0007;transform:translate(-50%,-50%);pointer-events:none;display:grid;place-items:center}
+.color-mixer .color-photo-crosshair i{width:4px;height:4px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px #493638}
+.color-mixer .color-photo-tool label{display:flex;flex-direction:column;gap:8px;margin:13px 0}
+.color-mixer .color-photo-tool input[type=range]{width:100%;accent-color:#a8757a}
+.color-mixer .color-photo-tool button{white-space:normal}
+.color-mixer .color-photo-result{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid #eadbd5}
+.color-mixer .color-photo-result>div{display:flex;flex:1;min-width:130px;flex-direction:column;gap:4px}
+.color-mixer .color-photo-result small{font-size:11px;line-height:1.5;color:#786a69}
+@media(max-width:520px){.color-mixer .color-photo-tool{padding:10px}.color-mixer .color-photo-canvas,.color-mixer .color-photo-canvas img{max-height:330px}.color-mixer .color-photo-result{align-items:flex-start}.color-mixer .color-photo-result button{width:100%}}
