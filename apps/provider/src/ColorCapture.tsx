@@ -18,7 +18,7 @@ const promedio = (pixels: Uint8ClampedArray, width: number, cx: number, cy: numb
   return n ? { r: r / n, g: g / n, b: b / n } : null;
 };
 
-export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (hex: string) => void }) {
+export default function ColorCapture({ onColorCaptured, onManualColor }: { onColorCaptured: (hex: string) => void; onManualColor: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -64,11 +64,11 @@ export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (he
       });
     } catch (e) {
       const name = e instanceof DOMException ? e.name : "";
-      setError(name === "NotAllowedError"
-        ? "Permite el acceso a la cámara en los permisos de la aplicación y vuelve a intentarlo."
-        : name === "NotFoundError"
-          ? "No se encontró una cámara disponible en este dispositivo."
-          : "No se pudo abrir la cámara. Comprueba los permisos y vuelve a intentarlo.");
+      setError(name === "NotFoundError" || name === "DevicesNotFoundError"
+        ? "No hay cámara disponible en este dispositivo. Podés cargar el color del esmalte manualmente."
+        : name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError"
+          ? "No se concedió el permiso de cámara. Podés cargar el color del esmalte manualmente o habilitar el permiso e intentarlo de nuevo."
+          : "No se pudo acceder a la cámara. Verificá que ninguna otra aplicación la esté usando e intentá de nuevo.");
       setPaso("error");
     }
   };
@@ -197,7 +197,7 @@ export default function ColorCapture({ onColorCaptured }: { onColorCaptured: (he
         <button type="button" className="provider-secondary" onClick={() => { setPuntoBlanco(null); setPuntoEsmalte(null); setPaso("instrucciones"); setError(""); originalRef.current = null; }}>Repetir foto</button>
       </div>
     </div>}
-    {paso === "error" && <div className="color-capture-error"><p className="form-notice" role="alert">{error}</p><button type="button" className="provider-primary" onClick={() => void iniciarCamara()}>Intentar de nuevo</button><button type="button" className="provider-secondary" onClick={() => { setPaso("instrucciones"); setError(""); }}>Volver</button></div>}
+    {paso === "error" && <div className="color-capture-error"><p className="form-notice" role="alert">{error}</p>{/No hay cámara disponible|No se concedió el permiso|no se concedió el permiso/i.test(error) ? <button type="button" className="provider-primary" onClick={onManualColor}>Cargar color manualmente</button> : <button type="button" className="provider-primary" onClick={() => void iniciarCamara()}>Reintentar</button>}<button type="button" className="provider-secondary" onClick={onManualColor}>Volver a Mis esmaltes</button><button type="button" className="provider-secondary" onClick={() => { detenerCamara(); setPaso("instrucciones"); setError(""); }}>Volver a intentar con cámara</button></div>}
     <p className="muted-small color-capture-disclaimer">La lectura depende de la iluminación, del brillo del frasco y de la cámara. El HEX es una estimación, no una medición de laboratorio.</p>
   </section>;
 }
