@@ -132,6 +132,7 @@ export default function ColorMixer() {
   const [message, setMessage] = useState("");
   const [recipeName, setRecipeName] = useState("Mi mezcla");
   const [manual, setManual] = useState<Array<{ id: string; porcentaje: number }>>([]);
+  const [showAddPolish, setShowAddPolish] = useState(false);
   // Solo se establece al cargar una receta desde el buscador inverso. Las mezclas libres conservan null.
   const [manualObjetivoHex, setManualObjetivoHex] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState("");
@@ -145,6 +146,8 @@ export default function ColorMixer() {
   const persistInventory = (next: Esmalte[]) => { setInventory(next); localStorage.setItem(INVENTORY_KEY, JSON.stringify(next)); };
   const persistRecipes = (next: Receta[]) => { setRecipes(next); localStorage.setItem(RECIPES_KEY, JSON.stringify(next)); };
   const manualItems = manual.map(item => ({ esmalte: inventory.find(e => e.id === item.id), porcentaje: item.porcentaje })).filter((x): x is { esmalte: Esmalte; porcentaje: number } => Boolean(x.esmalte));
+  const activeInMix = manualItems.filter(item => item.porcentaje > 0);
+  const availableToAdd = active.filter(esmalte => !manual.some(item => item.id === esmalte.id));
   const manualHex = manualItems.length ? mixColors(manualItems.map(x => ({ hex: x.esmalte.hex, porcentaje: x.porcentaje }))) : target;
   const totalManual = manualItems.reduce((s, x) => s + x.porcentaje, 0);
 
@@ -288,6 +291,23 @@ export default function ColorMixer() {
     persistRecipes([recipe, ...recipes]);
     setMessage("Receta guardada en este dispositivo.");
   };
+  const addPolishToMix = (esmalteId: string) => {
+    const esmalte = inventory.find(item => item.id === esmalteId);
+    if (!esmalte || manual.some(item => item.id === esmalte.id) || esmalte.ml <= 0) return;
+    const current = manual.map(item => ({ ...item }));
+    const total = current.reduce((sum, item) => sum + item.porcentaje, 0);
+    if (total >= 100) {
+      const largest = current.reduce((best, item) => item.porcentaje > best.porcentaje ? item : best, current[0]);
+      if (largest && largest.porcentaje >= 10) largest.porcentaje -= 10;
+      else return;
+    }
+    setManual([...current, { id: esmalte.id, porcentaje: 10 }]);
+    const names = [...current.filter(item => item.porcentaje > 0).map(item => inventory.find(e => e.id === item.id)?.nombre), esmalte.nombre]
+      .filter((itemName): itemName is string => Boolean(itemName));
+    setRecipeName(names.map(capitalizar).join(" + "));
+    setShowAddPolish(false);
+  };
+
   const updateManualPercentage = (esmalte: Esmalte, value: string) => {
     const n = Number(value);
     const next = n <= 0
@@ -345,10 +365,21 @@ export default function ColorMixer() {
         <button className="provider-primary" disabled={!manualItems.length || totalManual !== 100} onClick={()=>saveRecipe({hex:manualHex,deltaE:0,objetivoHex:manualObjetivoHex,ingredientes:manualItems.map(x=>({esmalteId:x.esmalte.id,nombre:x.esmalte.nombre,hex:x.esmalte.hex,porcentaje:x.porcentaje,ml:Number((x.porcentaje/100).toFixed(2))}))})}>Guardar receta</button>
       </article>
       <article className="provider-card color-mixer-card"><h2>Selecciona esmaltes</h2>
-        {active.length===0 ? <p>Aún no hay esmaltes disponibles. Añádelos en “Mis esmaltes”.</p> : active.map(e => {
-          const chosen = manual.find(m=>m.id===e.id);
-          return <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={chosen?.porcentaje ?? 0} onChange={ev=>updateManualPercentage(e, ev.target.value)} /></div>;
-        })}
+        {activeInMix.map(({ esmalte: e, porcentaje }) =>
+          <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{capitalizar(e.nombre)}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={porcentaje} onChange={ev=>updateManualPercentage(e, ev.target.value)} /><button type="button" className="provider-secondary" aria-label={`Quitar ${capitalizar(e.nombre)} de la mezcla`} onClick={()=>{setManual(prev=>prev.filter(item=>item.id!==e.id));setRecipeName(prev=>prev.split(" + ").filter(name=>name.toLocaleLowerCase("es")!==e.nombre.toLocaleLowerCase("es")).join(" + ") || "Mi mezcla");}}>Quitar</button></div>
+        )}
+        <div className="mixer-add-polish">
+          <button type="button" className="provider-secondary" disabled={availableToAdd.length===0} onClick={()=>setShowAddPolish(value=>!value)}>+ Agregar esmalte</button>
+          {showAddPolish && <div className="mixer-add-polish-picker">
+            <label>Selecciona un esmalte del inventario
+              <select value="" onChange={event=>{if(event.target.value)addPolishToMix(event.target.value);}}>
+                <option value="">Elegir esmalte…</option>
+                {availableToAdd.map(esmalte=><option key={esmalte.id} value={esmalte.id}>{capitalizar(esmalte.nombre)} · {esmalte.ml} ml</option>)}
+              </select>
+            </label>
+          </div>}
+          {activeInMix.length===0 && <p className="muted-small">No hay esmaltes activos. Agrega uno para comenzar la mezcla.</p>}
+        </div>
         <p className="muted-small">Introduce proporciones en incrementos de 10 %. La suma debe ser 100 % para guardar.</p>
       </article>
     </div>}
