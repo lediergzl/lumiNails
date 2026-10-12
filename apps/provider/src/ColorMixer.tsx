@@ -113,6 +113,11 @@ export default function ColorMixer() {
   const [message, setMessage] = useState("");
   const [recipeName, setRecipeName] = useState("Mi mezcla");
   const [manual, setManual] = useState<Array<{ id: string; porcentaje: number }>>([]);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [photoName, setPhotoName] = useState("");
+  const [photoPoint, setPhotoPoint] = useState({ x: 0.5, y: 0.5 });
+  const [sampleSize, setSampleSize] = useState(18);
+  const [photoSample, setPhotoSample] = useState<{ hex: string; confidence: string; pixels: number } | null>(null);
 
   const active = useMemo(() => inventory.filter(e => e.ml > 0), [inventory]);
   const persistInventory = (next: Esmalte[]) => { setInventory(next); localStorage.setItem(INVENTORY_KEY, JSON.stringify(next)); };
@@ -123,30 +128,77 @@ export default function ColorMixer() {
 
   const readTargetPhoto = (file?: File) => {
     if (!file) return;
-    const url = URL.createObjectURL(file);
+    if (!file.type.startsWith("image/")) { setMessage("Selecciona un archivo de imagen."); return; }
+    if (file.size > 18 * 1024 * 1024) { setMessage("La foto supera 18 MB. Elige una imagen más pequeña."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") { setMessage("No se pudo abrir esa foto."); return; }
+      setPhotoUrl(reader.result);
+      setPhotoName(file.name);
+      setPhotoPoint({ x: 0.5, y: 0.5 });
+      setPhotoSample(null);
+      setMessage("Toca el centro del esmalte en la foto para seleccionar la zona que quieres analizar.");
+    };
+    reader.onerror = () => setMessage("No se pudo leer esa foto.");
+    reader.readAsDataURL(file);
+  };
+
+  const samplePhotoRegion = () => {
+    if (!photoUrl) return;
     const image = new Image();
     image.onload = () => {
       try {
+        // Reducimos la imagen a una copia pequeña para limitar memoria y tiempo de cálculo.
+        const maxSide = 900;
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
         const canvas = document.createElement("canvas");
-        canvas.width = 32; canvas.height = 32;
-        const context = canvas.getContext("2d", { willReadFrequently: true });
-        if (!context) throw new Error("No se pudo leer la foto.");
-        context.drawImage(image, 0, 0, 32, 32);
-        const pixels = context.getImageData(0, 0, 32, 32).data;
-        let r = 0, g = 0, b = 0, count = 0;
-        for (let i = 0; i < pixels.length; i += 4) {
-          if (pixels[i + 3] < 32) continue;
-          r += pixels[i]; g += pixels[i + 1]; b += pixels[i + 2]; count++;
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) throw new Error("No se pudo analizar la imagen en este dispositivo.");
+        ctx.drawImage(image, 0, 0, width, height);
+        const cx = Math.round(photoPoint.x * width), cy = Math.round(photoPoint.y * height);
+        const radius = Math.max(2, Math.round(Math.min(width, height) * sampleSize / 200));
+        const x0 = Math.max(0, cx - radius), y0 = Math.max(0, cy - radius);
+        const x1 = Math.min(width, cx + radius + 1), y1 = Math.min(height, cy + radius + 1);
+        const data = ctx.getImageData(x0, y0, x1 - x0, y1 - y0).data;
+        const reds: number[] = [], greens: number[] = [], blues: number[] = [];
+        let rejected = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i + 1], b = data[i + 2], alpha = data[i + 3];
+          if (alpha < 200) { rejected++; continue; }
+          const max = Math.max(r, g, b), min = Math.min(r, g, b);
+          // Excluye reflejos casi blancos y sombras casi negras que sesgan el color del esmalte.
+          if ((min > 232 && max - min < 28) || max < 18) { rejected++; continue; }
+          reds.push(r); greens.push(g); blues.push(b);
         }
-        if (!count) throw new Error("La foto no contiene píxeles válidos.");
-        setTarget(rgbHex({ r: r / count, g: g / count, b: b / count }));
-        setMessage("Color aproximado extraído de la foto. La iluminación puede cambiar el resultado.");
+        if (reds.length < 12) throw new Error("Hay pocos píxeles útiles en esa zona. Amplía la zona o elige otro punto.");
+        const median = (values: number[]) => {
+          values.sort((a, b) => a - b);
+          const mid = Math.floor(values.length / 2);
+          return values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+        };
+        const hex = rgbHex({ r: median(reds), g: median(greens), b: median(blues) });
+        const confidence = rejected / (reds.length + rejected) > 0.45 ? "Baja: muchos reflejos o sombras" : rejected / (reds.length + rejected) > 0.2 ? "Media: revisa la iluminación" : "Buena: zona relativamente uniforme";
+        setPhotoSample({ hex, confidence, pixels: reds.length });
+        setTarget(hex);
+        setMessage("Color calculado con la mediana de los píxeles útiles de la zona seleccionada.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "No se pudo extraer el color.");
-      } finally { URL.revokeObjectURL(url); }
+      }
     };
-    image.onerror = () => { URL.revokeObjectURL(url); setMessage("No se pudo abrir esa foto."); };
-    image.src = url;
+    image.onerror = () => setMessage("No se pudo abrir esa foto.");
+    image.src = photoUrl;
+  };
+
+  const choosePhotoPoint = (event: React.MouseEvent<HTMLImageElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPhotoPoint({
+      x: clamp((event.clientX - rect.left) / rect.width),
+      y: clamp((event.clientY - rect.top) / rect.height)
+    });
+    setPhotoSample(null);
   };
 
   const searchRecipes = async () => {
@@ -219,7 +271,9 @@ export default function ColorMixer() {
       </article>
     </div>}
     {tab === "buscar" && <div className="color-mixer-grid">
-      <article className="provider-card color-mixer-card"><h2>Color que quieres conseguir</h2><div className="target-color-row"><input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>setTarget(e.target.value.toUpperCase())}/><span>{target}</span></div><label className="target-photo-label">O extraer un color de una foto<input type="file" accept="image/*" capture="environment" aria-label="Elegir foto para extraer color" onChange={e=>readTargetPhoto(e.target.files?.[0])}/></label><NailPreview hex={target}/><button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Calculando…":"Buscar las 3 mejores recetas"}</button><p className="muted-small">Solo se consideran los 15 esmaltes disponibles más cercanos al objetivo; cada fórmula combina 2 o 3 colores en proporciones de 10 %.</p></article>
+      <article className="provider-card color-mixer-card"><h2>Color que quieres conseguir</h2><div className="target-color-row"><input type="color" aria-label="Seleccionar color objetivo" value={target} onChange={e=>setTarget(e.target.value.toUpperCase())}/><span>{target}</span></div><label className="target-photo-label">Analizar una foto del esmalte<input type="file" accept="image/*" capture="environment" aria-label="Elegir foto para analizar el color" onChange={e=>readTargetPhoto(e.target.files?.[0])}/></label>
+      {photoUrl && <div className="color-photo-tool"><p><b>{photoName}</b> · Toca el centro de la superficie de esmalte; evita el fondo de la foto.</p><div className="color-photo-canvas"><img src={photoUrl} alt="Foto para seleccionar el color" onClick={choosePhotoPoint} /><span className="color-photo-crosshair" style={{left:`${photoPoint.x*100}%`,top:`${photoPoint.y*100}%`}} aria-hidden="true"><i/></span></div><label>Área de muestreo <b>{sampleSize}%</b><input type="range" min="6" max="36" step="2" value={sampleSize} onChange={e=>{setSampleSize(Number(e.target.value));setPhotoSample(null);}}/></label><button className="provider-secondary" onClick={samplePhotoRegion}>Analizar zona seleccionada</button>{photoSample && <div className="color-photo-result"><span className="polish-dot large" style={{background:photoSample.hex}}/><div><b>{photoSample.hex}</b><small>{photoSample.pixels} píxeles útiles · Confianza: {photoSample.confidence}</small></div><button className="provider-secondary" onClick={()=>setTarget(photoSample.hex)}>Usar este color</button></div>}</div>}
+      <NailPreview hex={target}/><p className="muted-small">El muestreo por mediana reduce el impacto de píxeles extremos, pero no puede corregir por completo la iluminación ni el balance de blancos de la cámara.</p><button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Calculando…":"Buscar las 3 mejores recetas"}</button><p className="muted-small">Solo se consideran los 15 esmaltes disponibles más cercanos al objetivo; cada fórmula combina 2 o 3 colores en proporciones de 10 %.</p></article>
       <article className="provider-card color-mixer-card"><h2>Recetas sugeridas</h2>{result.length===0&&!working&&<p>Selecciona un color y busca una combinación.</p>}{result.map((item,i)=><div className="suggested-recipe" key={item.ingredientes.map(x=>x.esmalteId+x.porcentaje).join("-")}><div className="suggested-recipe-head"><span className="polish-dot large" style={{background:item.hex}}/><div><b>Opción {i+1} · {item.hex}</b><small>ΔE00 {item.deltaE.toFixed(2)} · {status(item.deltaE)}</small></div></div><ul>{item.ingredientes.map(x=><li key={x.esmalteId}>{x.nombre}: {x.porcentaje}%</li>)}</ul><button className="provider-secondary" onClick={()=>saveRecipe(item,`Opción ${i+1}`)}>Guardar esta receta</button></div>)}</article>
     </div>}
     {tab === "inventario" && <div className="provider-card color-mixer-card"><h2>Inventario de esmaltes</h2><p>El inventario se guarda en este dispositivo y está disponible sin conexión.</p><form className="mixer-inventory-form" onSubmit={e=>{e.preventDefault();if(!name.trim()||Number(ml)<0)return;persistInventory([...inventory,{id:uid(),nombre:name.trim(),hex:newHex.toUpperCase(),ml:Number(ml)}]);setName("");setMl("10");setMessage("Esmalte añadido al inventario.");}}><label>Nombre<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Rojo cereza"/></label><label>Color<input type="color" value={newHex} onChange={e=>setNewHex(e.target.value.toUpperCase())}/></label><label>Cantidad (ml)<input type="number" min="0" step=".1" required value={ml} onChange={e=>setMl(e.target.value)}/></label><button className="provider-primary" type="submit">Añadir esmalte</button></form>
