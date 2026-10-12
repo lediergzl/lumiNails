@@ -25,7 +25,7 @@ export type RemoteAppointment = {
   cancellation_reason?: string;
 };
 
-export async function createAppointment(
+async function createAppointmentRemote(
   input: CreateAppointmentInput
 ): Promise<RemoteAppointment> {
   const { data, error } = await getSupabaseClient()
@@ -56,13 +56,57 @@ export async function createAppointment(
       SLOT_ALREADY_TAKEN: "Otra persona acaba de ocupar ese horario. Elige otro.",
       CLIENT_HAS_ACTIVE_APPOINTMENT: "Ya tienes una cita pendiente o confirmada. Modifica esa cita o cancélala antes de reservar otra.",
     };
-    const message = knownMessages[error.message] ?? error.message;
-    throw new Error(message);
+    throw new Error(knownMessages[error.message] ?? error.message);
   }
 
   if (!data) throw new Error("El servidor no devolvió la cita creada.");
   return data as RemoteAppointment;
 }
+
+/**
+ * Crea una cita online o la deja en la cola offline. Una cita en cola es solo una solicitud local:
+ * la disponibilidad y la aprobación definitivas siempre se deciden en el servidor al sincronizar.
+ */
+export async function createAppointment(
+  input: CreateAppointmentInput
+): Promise<{ queued: boolean; appointment?: RemoteAppointment }> {
+  const duration = Math.max(1, input.durationMinutes ?? 30);
+  const startMs = Date.parse(input.startsAt);
+  const sessionResult = await getSupabaseClient().auth.getSession().catch(() => null);
+  const userId = sessionResult?.data.session?.user.id ?? "";
+  const optimistic: RemoteAppointment = {
+    id: input.id,
+    provider_id: input.providerId,
+    client_id: userId,
+    service_id: input.serviceId,
+    starts_at: input.startsAt,
+    ends_at: new Date(startMs + duration * 60_000).toISOString(),
+    status: "pending_confirmation",
+    notes: input.notes ?? "",
+    client_service_name: input.serviceName ?? "Cita pendiente de sincronizar",
+    client_price_cents: input.priceCents ?? 0,
+    client_currency: input.currency ?? "CUP",
+  };
+  const outcome = await writeOrQueue(
+    {
+      type: "appointment.create",
+      payload: input,
+      label: "Solicitar cita",
+      patches: [{
+        read: "listMyAppointments",
+        op: "upsert",
+        id: input.id,
+        item: optimistic as unknown as Record<string, unknown>,
+      }],
+    },
+    () => createAppointmentRemote(input)
+  );
+  return outcome.queued
+    ? { queued: true, appointment: optimistic }
+    : { queued: false, appointment: outcome.result };
+}
+
+registerOutboxHandler("appointment.create", (payload: CreateAppointmentInput) => createAppointmentRemote(payload));
 
 async function listMyAppointmentsRemote(): Promise<RemoteAppointment[]> {
   const { data, error } = await getSupabaseClient()
