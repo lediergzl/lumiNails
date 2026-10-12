@@ -287,7 +287,7 @@ export default function ColorMixer() {
       <article className="provider-card color-mixer-card"><h2>Selecciona esmaltes</h2>
         {active.length===0 ? <p>Aún no hay esmaltes disponibles. Añádelos en “Mis esmaltes”.</p> : active.map(e => {
           const chosen = manual.find(m=>m.id===e.id);
-          return <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{e.nombre}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={chosen?.porcentaje ?? 0} onChange={ev=>{const n=Number(ev.target.value);setManualObjetivoHex(null);setManual(prev=>n<=0?prev.filter(x=>x.id!==e.id):[...prev.filter(x=>x.id!==e.id),{id:e.id,porcentaje:Math.min(100,Math.max(0,n))}]);}} /></div>;
+          return <div className="mixer-polish-row" key={e.id}><span className="polish-dot" style={{background:e.hex}}/><div className="polish-meta"><b>{e.nombre}</b><small>{e.ml} ml disponibles · {e.hex}</small></div><input aria-label={`Porcentaje de ${e.nombre}`} type="number" min="0" max="100" step="10" value={chosen?.porcentaje ?? 0} onChange={ev=>{const n=Number(ev.target.value);setManual(prev=>n<=0?prev.filter(x=>x.id!==e.id):[...prev.filter(x=>x.id!==e.id),{id:e.id,porcentaje:Math.min(100,Math.max(0,n))}]);}} /></div>;
         })}
         <p className="muted-small">Introduce proporciones en incrementos de 10 %. La suma debe ser 100 % para guardar.</p>
       </article>
