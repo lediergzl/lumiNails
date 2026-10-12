@@ -156,3 +156,10 @@ La migración [20261020010000_one_active_appointment_per_client.sql](https://git
 La migración también añade `luni_reschedule_appointment`: cambia la fecha/hora de la cita existente, valida disponibilidad, horario y bloqueos, y conserva el mismo identificador y estado. Una cita cancelada, rechazada o completada deja de contar como activa. No se debe marcar una cita como completada solo para desbloquear otra: el estado debe reflejar lo que ocurrió realmente.
 
 **Importante:** el commit de GitHub no aplica SQL automáticamente en Supabase. Hasta ejecutar esta migración en el proyecto conectado a Luni, el bloqueo de base de datos no estará activo.
+
+
+## Código permanente del estudio: limitación de intentos
+
+Aplica también la migración [20261023010000_provider_code_rate_limit.sql](https://github.com/lediergzl/lumiNails/blob/main/supabase/migrations/20261023010000_provider_code_rate_limit.sql) después de las migraciones anteriores. Esta limita por usuario autenticado las vistas previas a 30 y las vinculaciones a 8 por ventana fija de 15 minutos, y revoca la ejecución de esas RPC para el rol `anon`.
+
+El código numérico de seis dígitos sigue siendo un identificador compartible, no un secreto. Esta migración **no** aplica límites por IP; para ello se necesita una Edge Function o una capa HTTP con acceso fiable a la IP. Tampoco implementa la rotación/revocación del código permanente.
