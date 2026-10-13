@@ -198,11 +198,23 @@ async function setProviderAppointmentStatusRemote(
   status: "confirmed" | "rejected" | "completed" | "cancelled",
   reason: string
 ): Promise<void> {
-  const { error } = await getSupabaseClient()
+  const supabase = getSupabaseClient();
+  // La cancelación usa una RPC autorizada por estudio para evitar fallos de RLS en la app de manicurista.
+  if (status === "cancelled") {
+    const { error } = await supabase.rpc("luni_provider_cancel_appointment", {
+      p_appointment_id: appointmentId,
+      p_reason: reason.trim(),
+    });
+    if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN")
+      ? "Esa cita ya no admite este cambio. Actualiza la lista."
+      : error.message);
+    return;
+  }
+  const { error } = await supabase
     .from("appointments")
     .update({
       status,
-      cancellation_reason: status === "cancelled" || status === "rejected" ? reason.trim() : "",
+      cancellation_reason: status === "rejected" ? reason.trim() : "",
     })
     .eq("id", appointmentId);
   if (error) throw new Error(error.message.includes("APPOINTMENT_STATUS_CHANGE_FORBIDDEN") ? "Esa cita ya no admite este cambio. Actualiza la lista." : error.message);
