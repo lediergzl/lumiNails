@@ -83,6 +83,12 @@ begin
   select p.id into v_client_id
   from public.profiles p
   where regexp_replace(coalesce(p.phone, ''), '[^0-9+]', '', 'g') = v_phone
+    and exists (
+      select 1 from public.appointments a
+      where a.provider_id = v_provider_id
+        and a.client_id = p.id
+        and a.deleted_at is null
+    )
   order by p.created_at
   limit 1;
 
