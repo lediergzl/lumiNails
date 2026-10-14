@@ -53,7 +53,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const money = (amount: number, currency = "CUP") =>
   new Intl.NumberFormat("es-CU", { maximumFractionDigits: 2 }).format(amount / 100) + " " + currency;
-const SERVICE_PAGE_SIZE = 4;
+const SERVICE_PAGE_SIZE = 8;
 const categoryOfService = (service: { category?: string; name: string; description: string }) =>
   service.category?.trim() || inferServiceCategory(service.name, service.description);
 const localDateString = (d: Date) =>
@@ -95,7 +95,7 @@ export default function App() {
   const [clientPhone, setClientPhone] = useState("");
   const [search, setSearch] = useState("");
   const [serviceCategoryFilter, setServiceCategoryFilter] = useState<string>("Todas");
-  const [servicePages, setServicePages] = useState<Record<string, number>>({});
+  const [servicePage, setServicePage] = useState(1);
   const [selected, setSelected] = useState<Service | null>(null);
   const [day, setDay] = useState("");
   const [days, setDays] = useState<AvailableDay[]>([]);
@@ -252,21 +252,41 @@ export default function App() {
     ];
   }, [visible]);
 
+  const filteredServices = useMemo(() => {
+    const matches = serviceCategoryFilter === "Todas"
+      ? visible
+      : visible.filter(service => categoryOfService(service) === serviceCategoryFilter);
+    const categoryOrder = new Map<string, number>(SERVICE_CATEGORIES.map((category, index) => [category, index]));
+    return [...matches].sort((a, b) => {
+      const categoryA = categoryOfService(a);
+      const categoryB = categoryOfService(b);
+      return (categoryOrder.get(categoryA) ?? 999) - (categoryOrder.get(categoryB) ?? 999)
+        || categoryA.localeCompare(categoryB, "es")
+        || a.name.localeCompare(b.name, "es");
+    });
+  }, [visible, serviceCategoryFilter]);
+
+  const totalServicePages = Math.max(1, Math.ceil(filteredServices.length / SERVICE_PAGE_SIZE));
+  const currentServicePage = Math.min(servicePage, totalServicePages);
+  const pageServices = useMemo(() => {
+    const start = (currentServicePage - 1) * SERVICE_PAGE_SIZE;
+    return filteredServices.slice(start, start + SERVICE_PAGE_SIZE);
+  }, [filteredServices, currentServicePage]);
+
   const groupedServices = useMemo(() => {
-    const categories = serviceCategoryFilter === "Todas"
-      ? availableServiceCategories
-      : availableServiceCategories.filter(category => category === serviceCategoryFilter);
-    return categories.map(category => {
-      const items = visible.filter(service => categoryOfService(service) === category);
-      const totalPages = Math.max(1, Math.ceil(items.length / SERVICE_PAGE_SIZE));
-      const page = Math.min(Math.max(1, servicePages[category] ?? 1), totalPages);
-      const start = (page - 1) * SERVICE_PAGE_SIZE;
-      return { category, items, totalPages, page, pageItems: items.slice(start, start + SERVICE_PAGE_SIZE) };
-    }).filter(group => group.items.length > 0);
-  }, [visible, availableServiceCategories, serviceCategoryFilter, servicePages]);
+    const present = new Set(pageServices.map(categoryOfService));
+    const categories = [
+      ...SERVICE_CATEGORIES.filter(category => present.has(category)),
+      ...Array.from(present).filter(category => !(SERVICE_CATEGORIES as readonly string[]).includes(category)).sort((a, b) => a.localeCompare(b, "es")),
+    ];
+    return categories.map(category => ({
+      category,
+      items: pageServices.filter(service => categoryOfService(service) === category),
+    })).filter(group => group.items.length > 0);
+  }, [pageServices]);
 
   useEffect(() => {
-    setServicePages({});
+    setServicePage(1);
     if (serviceCategoryFilter !== "Todas" && !availableServiceCategories.includes(serviceCategoryFilter)) {
       setServiceCategoryFilter("Todas");
     }
@@ -310,7 +330,7 @@ export default function App() {
     setSelectedDesign(item);
     setSearch("");
     setServiceCategoryFilter("Todas");
-    setServicePages({});
+    setServicePage(1);
     setTab("inicio");
     setHomeSection("services");
     if (!sessionEmail) {
@@ -505,20 +525,20 @@ export default function App() {
               <button type="button" onClick={async () => { const code = providerCodes[p.id]; const message = "Añade a " + p.business_name + " a tu cartera en Luni Cliente con el código de vinculación: " + code; try { if (navigator.share) await navigator.share({ title: "Código de " + p.business_name, text: message }); else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(message); setNotice("Código de " + p.business_name + " copiado para compartir."); } else window.prompt("Copia este mensaje para compartirlo:", message); } catch (e) { if (e instanceof Error && e.name !== "AbortError") window.prompt("Copia este mensaje para compartirlo:", message); } }}>Compartir código <span aria-hidden="true">↗</span></button>
             </div>}
           </article>)}</div>}
-          {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">{selectedDesign ? "TU DISEÑO SELECCIONADO" : "SERVICIOS DE TU CARTERA"}</span><h2>{selectedDesign ? <>Completa tu <em>reserva.</em></> : <>Reserva tu <em>próximo momento.</em></>}</h2></div><span className="service-count">{(serviceCategoryFilter === "Todas" ? visible.length : visible.filter(service => categoryOfService(service) === serviceCategoryFilter).length)} {(serviceCategoryFilter === "Todas" ? visible.length : visible.filter(service => categoryOfService(service) === serviceCategoryFilter).length) === 1 ? "servicio" : "servicios"}</span></div>{!selectedDesign && <label className="search-box service-search-box"><span>⌕</span><input value={search} onChange={e => { setSearch(e.target.value); setServicePages({}); setServiceCategoryFilter("Todas"); }} placeholder="Buscar entre tus servicios..." aria-label="Buscar servicios" /></label>}{selectedDesign && <article className="selected-design-flow"><div className="selected-design-flow-photo">{selectedDesign.image_paths[0] ? <CachedImage path={selectedDesign.image_paths[0]} alt={selectedDesign.title || selectedDesign.category} loading="lazy" decoding="async" /> : <span aria-hidden="true">✧</span>}</div><div className="selected-design-flow-body"><span className="eyebrow">DISEÑO GUARDADO PARA TU CITA</span><h3>{selectedDesign.title.trim() && selectedDesign.title.trim().toLocaleLowerCase("es-CU") !== selectedDesign.category.trim().toLocaleLowerCase("es-CU") ? selectedDesign.title : selectedDesign.category}</h3><p className="selected-design-studio">{selectedDesign.business_name}</p>{selectedDesign.description && <p>{selectedDesign.description}</p>}<p className="selected-design-next-step">{providers.some(provider => provider.id === selectedDesign.provider_id) ? "Paso siguiente: elige uno de los servicios de esta manicurista. El diseño seguirá adjunto a la solicitud." : "Para reservar con esta manicurista, primero debes añadirla a tu cartera. Tu diseño ya está guardado."}</p>{!providers.some(provider => provider.id === selectedDesign.provider_id) && <button className="button-dark" type="button" onClick={() => { setHomeSection("providers"); setSearch(""); }}>Ir a Mis manicuristas y vincularla <span>↗</span></button>}<button className="selected-design-change" type="button" onClick={() => { setSelectedDesign(null); setHomeSection("inspiration"); setSearch(""); setNotice("Puedes elegir otro diseño desde Inspiración."); }}>Elegir otro diseño</button></div></article>}{activeAppointment && <div className="provider-notice" role="status">Ya tienes una cita {activeAppointment.status === "confirmed" ? "confirmada" : "pendiente de confirmar"} para {formatChosen(activeAppointment.starts_at)}. No puedes reservar otra mientras siga activa. Puedes modificar la fecha y hora desde «Mis citas» o cancelar esta cita.</div>}
+          {homeSection === "services" && <><div className="section-heading"><div><span className="eyebrow">{selectedDesign ? "TU DISEÑO SELECCIONADO" : "SERVICIOS DE TU CARTERA"}</span><h2>{selectedDesign ? <>Completa tu <em>reserva.</em></> : <>Reserva tu <em>próximo momento.</em></>}</h2></div><span className="service-count">{filteredServices.length} {filteredServices.length === 1 ? "servicio" : "servicios"}</span></div>{!selectedDesign && <label className="search-box service-search-box"><span>⌕</span><input value={search} onChange={e => { setSearch(e.target.value); setServicePages({}); setServiceCategoryFilter("Todas"); }} placeholder="Buscar entre tus servicios..." aria-label="Buscar servicios" /></label>}{selectedDesign && <article className="selected-design-flow"><div className="selected-design-flow-photo">{selectedDesign.image_paths[0] ? <CachedImage path={selectedDesign.image_paths[0]} alt={selectedDesign.title || selectedDesign.category} loading="lazy" decoding="async" /> : <span aria-hidden="true">✧</span>}</div><div className="selected-design-flow-body"><span className="eyebrow">DISEÑO GUARDADO PARA TU CITA</span><h3>{selectedDesign.title.trim() && selectedDesign.title.trim().toLocaleLowerCase("es-CU") !== selectedDesign.category.trim().toLocaleLowerCase("es-CU") ? selectedDesign.title : selectedDesign.category}</h3><p className="selected-design-studio">{selectedDesign.business_name}</p>{selectedDesign.description && <p>{selectedDesign.description}</p>}<p className="selected-design-next-step">{providers.some(provider => provider.id === selectedDesign.provider_id) ? "Paso siguiente: elige uno de los servicios de esta manicurista. El diseño seguirá adjunto a la solicitud." : "Para reservar con esta manicurista, primero debes añadirla a tu cartera. Tu diseño ya está guardado."}</p>{!providers.some(provider => provider.id === selectedDesign.provider_id) && <button className="button-dark" type="button" onClick={() => { setHomeSection("providers"); setSearch(""); }}>Ir a Mis manicuristas y vincularla <span>↗</span></button>}<button className="selected-design-change" type="button" onClick={() => { setSelectedDesign(null); setHomeSection("inspiration"); setSearch(""); setNotice("Puedes elegir otro diseño desde Inspiración."); }}>Elegir otro diseño</button></div></article>}{activeAppointment && <div className="provider-notice" role="status">Ya tienes una cita {activeAppointment.status === "confirmed" ? "confirmada" : "pendiente de confirmar"} para {formatChosen(activeAppointment.starts_at)}. No puedes reservar otra mientras siga activa. Puedes modificar la fecha y hora desde «Mis citas» o cancelar esta cita.</div>}
           <div className="service-category-filters" role="group" aria-label="Filtrar servicios por tipo">
-            <button type="button" className={serviceCategoryFilter === "Todas" ? "service-category-chip active" : "service-category-chip"} aria-pressed={serviceCategoryFilter === "Todas"} onClick={() => setServiceCategoryFilter("Todas")}>Todos los tipos <span>{visible.length}</span></button>
+            <button type="button" className={serviceCategoryFilter === "Todas" ? "service-category-chip active" : "service-category-chip"} aria-pressed={serviceCategoryFilter === "Todas"} onClick={() => { setServiceCategoryFilter("Todas"); setServicePage(1); }}>Todos los tipos <span>{visible.length}</span></button>
             {availableServiceCategories.map(category => {
               const count = visible.filter(service => categoryOfService(service) === category).length;
-              return <button type="button" key={category} className={serviceCategoryFilter === category ? "service-category-chip active" : "service-category-chip"} aria-pressed={serviceCategoryFilter === category} onClick={() => setServiceCategoryFilter(category)}>{category} <span>{count}</span></button>;
+              return <button type="button" key={category} className={serviceCategoryFilter === category ? "service-category-chip active" : "service-category-chip"} aria-pressed={serviceCategoryFilter === category} onClick={() => { setServiceCategoryFilter(category); setServicePage(1); }}>{category} <span>{count}</span></button>;
             })}
           </div>
           {groupedServices.map(group => <section className="service-category-section" key={group.category}>
             <header className="service-category-heading">
               <div><span className="eyebrow">CATÁLOGO POR TIPO</span><h3>{group.category}</h3></div>
-              <span>{group.items.length} {group.items.length === 1 ? "servicio" : "servicios"}</span>
+              <span>{group.items.length} {group.items.length === 1 ? "servicio" : "servicios"} en esta página</span>
             </header>
-            <div className="service-grid">{group.pageItems.map(service => <article className="service-card" key={service.id}>
+            <div className="service-grid">{group.items.map(service => <article className="service-card" key={service.id}>
               <div className={"service-art " + service.tone}>
                 {service.card_path && <CachedImage className="service-photo" path={service.card_path} alt="" loading="lazy" decoding="async" onLoad={e => e.currentTarget.classList.add("loaded")} />}
                 <div className="nail-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
@@ -533,12 +553,13 @@ export default function App() {
                 </button>
               </div>
             </article>)}</div>
-            {group.totalPages > 1 && <nav className="service-pagination" aria-label={"Páginas de " + group.category}>
-              <button type="button" disabled={group.page <= 1} onClick={() => setServicePages(current => ({ ...current, [group.category]: group.page - 1 }))}>Anterior</button>
-              {Array.from({ length: group.totalPages }, (_, index) => index + 1).map(page => <button type="button" key={page} className={page === group.page ? "active" : ""} aria-current={page === group.page ? "page" : undefined} aria-label={"Página " + page} onClick={() => setServicePages(current => ({ ...current, [group.category]: page }))}>{page}</button>)}
-              <button type="button" disabled={group.page >= group.totalPages} onClick={() => setServicePages(current => ({ ...current, [group.category]: group.page + 1 }))}>Siguiente</button>
-            </nav>}
           </section>)}
+          {totalServicePages > 1 && <nav className="service-pagination" aria-label="Páginas de servicios">
+            <span>Página {currentServicePage} de {totalServicePages}</span>
+            <button type="button" disabled={currentServicePage <= 1} onClick={() => setServicePage(page => Math.max(1, page - 1))}>Anterior</button>
+            {Array.from({ length: totalServicePages }, (_, index) => index + 1).map(page => <button type="button" key={page} className={page === currentServicePage ? "active" : ""} aria-current={page === currentServicePage ? "page" : undefined} aria-label={"Página " + page} onClick={() => setServicePage(page)}>{page}</button>)}
+            <button type="button" disabled={currentServicePage >= totalServicePages} onClick={() => setServicePage(page => Math.min(totalServicePages, page + 1))}>Siguiente</button>
+          </nav>}
           {visible.length === 0 && <div className="empty-state selected-design-no-services">{selectedDesign ? providers.some(provider => provider.id === selectedDesign.provider_id) ? <>Esta manicurista todavía no tiene servicios publicados en tu cartera o no hay servicios disponibles. El diseño sigue guardado. <button type="button" className="button-outline" onClick={() => { setSelectedDesign(null); setHomeSection("inspiration"); }}>Volver a Inspiración</button></> : <>El diseño se conserva aquí, pero primero debes vincular a {selectedDesign.business_name}. <button type="button" className="button-outline" onClick={() => setHomeSection("providers")}>Ir a Mis manicuristas</button></> : "No encontramos servicios con ese nombre en tus carteras."}</div>}</>}
         </>)}
     </section>}
