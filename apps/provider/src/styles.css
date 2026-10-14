@@ -822,3 +822,57 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .schedule-missing-weekly-turns p{margin:0;color:#66583f;font-size:13px;line-height:1.55}
 .schedule-missing-weekly-turns .provider-primary{min-height:40px;padding:9px 13px}
 @media(max-width:520px){.schedule-missing-weekly-turns .provider-primary{width:100%}}
+
+
+/* Catálogo profesional: agrupa servicios por tipo y limita cada página. */
+.provider-service-category-tabs{display:flex;align-items:center;gap:7px;max-width:100%;overflow-x:auto;margin:8px 0 18px;padding:2px 1px 10px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.provider-service-category-tabs button{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #e6d8d0;border-radius:2px;background:#fffdf9;color:#786462;font-size:11px;white-space:nowrap}
+.provider-service-category-tabs button span{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:50%;background:#f3e9e3;color:#94736e;font-size:10px}
+.provider-service-category-tabs button.active{border-color:#765157;background:#765157;color:#fffaf6}
+.provider-service-category-tabs button.active span{background:#fffaf6;color:#765157}
+.provider-service-category-section{margin:0 0 32px;padding:0 0 25px;border-bottom:1px solid #e9ddd6}
+.provider-service-category-section>header{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:0 0 15px}
+.provider-service-category-section>header h2{margin:6px 0 0;color:#4b383b;font:500 26px/1.15 var(--serif)}
+.provider-service-category-section>header>span{padding-bottom:3px;color:#95807a;font-size:11px;white-space:nowrap}
+.provider-service-category-section .provider-service-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-top:0}
+.provider-service-category-section .provider-service-card{display:flex;flex-direction:column;overflow:hidden;border:1px solid #eee3dc;border-radius:2px;box-shadow:none}
+.provider-service-category-section .provider-service-art{height:auto;min-height:0;aspect-ratio:4/3;font-size:46px}
+.provider-service-category-section .provider-service-content{display:flex;flex:1;flex-direction:column;padding:15px}
+.provider-service-category-tag{display:inline-block;align-self:flex-start;margin:0 0 8px;color:#a17d76;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.provider-service-category-section .provider-service-content h3{font:500 18px/1.3 var(--serif);overflow-wrap:anywhere}
+.provider-service-category-section .provider-service-content p{flex:1;min-height:0;line-height:1.55;overflow-wrap:anywhere}
+.provider-service-category-section .provider-service-content>div:not(.appointment-actions){margin-top:auto}
+.provider-service-category-section .appointment-actions{display:flex;gap:7px;border-top:0;padding:8px 0 0}
+.provider-service-category-section .appointment-actions .provider-secondary{width:50%;min-height:40px}
+.provider-service-pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin:18px 0 0}
+.provider-service-pagination button{display:inline-flex;align-items:center;justify-content:center;min-width:38px;min-height:37px;padding:0 10px;border:1px solid #e5d8d0;border-radius:2px;background:#fffdf9;color:#765d5a;font-size:11px}
+.provider-service-pagination button:hover:not(:disabled){border-color:#b89589;background:#fbf3ee}
+.provider-service-pagination button.active{border-color:#5d4144;background:#5d4144;color:#fffaf6}
+.provider-service-pagination button:disabled{opacity:.38;cursor:not-allowed}
+@media(max-width:900px){
+ .provider-service-category-section .provider-service-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+ .provider-service-category-tabs{gap:6px;margin-top:0}
+ .provider-service-category-tabs button{min-height:36px;padding:0 10px;font-size:10px}
+ .provider-service-category-section{margin-bottom:25px;padding-bottom:22px}
+ .provider-service-category-section>header h2{font-size:24px}
+ .provider-service-category-section .provider-service-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .provider-service-category-section .provider-service-card{display:flex}
+ .provider-service-category-section .provider-service-art{aspect-ratio:4/3}
+ .provider-service-category-section .provider-service-content{padding:12px 10px}
+ .provider-service-category-section .provider-service-content h3{font-size:15px}
+ .provider-service-category-section .provider-service-content p{font-size:11px}
+ .provider-service-category-section .provider-service-content>div:not(.appointment-actions){align-items:flex-start;flex-direction:column;gap:7px}
+ .provider-service-category-section .appointment-actions{flex-direction:column}
+ .provider-service-category-section .appointment-actions .provider-secondary{width:100%}
+ .provider-service-pagination{gap:4px}
+ .provider-service-pagination button{min-width:34px;min-height:36px;padding:0 8px;font-size:10px}
+}
+@media(max-width:370px){
+ .provider-service-category-section .provider-service-grid{grid-template-columns:minmax(0,1fr)}
+ .provider-service-category-section .provider-service-card{display:grid;grid-template-columns:38% 1fr}
+ .provider-service-category-section .provider-service-art{height:100%;min-height:0;aspect-ratio:auto}
+ .provider-service-category-section .provider-service-content{padding:14px}
+ .provider-service-category-section .appointment-actions{flex-direction:row}
+}
