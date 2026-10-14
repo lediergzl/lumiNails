@@ -71,4 +71,13 @@ $fn$;
 revoke all on function public.luni_set_turn_day_override(date, boolean) from public, anon;
 grant execute on function public.luni_set_turn_day_override(date, boolean) to authenticated;
 
+
+-- Compatibilidad con turnos por fecha creados antes de introducir la tabla de excepciones.
+-- Sin esta marca, luni_effective_turns ignora esas filas antiguas y puede mostrar un horario
+-- distinto del que la manicurista configuró para esa fecha.
+insert into public.provider_turn_overrides(provider_id, turn_date)
+select distinct t.provider_id, t.turn_date
+from public.provider_turns t
+on conflict (provider_id, turn_date) do nothing;
+
 commit;
