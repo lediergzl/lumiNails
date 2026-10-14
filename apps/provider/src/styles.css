@@ -876,3 +876,9 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
  .provider-service-category-section .provider-service-content{padding:14px}
  .provider-service-category-section .appointment-actions{flex-direction:row}
 }
+
+/* Paginación global del catálogo de servicios. */
+.provider-service-pagination{flex-wrap:wrap;padding-top:15px;border-top:1px solid #e9ddd6}
+.provider-service-pagination>span{margin-right:5px;color:#927d77;font-size:11px}
+.provider-service-pagination button{min-height:39px}
+@media(max-width:650px){.provider-service-pagination{gap:5px}.provider-service-pagination>span{width:100%;margin:0 0 4px;text-align:center}.provider-service-pagination button{min-width:35px;padding:0 8px}}
