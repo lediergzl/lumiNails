@@ -319,3 +319,56 @@ a.portfolio-detail:hover b{text-decoration:underline;text-decoration-color:#d6bd
   .provider-portfolio-card .provider-link-code{align-items:stretch;flex-direction:column;gap:11px;padding:12px}
   .provider-portfolio-card .provider-link-code button{width:100%}
 }
+
+
+/* Catálogo de servicios por tipo: filtros claros, grupos y paginación compacta. */
+.service-category-filters{display:flex;align-items:center;gap:8px;max-width:100%;overflow-x:auto;padding:2px 1px 10px;margin:2px 0 25px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.service-category-chip{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #e6d8d0;border-radius:2px;background:#fffdf9;color:#786462;font-size:11px;white-space:nowrap}
+.service-category-chip span{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:50%;background:#f3e9e3;color:#94736e;font-size:10px}
+.service-category-chip:hover{border-color:#c7a89a;background:#fcf6f1}
+.service-category-chip.active{border-color:#765157;background:#765157;color:#fffaf6}
+.service-category-chip.active span{background:#fffaf6;color:#765157}
+.service-category-section{margin:0 0 38px;padding:0 0 28px;border-bottom:1px solid #e9ddd6;scroll-margin-top:20px}
+.service-category-heading{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:0 0 17px}
+.service-category-heading h3{margin:6px 0 0;color:#4b383b;font:500 clamp(24px,3vw,31px)/1.15 var(--serif);letter-spacing:-.35px}
+.service-category-heading>span{padding-bottom:3px;color:#95807a;font-size:11px;white-space:nowrap}
+.service-category-heading .eyebrow{font-size:9px;letter-spacing:1.55px}
+.service-category-section .service-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.service-category-section .service-card{display:flex;flex-direction:column;overflow:hidden;border:1px solid #eee3dc;border-radius:2px;box-shadow:none}
+.service-category-section .service-art{height:auto;aspect-ratio:4/3;min-height:0}
+.service-category-section .service-info{display:flex;flex:1;flex-direction:column;padding:15px 15px 14px}
+.service-category-label{display:inline-block;align-self:flex-start;margin:0 0 8px;color:#a17d76;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.service-category-section .service-info h3{font-size:18px;line-height:1.3;overflow-wrap:anywhere}
+.service-category-section .service-info p{flex:1;min-height:0;margin-bottom:12px}
+.service-category-section .service-info>button{margin-top:4px}
+.service-pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin:20px 0 0}
+.service-pagination button{display:inline-flex;align-items:center;justify-content:center;min-width:39px;min-height:38px;padding:0 11px;border:1px solid #e5d8d0;border-radius:2px;background:#fffdf9;color:#765d5a;font-size:11px}
+.service-pagination button:hover:not(:disabled){border-color:#b89589;background:#fbf3ee}
+.service-pagination button.active{border-color:#5a3d40;background:#5a3d40;color:#fffaf6}
+.service-pagination button:disabled{opacity:.38;cursor:not-allowed}
+@media(max-width:900px){
+  .service-category-section .service-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .service-category-filters{gap:7px;margin:0 -1px 22px;padding-bottom:9px}
+  .service-category-chip{min-height:36px;padding:0 10px;font-size:10px}
+  .service-category-heading{align-items:center;margin-bottom:13px}
+  .service-category-heading h3{font-size:25px}
+  .service-category-heading>span{font-size:10px}
+  .service-category-section{margin-bottom:28px;padding-bottom:23px}
+  .service-category-section .service-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .service-category-section .service-info{padding:12px 11px}
+  .service-category-section .service-info h3{font-size:15px}
+  .service-category-section .service-info p{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+  .service-category-section .service-meta{flex-direction:column;align-items:flex-start;gap:7px}
+  .service-category-section .service-info .button-outline{font-size:10px;line-height:1.35;padding:10px 6px}
+  .service-category-section .service-info .button-outline span{padding-left:4px}
+  .service-pagination{gap:4px;margin-top:15px}
+  .service-pagination button{min-width:34px;min-height:36px;padding:0 8px;font-size:10px}
+}
+@media(max-width:370px){
+  .service-category-section .service-grid{grid-template-columns:minmax(0,1fr)}
+  .service-category-section .service-info{padding:14px}
+  .service-category-section .service-info h3{font-size:17px}
+  .service-category-section .service-info p{font-size:12px}
+}
