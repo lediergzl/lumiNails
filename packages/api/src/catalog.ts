@@ -70,20 +70,16 @@ async function listPublishedProvidersRemote(): Promise<PublicProvider[]> {
 }
 
 async function listPublicServicesRemote(providerId?: string): Promise<PublicService[]> {
-  const selectServices = (includeCategory: boolean) => {
-    let query = getSupabaseClient()
-      .from("services")
-      .select(includeCategory
-        ? "id,provider_id,name,description,category,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash"
-        : "id,provider_id,name,description,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("name");
-    if (providerId) query = query.eq("provider_id", providerId);
-    return query;
-  };
+  const supabase = getSupabaseClient();
+  let query = supabase
+    .from("services")
+    .select("id,provider_id,name,description,category,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("name");
+  if (providerId) query = query.eq("provider_id", providerId);
 
-  const result = await selectServices(true);
+  const result = await query;
   if (!result.error) return (result.data ?? []) as PublicService[];
 
   // Permite que una versión recién instalada siga leyendo el catálogo mientras
@@ -91,7 +87,14 @@ async function listPublicServicesRemote(providerId?: string): Promise<PublicServ
   const categoryColumnMissing = /category.*(schema cache|does not exist|not found)|column .*category/i.test(result.error.message);
   if (!categoryColumnMissing) throw new Error(result.error.message);
 
-  const legacy = await selectServices(false);
+  let legacyQuery = supabase
+    .from("services")
+    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("name");
+  if (providerId) legacyQuery = legacyQuery.eq("provider_id", providerId);
+  const legacy = await legacyQuery;
   if (legacy.error) throw new Error(legacy.error.message);
   return (legacy.data ?? []).map(service => ({
     ...service,
