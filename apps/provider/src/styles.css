@@ -816,3 +816,9 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .agenda-week-event.has-selected-design::after{content:"✧ DISEÑO";display:block;margin-top:3px;padding-top:3px;border-top:1px solid #e8bed1;font-size:8px;font-weight:800;letter-spacing:.04em;color:#9b3f6a}
 .agenda-appointment-card.has-selected-design .appointment-design-reference{border-color:#dba6bf;background:#fff0f6}
 @media(max-width:760px){.agenda-appointment-card.has-selected-design{margin:6px 0}.agenda-design-badge{font-size:9px}}
+
+/* Diagnóstico y recuperación de turnos que faltan en una fecha personalizada */
+.schedule-missing-weekly-turns{display:flex;flex-direction:column;align-items:flex-start;gap:9px;margin:12px 0;padding:12px;border:1px solid #e7c8a4;border-radius:10px;background:#fffaf1}
+.schedule-missing-weekly-turns p{margin:0;color:#66583f;font-size:13px;line-height:1.55}
+.schedule-missing-weekly-turns .provider-primary{min-height:40px;padding:9px 13px}
+@media(max-width:520px){.schedule-missing-weekly-turns .provider-primary{width:100%}}
