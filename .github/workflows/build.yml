@@ -18,6 +18,10 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Generate the two APK launcher icons
+        run: |
+          npm --workspace @lumi/client run assets:brand
+          npm --workspace @lumi/provider run assets:brand
       - name: Test inverse recipe search
         run: npm --workspace @lumi/provider run test:recipes
       - name: Build both apps
