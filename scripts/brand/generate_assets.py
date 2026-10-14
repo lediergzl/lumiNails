@@ -13,6 +13,7 @@ Las tipografías salen de los paquetes Fontsource ya instalados (woff -> ttf en 
 """
 import io
 import math
+import subprocess
 from pathlib import Path
 
 from fontTools.ttLib import TTFont
@@ -105,17 +106,13 @@ def finish(img, size, path, flatten=None):
 
 
 def make_icons(cfg, out):
-    size = 1024
-    # ícono legado (cuadrado a sangre)
-    img = new_canvas(size, cfg["icon_bg"])
-    draw_mark(ImageDraw.Draw(img), size * SS / 2, size * SS / 2, 640 * SS, cfg["ring"], cfg["letter"], cfg["star"])
-    finish(img, size, out / "icon-only.png", flatten=cfg["icon_bg"])
-    # primer plano adaptativo: la zona segura es ~66% del lienzo
-    img = new_canvas(size)
-    draw_mark(ImageDraw.Draw(img), size * SS / 2, size * SS / 2, 560 * SS, cfg["ring"], cfg["letter"], cfg["star"])
-    finish(img, size, out / "icon-foreground.png")
-    # fondo adaptativo
-    finish(new_canvas(size, cfg["icon_bg"]), size, out / "icon-background.png", flatten=cfg["icon_bg"])
+    """Instala los iconos extraídos del diseño final de cada APK."""
+    app = out.parent.name
+    subprocess.run(
+        ["node", str(ROOT / "scripts" / "brand" / "apply-icons.mjs"), app],
+        cwd=ROOT,
+        check=True,
+    )
 
 
 def centered_text(draw, cx, y, text, font, fill, tracking=0):
