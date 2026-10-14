@@ -17,6 +17,7 @@ export type PublicService = {
   provider_id: string;
   name: string;
   description: string;
+  category: string;
   price_cents: number;
   currency: string;
   duration_minutes: number;
@@ -25,6 +26,37 @@ export type PublicService = {
   detail_path: string | null;
   blurhash: string | null;
 };
+
+export const SERVICE_CATEGORIES = [
+  "Manicura",
+  "Extensiones",
+  "Uñas naturales",
+  "Rellenos",
+  "Diseños y decoración",
+  "Pedicura",
+  "Retirada",
+  "Tratamientos",
+  "Otros",
+] as const;
+
+export type ServiceCategory = typeof SERVICE_CATEGORIES[number];
+
+/** Clasificación inicial para catálogos antiguos y servicios creados sin categoría explícita. */
+export function inferServiceCategory(name: string, description = ""): ServiceCategory {
+  const text = (name + " " + description)
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "")
+    .toLocaleLowerCase("es-CU");
+  if (text.includes("pedicura") || text.includes("pedicure")) return "Pedicura";
+  if (/\\brellen[oa]s?\\b/.test(text)) return "Rellenos";
+  if (/\\bretirad[ao]\\b|\\bretiro\\b|\\bquitar\\b/.test(text)) return "Retirada";
+  if (/unas naturales|rubber base natural|esmalte semipermanente/.test(text)) return "Uñas naturales";
+  if (/diseno|decoracion|encapsulad|ojo de gato|aurora|efecto espejo|azucar|baby boomer|difuminad|cromad|joyeria|piedras|calcoman|relieve|francesa/.test(text)) return "Diseños y decoración";
+  if (/unas nuevas|acrilic|acripie|tips|extension|cover/.test(text)) return "Extensiones";
+  if (/hidrat|tratamiento|parafina|cuticula|reparacion|fortalecimiento/.test(text)) return "Tratamientos";
+  if (/manicura|unas|gel|rubber|esmalte|pintura/.test(text)) return "Manicura";
+  return "Otros";
+}
 
 async function listPublishedProvidersRemote(): Promise<PublicProvider[]> {
   const { data, error } = await getSupabaseClient()
@@ -40,7 +72,7 @@ async function listPublishedProvidersRemote(): Promise<PublicProvider[]> {
 async function listPublicServicesRemote(providerId?: string): Promise<PublicService[]> {
   let query = getSupabaseClient()
     .from("services")
-    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
+    .select("id,provider_id,name,description,category,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
     .eq("is_active", true)
     .is("deleted_at", null)
     .order("name");
