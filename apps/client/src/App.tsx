@@ -420,7 +420,13 @@ export default function App() {
               try {
                 await acceptProviderInvite(inviteToken);
                 await loadCatalog();
-                setNotice(`Ya estás conectada con ${invitePreview.business_name}. Sus servicios aparecen en tu espacio.`);
+                if (selectedDesign?.provider_id === invitePreview.provider_id) {
+                  setSearch(invitePreview.business_name);
+                  setHomeSection("services");
+                  setNotice(`Ya estás conectada con ${invitePreview.business_name}. Conservamos el diseño elegido; selecciona un servicio para continuar con la reserva.`);
+                } else {
+                  setNotice(`Ya estás conectada con ${invitePreview.business_name}. Sus servicios aparecen en tu espacio.`);
+                }
               } catch (e) { setError(e instanceof Error ? e.message : "No se pudo aceptar la invitación."); }
               finally { setBusy(false); }
             }}>{busy ? "Conectando…" : "Añadir a mis manicuristas"} <span>↗</span></button>
@@ -444,7 +450,15 @@ export default function App() {
 
     {tab === "citas" && <section className="simple-page"><span className="eyebrow">TU AGENDA PERSONAL</span><h1>Mis <em>citas.</em></h1>{sessionEmail && <div className="section-tabs" role="tablist" aria-label="Filtrar citas"><button type="button" role="tab" aria-selected={appointmentSection === "upcoming"} className={appointmentSection === "upcoming" ? "section-tab active" : "section-tab"} onClick={() => setAppointmentSection("upcoming")}>Próximas <span>{upcomingAppointments.length}</span></button><button type="button" role="tab" aria-selected={appointmentSection === "history"} className={appointmentSection === "history" ? "section-tab active" : "section-tab"} onClick={() => setAppointmentSection("history")}>Historial <span>{historyAppointments.length}</span></button></div>}{!sessionEmail ? <div className="empty-appointments"><span>♡</span><h3>Inicia sesión para ver tus citas</h3><p>Las reservas se guardan en tu cuenta de Luni.</p><button className="button-dark" onClick={() => setTab("perfil")}>Iniciar sesión <span>↗</span></button></div> : appointments.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>Tu próximo momento empieza aquí</h3><p>Aún no tienes citas. Explora los servicios disponibles.</p><button className="button-dark" onClick={() => setTab("inicio")}>Descubrir servicios <span>↗</span></button></div> : visibleAppointments.length === 0 ? <div className="empty-appointments"><span>♡</span><h3>{appointmentSection === "upcoming" ? "No tienes citas próximas" : "Tu historial está vacío"}</h3><p>{appointmentSection === "upcoming" ? "Cuando reserves un servicio, aparecerá aquí." : "Las citas anteriores, canceladas o completadas aparecerán aquí."}</p>{appointmentSection === "upcoming" && <button className="button-dark" onClick={() => setTab("inicio")}>Ver mis manicuristas <span>↗</span></button>}</div> : visibleAppointments.map(renderAppointment)}</section>}
 
-    {tab === "perfil" && <section className="simple-page"><span className="eyebrow">TU ESPACIO LUNI</span><h1>{sessionName ? <>Hola, <em>{sessionName.split(" ")[0]}.</em></> : <>Mi <em>perfil.</em></>}</h1>{sessionEmail ? <div className="profile-panel"><div className="profile-avatar">{(sessionName || sessionEmail)[0].toUpperCase()}</div><div><h3>{sessionName || sessionEmail}</h3><p>{sessionName ? sessionEmail : "Sesión iniciada"}</p></div><button className="button-outline" onClick={async () => { setBusy(true); try { if (!confirmSignOut()) return; await signOut(); setAppointments([]); setSessionEmail(""); setNotice("Sesión cerrada."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cerrar sesión."); } finally { setBusy(false); } }} disabled={busy}>Cerrar sesión</button></div> : <AuthPanel onError={setError} onNotice={setNotice} onSignedIn={async kind => { await refreshAppointments(); if (kind === "signup") setTab("inicio"); }} />}<p className="muted offline-note">Necesitas conexión a internet para ver horarios y reservar.</p></section>}
+    {tab === "perfil" && <section className="simple-page"><span className="eyebrow">TU ESPACIO LUNI</span><h1>{sessionName ? <>Hola, <em>{sessionName.split(" ")[0]}.</em></> : <>Mi <em>perfil.</em></>}</h1>{sessionEmail ? <div className="profile-panel"><div className="profile-avatar">{(sessionName || sessionEmail)[0].toUpperCase()}</div><div><h3>{sessionName || sessionEmail}</h3><p>{sessionName ? sessionEmail : "Sesión iniciada"}</p></div><button className="button-outline" onClick={async () => { setBusy(true); try { if (!confirmSignOut()) return; await signOut(); setAppointments([]); setSessionEmail(""); setNotice("Sesión cerrada."); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cerrar sesión."); } finally { setBusy(false); } }} disabled={busy}>Cerrar sesión</button></div> : <AuthPanel onError={setError} onNotice={setNotice} onSignedIn={async kind => {
+          await refreshAppointments();
+          if (selectedDesign) {
+            await loadCatalog();
+            setTab("inicio");
+            setHomeSection("inspiration");
+            setNotice(`Tu diseño de ${selectedDesign.business_name} sigue guardado. Toca «Elegir este diseño» para continuar con la reserva.`);
+          } else if (kind === "signup") setTab("inicio");
+        }} />}<p className="muted offline-note">Necesitas conexión a internet para ver horarios y reservar.</p></section>}
 
     <footer className="client-footer"><div className="brand-lockup"><div className="brand-mark small-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div><span>Hecho con cariño ♡</span></footer>
 
