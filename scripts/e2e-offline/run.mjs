@@ -74,12 +74,53 @@ const open=async p=>{ await p.goto("http://127.0.0.1:4190/",{waitUntil:"networki
 const text=p=>p.evaluate(()=>document.body.innerText);
 const click=(p,label)=>p.evaluate(l=>{ const el=[...document.querySelectorAll("button,a,[role=tab]")].find(e=>e.innerText&&e.innerText.trim().toLowerCase().includes(l.toLowerCase())); if(el){el.click();return true} return false },label);
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+const RESPONSIVE_WIDTHS = [320, 360, 375, 390, 414, 430, 540, 650, 768, 820, 1024, 1280];
+async function auditResponsive(p, screenName) {
+  const problems = [];
+  for (const width of RESPONSIVE_WIDTHS) {
+    await p.setViewport({ width, height: 844, deviceScaleFactor: 1, isMobile: true });
+    await wait(90);
+    const size = await p.evaluate(() => ({
+      viewport: document.documentElement.clientWidth || window.innerWidth,
+      document: document.documentElement.scrollWidth,
+      body: document.body.scrollWidth,
+    }));
+    if (size.document > size.viewport + 1 || size.body > size.viewport + 1) {
+      problems.push({ width, ...size });
+    }
+  }
+  await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true });
+  await wait(120);
+  if (problems.length) console.log("[RESPONSIVE OVERFLOW]", screenName, JSON.stringify(problems));
+  check("responsive " + screenName + ": sin desbordamiento horizontal entre 320 y 1280 px", problems.length === 0);
+}
+async function auditApplicationScreens(p) {
+  await auditResponsive(p, APP === "client" ? "Descubrir" : "Agenda");
+  const labels = APP === "client"
+    ? ["Mis citas", "Mi perfil", "Descubrir"]
+    : ["Servicios", "Trabajos", "Clientas", "Colores", "Negocio", "Agenda"];
+  for (const label of labels) {
+    const moved = await click(p, label);
+    if (!moved) {
+      check("responsive pantalla " + label + ": navegación disponible", false);
+      continue;
+    }
+    await wait(260);
+    await auditResponsive(p, label);
+  }
+  // Deja el E2E funcional en la pantalla inicial; sus pruebas posteriores
+  // continúan usando sus propios pasos y estado esperado.
+  await click(p, APP === "client" ? "Descubrir" : "Agenda");
+  await wait(260);
+}
 const expire=p=>p.evaluate(()=>{ const k="sb-127-auth-token"; const s=JSON.parse(localStorage.getItem(k)); s.expires_at=Math.floor(Date.now()/1000)-300; localStorage.setItem(k,JSON.stringify(s)); });
 const DATA = APP==="client" ? ["Denise Nails"] : ["Denisse Nails"];
 const has=t=>DATA.every(x=>t.includes(x)) && (APP==="client" ? /Servicios\s+4/.test(t) : true);
 
 // 1) con red: se llena la copia
 const p = await boot(); await open(p);
+await auditApplicationScreens(p);
 let t=await text(p); if(process.env.DEBUG) console.log("[ONLINE]",t.replace(/\n+/g," | ").slice(0,500));
 check("con red: carga los datos y no muestra aviso",has(t)&&!/Sin conexión|datos guardados/.test(t));
 await click(p, APP==="client"?"Mis citas":"Servicios"); await wait(500);
