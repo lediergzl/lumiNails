@@ -44,9 +44,9 @@ begin
     values (v_provider_id, p_day)
     on conflict do nothing;
 
-    -- Solo al crear la excepción nueva completamos el horario semanal.
-    -- La inserción por hora evita duplicados y ya no depende de que la fecha
-    -- estuviera completamente vacía en provider_turns.
+    -- Al convertir una fecha en excepción, agrega todos los turnos semanales
+    -- que aún no estén representados por esa hora en provider_turns. Esto también
+    -- conserva los turnos anteriores que ya estaban definidos para la fecha.
     if not v_had_override then
       insert into public.provider_turns(
         provider_id, turn_date, start_time, buffer_after_minutes, status
@@ -56,6 +56,12 @@ begin
       from public.provider_weekly_turns w
       where w.provider_id = v_provider_id
         and w.weekday = extract(isodow from p_day)::smallint
+        and not exists (
+          select 1 from public.provider_turns existing
+          where existing.provider_id = v_provider_id
+            and existing.turn_date = p_day
+            and existing.start_time = w.start_time
+        )
       on conflict (provider_id, turn_date, start_time) do nothing;
     end if;
   else
@@ -79,5 +85,38 @@ insert into public.provider_turn_overrides(provider_id, turn_date)
 select distinct t.provider_id, t.turn_date
 from public.provider_turns t
 on conflict (provider_id, turn_date) do nothing;
+
+-- Reparación de fechas futuras que ya tenían una excepción parcial: cuando hay
+-- al menos un turno activo, agrega las horas semanales faltantes de ese día. Las
+-- fechas personalizadas vacías se mantienen vacías para respetar los días cerrados.
+insert into public.provider_turns(
+  provider_id, turn_date, start_time, buffer_after_minutes, status
+)
+select
+  o.provider_id,
+  o.turn_date,
+  wt.start_time,
+  wt.buffer_after_minutes,
+  'active'
+from public.provider_turn_overrides o
+join public.provider_profiles p on p.id = o.provider_id and p.deleted_at is null
+join public.provider_weekly_turns wt
+  on wt.provider_id = o.provider_id
+ and wt.weekday = extract(isodow from o.turn_date)::smallint
+where o.turn_date >= (now() at time zone p.timezone)::date
+  and o.turn_date <= (now() at time zone p.timezone)::date + 90
+  and exists (
+    select 1 from public.provider_turns present
+    where present.provider_id = o.provider_id
+      and present.turn_date = o.turn_date
+      and present.status = 'active'
+  )
+  and not exists (
+    select 1 from public.provider_turns existing
+    where existing.provider_id = o.provider_id
+      and existing.turn_date = o.turn_date
+      and existing.start_time = wt.start_time
+  )
+on conflict (provider_id, turn_date, start_time) do nothing;
 
 commit;
