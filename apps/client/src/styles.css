@@ -372,3 +372,9 @@ a.portfolio-detail:hover b{text-decoration:underline;text-decoration-color:#d6bd
   .service-category-section .service-info h3{font-size:17px}
   .service-category-section .service-info p{font-size:12px}
 }
+
+/* Paginación global: un solo control para todo el catálogo, no uno por cada bloque. */
+.service-pagination{flex-wrap:wrap;margin:27px 0 12px;padding:15px 0 0;border-top:1px solid #e9ddd6}
+.service-pagination>span{margin-right:5px;color:#927d77;font-size:11px}
+.service-pagination button{min-height:40px}
+@media(max-width:520px){.service-pagination{gap:5px}.service-pagination>span{width:100%;margin:0 0 4px;text-align:center}.service-pagination button{min-width:35px;padding:0 8px}}
