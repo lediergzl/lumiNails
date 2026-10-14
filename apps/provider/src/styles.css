@@ -882,3 +882,109 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .provider-service-pagination>span{margin-right:5px;color:#927d77;font-size:11px}
 .provider-service-pagination button{min-height:39px}
 @media(max-width:650px){.provider-service-pagination{gap:5px}.provider-service-pagination>span{width:100%;margin:0 0 4px;text-align:center}.provider-service-pagination button{min-width:35px;padding:0 8px}}
+
+
+/* LUNI STUDIO · tarjetas de catálogo más pulidas y legibles */
+.provider-service-category-section .provider-service-card{
+  position:relative;isolation:isolate;display:flex;flex-direction:column;min-width:0;overflow:hidden;
+  border:1px solid #eadbd4;border-radius:14px;background:#fffdfa;
+  box-shadow:0 5px 18px rgba(93,63,60,.055);
+  transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;
+}
+.provider-service-category-section .provider-service-card:hover{
+  transform:translateY(-4px);border-color:#d8b8ae;
+  box-shadow:0 14px 28px rgba(93,63,60,.11);
+}
+.provider-service-category-section .provider-service-art{
+  position:relative;isolation:isolate;display:grid;place-items:center;aspect-ratio:4/3;
+  height:auto;min-height:0;overflow:hidden;font-size:48px;
+  background:radial-gradient(ellipse at 24% 20%,#fff7ed 0,transparent 38%),linear-gradient(140deg,#f2d9d5,#e8c2bd 56%,#e5bdb2);
+}
+.provider-service-category-section .provider-service-art.art-1{
+  background:radial-gradient(ellipse at 78% 18%,#fff8e8 0,transparent 35%),linear-gradient(140deg,#f6e8d8,#e8c8b7);
+}
+.provider-service-category-section .provider-service-art.art-2{
+  background:radial-gradient(ellipse at 25% 15%,#fff8fb 0,transparent 35%),linear-gradient(140deg,#eee6ef,#d9c7dc);
+}
+.provider-service-category-section .provider-service-art::before{
+  content:"";position:absolute;width:72%;aspect-ratio:1;border:1px solid rgba(255,250,241,.65);
+  border-radius:50%;box-shadow:0 0 0 12px rgba(255,250,241,.12),0 0 0 25px rgba(255,250,241,.08);
+  transform:translate(13%,2%);pointer-events:none;
+}
+.provider-service-category-section .provider-service-art::after{
+  content:"";position:absolute;inset:36% 0 0;z-index:1;
+  background:linear-gradient(180deg,transparent,rgba(72,43,48,.13));pointer-events:none;
+}
+.provider-service-category-section .provider-service-art .service-photo{z-index:0;object-fit:cover;transition:transform .5s ease,opacity .3s ease}
+.provider-service-category-section .provider-service-card:hover .service-photo{transform:scale(1.045)}
+.provider-service-category-section .provider-service-art>span{
+  z-index:2;right:12px;bottom:10px;display:inline-flex;align-items:center;justify-content:center;
+  min-width:34px;height:28px;padding:0 8px;border:1px solid rgba(255,250,241,.55);
+  border-radius:999px;background:rgba(255,250,241,.72);backdrop-filter:blur(8px);
+  color:#8a6764;font:600 10px 'DM Sans',sans-serif;letter-spacing:.6px;text-shadow:none;
+}
+.provider-service-category-section .provider-service-content{
+  display:flex;flex:1;flex-direction:column;align-items:stretch;min-width:0;padding:17px 17px 15px;
+}
+.provider-service-category-section .provider-service-category-tag{
+  display:inline-flex;align-items:center;align-self:flex-start;max-width:100%;
+  margin:0 0 10px;padding:6px 9px;border:1px solid #f0dfd8;border-radius:999px;
+  background:#fbf0ec;color:#9a696a;font-size:9px;font-weight:700;letter-spacing:.8px;line-height:1.1;
+}
+.provider-service-category-section .provider-service-content h3{
+  margin:0 0 7px;color:#4d383b;font:600 19px/1.28 var(--serif);letter-spacing:-.15px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;min-height:2.56em;
+}
+.provider-service-category-section .provider-service-content>p{
+  flex:1;min-height:3.1em;margin:0 0 13px;color:#8a7773;font-size:11.5px;line-height:1.65;overflow-wrap:anywhere;
+}
+.provider-service-category-section .provider-service-content>div:not(.appointment-actions){
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;
+  padding:13px 0 14px;border-top:1px solid #f0e4df;color:#8b7a76;font-size:11px;
+}
+.provider-service-category-section .provider-service-content>div:not(.appointment-actions)>span{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.provider-service-category-section .provider-service-content>div:not(.appointment-actions)>b{
+  color:#71484d;font-size:16px;font-weight:700;letter-spacing:-.2px;white-space:nowrap;
+}
+.provider-service-category-section .appointment-actions{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:0;padding:0;border:0;
+}
+.provider-service-category-section .appointment-actions .provider-secondary,
+.provider-service-category-section .appointment-actions .provider-secondary:last-child{
+  width:100%;min-height:40px;padding:9px 8px;border:1px solid #e5d2ca;border-radius:7px;
+  background:#fffaf7;color:#745256;font-size:11px;font-weight:600;text-align:center;text-decoration:none;
+}
+.provider-service-category-section .appointment-actions .provider-secondary:hover:not(:disabled){
+  background:#f9eee9;border-color:#cba59b;
+}
+.provider-service-category-section .appointment-actions .provider-secondary:last-child{
+  border-color:#efd8d4;background:#fff8f6;color:#a16668;text-decoration:none;
+}
+.provider-service-category-section .appointment-actions .provider-secondary:last-child:hover:not(:disabled){
+  background:#fae9e6;border-color:#d9a7a3;
+}
+@media(max-width:900px){
+  .provider-service-category-section .provider-service-card{border-radius:12px}
+}
+@media(max-width:650px){
+  .provider-service-category-section .provider-service-card{display:flex}
+  .provider-service-category-section .provider-service-art{aspect-ratio:4/3;min-height:0}
+  .provider-service-category-section .provider-service-content{padding:13px 12px 12px}
+  .provider-service-category-section .provider-service-content h3{font-size:16px}
+  .provider-service-category-section .provider-service-content>p{font-size:10.5px;min-height:2.8em}
+  .provider-service-category-section .provider-service-content>div:not(.appointment-actions){align-items:center;flex-direction:row;gap:7px;padding:10px 0 11px}
+  .provider-service-category-section .provider-service-content>div:not(.appointment-actions)>b{font-size:15px}
+  .provider-service-category-section .appointment-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .provider-service-category-section .appointment-actions .provider-secondary,
+  .provider-service-category-section .appointment-actions .provider-secondary:last-child{min-height:38px;font-size:10px}
+}
+@media(max-width:370px){
+  .provider-service-category-section .provider-service-card{display:grid;grid-template-columns:38% 1fr}
+  .provider-service-category-section .provider-service-art{height:100%;min-height:0;aspect-ratio:auto}
+  .provider-service-category-section .provider-service-content{padding:14px 12px}
+  .provider-service-category-section .provider-service-content h3{font-size:16px}
+  .provider-service-category-section .provider-service-content>div:not(.appointment-actions){align-items:flex-start;flex-direction:column}
+  .provider-service-category-section .appointment-actions{grid-template-columns:1fr}
+}
