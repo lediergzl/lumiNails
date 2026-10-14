@@ -47,8 +47,12 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
         const isOverride = await isMyTurnDayOverride(providerId, day);
         setOverride(isOverride);
         if (isOverride) {
-          setTurns(await listMyTurns(providerId, day, day));
-          setWeeklyTurns([]);
+          const [dateTurns, generalTurns] = await Promise.all([
+            listMyTurns(providerId, day, day),
+            listMyWeeklyTurns(providerId, weekdayFor(day)),
+          ]);
+          setTurns(dateTurns);
+          setWeeklyTurns(generalTurns);
         } else {
           setWeeklyTurns(await listMyWeeklyTurns(providerId, weekdayFor(day)));
           setTurns([]);
@@ -156,6 +160,28 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
   };
 
   const displayedTurns = useMemo(() => mode === "general" ? weeklyTurns : override ? turns : weeklyTurns, [mode, weeklyTurns, override, turns]);
+  const missingWeeklyTurns = useMemo(() => mode === "day" && override
+    ? weeklyTurns.filter(weekly => !turns.some(turn => hhmm(turn.start_time) === hhmm(weekly.start_time)))
+    : [], [mode, override, weeklyTurns, turns]);
+
+  const restoreMissingWeeklyTurns = async () => {
+    if (!override || missingWeeklyTurns.length === 0) return;
+    setSaving(true); setMessage(null);
+    try {
+      for (const turn of missingWeeklyTurns) {
+        await createMyTurn({
+          providerId,
+          day,
+          startTime: hhmm(turn.start_time),
+          bufferAfterMinutes: turn.buffer_after_minutes,
+        });
+      }
+      await load();
+      setMessage({kind:"ok",text:"Se recuperaron " + missingWeeklyTurns.length + " turno(s) del horario semanal que faltaban en esta fecha. Los turnos existentes se conservaron."});
+    } catch (e) {
+      setMessage({kind:"error",text:e instanceof Error?e.message:"No se pudieron recuperar los turnos que faltaban."});
+    } finally { setSaving(false); }
+  };
 
   return <section className="schedule-card manual-turns-card" aria-labelledby="manual-turns-title">
     <h3 id="manual-turns-title">Turnos y horarios de reserva</h3>
@@ -185,7 +211,7 @@ export default function ManualTurnsEditor({ providerId, appointments, timezone }
     </div>
 
     {mode==="day" && !loading && <div className="schedule-banner" role="note">
-      {override ? <><b>Fecha personalizada</b><p>Los turnos de esta fecha son independientes del horario general.</p><button type="button" className="provider-secondary" disabled={saving} onClick={()=>void toggleOverride(false)}>Volver al horario general</button></>
+      {override ? <><b>Fecha personalizada</b><p>Los turnos de esta fecha son independientes del horario general.</p>{missingWeeklyTurns.length > 0 && <div className="schedule-missing-weekly-turns" role="status"><p>Esta fecha tiene {missingWeeklyTurns.length} turno(s) menos que el horario semanal. Si no era intencional, puedes recuperar los horarios faltantes sin borrar los que ya configuraste.</p><button type="button" className="provider-primary" disabled={saving} onClick={()=>void restoreMissingWeeklyTurns()}>＋ Recuperar {missingWeeklyTurns.length} turno(s) faltante(s)</button></div>}<button type="button" className="provider-secondary" disabled={saving} onClick={()=>void toggleOverride(false)}>Volver al horario general</button></>
       : <><b>Esta fecha sigue el horario general del {DAY_NAMES[weekdayFor(day)].toLowerCase()}.</b><p>Para cambiar solo este día, crea una personalización. Se copiarán los turnos generales actuales y podrás editarlos sin alterar otras fechas.</p><button type="button" className="provider-primary" disabled={saving} onClick={()=>void toggleOverride(true)}>Personalizar este día</button></>}
     </div>}
 
