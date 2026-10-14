@@ -280,3 +280,42 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .selected-design-no-services .button-outline{flex:0 0 auto;padding:9px 12px;border-radius:9px;font-size:11px}
 @media(max-width:560px){.selected-design-flow{grid-template-columns:94px minmax(0,1fr);gap:12px;padding:10px;border-radius:13px}.selected-design-flow-photo{min-height:125px}.selected-design-flow-photo img{min-height:125px;max-height:190px}.selected-design-flow-body h3{font-size:18px}.selected-design-flow-body p{font-size:11px}.selected-design-flow-body>.button-dark{width:100%;padding:9px 8px;font-size:11px}.selected-design-flow-body .selected-design-change{margin-top:10px}.booking-design-selected{gap:10px;padding:9px}.booking-design-thumb{flex-basis:52px;width:52px;height:58px}}
 @media(max-width:350px){.selected-design-flow{grid-template-columns:1fr}.selected-design-flow-photo{min-height:185px;max-height:230px}.selected-design-flow-photo img{min-height:185px;max-height:230px}.selected-design-flow-body>.button-dark{width:100%}}
+
+ 
+/* Cartera de manicuristas: composición editorial, cálida y sin adornos artificiales. */
+.provider-portfolio-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:22px 0}
+.provider-portfolio-card{position:relative;display:block;width:min(100%,680px);max-width:680px;margin:0;padding:21px 22px 18px;background:#fffdf9;border:1px solid #e7d9d0;border-radius:3px;box-shadow:none;overflow:hidden}
+.provider-portfolio-card::before{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:#d3b798}
+.portfolio-card-main{display:flex;align-items:center;gap:15px;padding-right:64px;min-height:58px}
+.provider-portfolio-card .portfolio-avatar{flex:0 0 58px;width:58px;height:58px;border:1px solid #e0cdc3;border-radius:50%;background:#f3e6e0;color:#805357;font-size:25px;box-shadow:none}
+.provider-portfolio-card .portfolio-provider-info{min-width:0;flex:1}
+.portfolio-status{display:block;margin:0 0 6px;color:#a17b78;font-size:9px;font-weight:600;letter-spacing:1.65px;line-height:1.25}
+.provider-portfolio-card .portfolio-provider-info h3{margin:0;color:#49383a;font:500 27px/1.12 var(--serif);letter-spacing:-.45px}
+.provider-portfolio-card .portfolio-provider-info .portfolio-bio{margin:5px 0 0;color:#887977;font-size:12px;line-height:1.55}
+.provider-portfolio-card .portfolio-remove{position:absolute;top:14px;right:16px;display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:0 1px;border:0;border-bottom:1px solid #d9c8bf;border-radius:0;background:transparent;color:#927e78;font-size:11px;letter-spacing:.1px}
+.provider-portfolio-card .portfolio-remove:hover{border-bottom-color:#9b6f70;color:#754b4e;background:transparent}
+.portfolio-details{display:flex;flex-wrap:wrap;gap:15px 34px;margin-top:19px;padding:14px 0 15px;border-top:1px solid #f0e7e0}
+.portfolio-detail{display:block;min-width:130px;color:inherit;text-decoration:none}
+.portfolio-detail>span{display:block;margin-bottom:5px;color:#a6867e;font-size:9px;font-weight:600;letter-spacing:1.25px;text-transform:uppercase}
+.portfolio-detail>b{display:block;color:#5e4b49;font-size:13px;font-weight:500;line-height:1.45;overflow-wrap:anywhere}
+a.portfolio-detail:hover b{text-decoration:underline;text-decoration-color:#d6bdb0;text-underline-offset:3px}
+.provider-portfolio-card .provider-link-code{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0;padding:12px 13px;border:1px solid #eee3d9;border-left:2px solid #c7ad8d;border-radius:0;background:#f9f5ef;color:#79685e;font-size:11px}
+.portfolio-share-code>span{display:block;color:#a28479;font-size:9px;font-weight:600;letter-spacing:1.25px;line-height:1.35}
+.portfolio-share-code>strong{display:block;margin-top:4px;color:#594447;font:500 23px/1.1 var(--serif);letter-spacing:2px}
+.provider-portfolio-card .provider-link-code button{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:40px;padding:0 13px;border:1px solid #dfd0c5;border-radius:2px;background:#fffdfa;color:#745453;font-size:11px;white-space:nowrap}
+.provider-portfolio-card .provider-link-code button:hover{border-color:#bda092;background:#fffaf5}
+.provider-portfolio-card .provider-link-code button span{color:#b89b70}
+@media(max-width:520px){
+  .provider-portfolio-grid{gap:12px;margin-top:18px}
+  .provider-portfolio-card{padding:18px 15px 15px 17px}
+  .portfolio-card-main{gap:11px;padding-right:48px;align-items:flex-start}
+  .provider-portfolio-card .portfolio-avatar{flex-basis:50px;width:50px;height:50px;font-size:23px}
+  .provider-portfolio-card .portfolio-provider-info h3{font-size:23px}
+  .provider-portfolio-card .portfolio-provider-info .portfolio-bio{font-size:12px}
+  .provider-portfolio-card .portfolio-remove{top:12px;right:12px;min-height:28px;font-size:10px}
+  .portfolio-details{gap:13px 18px;margin-top:16px;padding:12px 0 14px}
+  .portfolio-detail{min-width:calc(50% - 10px);flex:1 1 40%}
+  .portfolio-detail>b{font-size:12px}
+  .provider-portfolio-card .provider-link-code{align-items:stretch;flex-direction:column;gap:11px;padding:12px}
+  .provider-portfolio-card .provider-link-code button{width:100%}
+}
