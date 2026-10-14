@@ -62,7 +62,8 @@ const dayParts = (iso: string) => {
     month: date.toLocaleDateString("es-CU", { month: "short" }).replace(".", ""),
   };
 };
-const timeFormat = new Intl.DateTimeFormat("es-CU", { hour: "2-digit", minute: "2-digit", hour12: false });
+const PROVIDER_TIME_ZONE = "America/Havana";
+const timeFormat = new Intl.DateTimeFormat("es-CU", { timeZone: PROVIDER_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const formatSlot = (iso: string) => timeFormat.format(new Date(iso));
 const formatChosen = (iso: string) =>
   `${new Date(iso).toLocaleDateString("es-CU", { weekday: "long", day: "numeric", month: "long" })} · ${formatSlot(iso)}`;
