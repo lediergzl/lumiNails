@@ -479,3 +479,135 @@ a.portfolio-detail:hover b{text-decoration:underline;text-decoration-color:#d6bd
   .service-category-section .service-info p{font-size:12px}
   .service-category-section .service-meta{align-items:center;flex-direction:row}
 }
+
+
+/* ============================================================
+   Responsive universal — Luni Cliente
+   Teléfonos compactos, móviles grandes, tabletas y orientación
+   horizontal. Esta capa corrige los últimos desbordamientos sin
+   modificar el comportamiento funcional de las pantallas.
+   ============================================================ */
+html, body, #root { width: 100%; min-width: 0; }
+body { overflow-x: clip; }
+.client-shell, .simple-page, .client-footer, .client-top,
+.client-hero, .service-grid, .service-card, .service-info,
+.profile-panel, .appointment-card, .invite-code-entry,
+.invite-preview-card, .public-work-gallery, .public-work-grid,
+.public-work-card, .selected-design-flow, .booking-modal,
+.design-lightbox, .design-lightbox-caption {
+  min-width: 0;
+  max-width: 100%;
+}
+img, video, canvas, svg { max-width: 100%; }
+input, select, textarea, button { max-width: 100%; min-width: 0; }
+input, select, textarea { box-sizing: border-box; }
+button { overflow-wrap: anywhere; }
+.client-shell { width: 100%; }
+.client-top > *, .brand-lockup, .profile-panel > *,
+.appointment-card > *, .section-heading > *,
+.service-info > *, .public-work-info > * {
+  min-width: 0;
+}
+.client-shell p, .simple-page p, .service-info h3,
+.service-info p, .appointment-card, .profile-panel,
+.invite-preview-card, .selected-design-flow-body {
+  overflow-wrap: anywhere;
+}
+.modal-backdrop, .design-lightbox-backdrop {
+  padding-top: max(10px, var(--safe-top));
+  padding-right: max(10px, var(--safe-right));
+  padding-bottom: max(10px, var(--safe-bottom));
+  padding-left: max(10px, var(--safe-left));
+}
+.booking-modal {
+  width: min(100%, 470px);
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 20px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 701px) and (max-width: 1024px) {
+  .client-shell { padding-left: 22px; padding-right: 22px; }
+  .client-hero { grid-template-columns: minmax(0, 1fr) minmax(0, .85fr); }
+  .service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simple-page { padding-top: 34px; }
+}
+@media (max-width: 700px) {
+  .client-shell {
+    padding-left: max(12px, var(--safe-left));
+    padding-right: max(12px, var(--safe-right));
+    padding-bottom: calc(76px + var(--safe-bottom));
+  }
+  .client-top {
+    min-height: 64px;
+    height: auto;
+    gap: 12px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .client-top .brand-sub { font-size: 9px; letter-spacing: 1px; }
+  .client-hero { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .hero-copy { padding: clamp(22px, 6vw, 38px) clamp(16px, 5vw, 28px); }
+  .hero-art { min-height: clamp(190px, 55vw, 300px); }
+  .simple-page { min-height: 0; padding-top: 28px; padding-bottom: 24px; }
+  .simple-page h1 { font-size: clamp(32px, 9vw, 46px); letter-spacing: -1px; overflow-wrap: anywhere; }
+  .section-tabs:not(.client-tabs) { flex-wrap: wrap; gap: 6px; }
+  .section-tabs:not(.client-tabs) .section-tab {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .trust-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .profile-panel, .appointment-card {
+    width: 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 12px;
+  }
+  .profile-panel .button-outline { width: 100%; margin: 0; }
+  .invite-code-entry, .invite-preview-card { width: 100%; max-width: 100%; padding: 16px; }
+  .selected-design-flow { min-width: 0; }
+  .service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .service-card { min-width: 0; }
+  .service-info { min-width: 0; padding: 14px; }
+  .service-info h3, .service-info p { overflow-wrap: anywhere; }
+  .service-info .button-outline { width: 100%; white-space: normal; }
+  .service-pagination { flex-wrap: wrap; justify-content: center; }
+  .service-pagination > span { flex-basis: 100%; text-align: center; }
+  .booking-modal {
+    align-self: end;
+    width: 100%;
+    max-width: 680px;
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 8px);
+    padding: 30px 16px calc(18px + var(--safe-bottom));
+    border-radius: 18px 18px 0 0;
+  }
+  .booking-modal h2 { font-size: clamp(29px, 8vw, 37px); }
+  .selected-service { align-items: flex-start; min-width: 0; }
+  .selected-service > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+  .day-strip, .time-options { max-width: 100%; }
+  .client-footer { flex-wrap: wrap; gap: 12px; }
+}
+@media (max-width: 390px) {
+  .client-shell { padding-left: max(10px, var(--safe-left)); padding-right: max(10px, var(--safe-right)); }
+  .brand-name { font-size: 27px; }
+  .brand-sub { font-size: 8px; letter-spacing: .7px; }
+  .client-top { gap: 8px; }
+  .trust-row { gap: 5px; padding-left: 0; padding-right: 0; }
+  .trust-row small { font-size: 9px; overflow-wrap: anywhere; }
+  .service-grid, .public-work-grid { grid-template-columns: minmax(0, 1fr); }
+  .service-art { aspect-ratio: 1.6; height: auto; }
+  .service-info { padding: 14px; }
+  .section-tabs:not(.client-tabs) .section-tab { flex-basis: calc(50% - 6px); }
+  .design-lightbox { width: 100%; max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 12px); }
+  .selected-service { align-items: flex-start; }
+  .chosen-summary { overflow-wrap: anywhere; }
+}
+@media (max-height: 500px) and (max-width: 900px) {
+  .booking-modal { max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 8px); }
+  .design-lightbox { max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 8px); }
+}

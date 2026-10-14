@@ -999,3 +999,198 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
     max-width: calc(100vw - 30px);
   }
 }
+
+
+/* ============================================================
+   Responsive universal — Luni Studio / Administración
+   Optimiza agenda, formularios, herramientas de color, licencia,
+   turnos y modales en móviles estrechos, tabletas y horizontal.
+   ============================================================ */
+html, body, #root { width: 100%; min-width: 0; }
+body { overflow-x: clip; }
+.provider-shell, .provider-main, .provider-header, .workspace,
+.agenda-panel, .agenda-redesigned, .settings-card, .schedule-card,
+.manual-turns-card, .provider-service-grid, .provider-service-card,
+.provider-service-content, .provider-portfolio-card,
+.license-renewal-card, .license-admin-card, .license-renewal-content,
+.admin-license-workspace, .admin-roles-card, .color-mixer,
+.color-capture-card, .provider-modal, .agenda-manual-modal {
+  min-width: 0;
+  max-width: 100%;
+}
+img, video, canvas, svg { max-width: 100%; }
+input, select, textarea, button { max-width: 100%; min-width: 0; }
+input, select, textarea { box-sizing: border-box; }
+button { overflow-wrap: anywhere; }
+.provider-shell p, .workspace h1, .workspace h2, .workspace h3,
+.settings-card p, .schedule-card p, .license-renewal-content,
+.admin-role-row, .admin-account-card, .metric-card,
+.provider-service-card, .provider-portfolio-card {
+  overflow-wrap: anywhere;
+}
+.provider-main, .workspace > *, .agenda-panel > *,
+.settings-card > *, .schedule-card > * {
+  min-width: 0;
+}
+.provider-modal-backdrop, .recipe-drops-backdrop {
+  padding-top: max(10px, var(--safe-top));
+  padding-right: max(10px, var(--safe-right));
+  padding-bottom: max(10px, var(--safe-bottom));
+  padding-left: max(10px, var(--safe-left));
+}
+.provider-modal, .recipe-drops-dialog {
+  width: min(100%, 520px);
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 20px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 651px) and (max-width: 1024px) {
+  .provider-shell { grid-template-columns: 210px minmax(0, 1fr); }
+  .provider-sidebar { min-width: 0; padding-left: 12px; padding-right: 12px; }
+  .workspace { width: 100%; padding: 28px 20px 34px; }
+  .metric-grid, .agenda-finance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric-grid > :last-child { grid-column: auto; }
+  .provider-service-grid, .provider-service-category-section .provider-service-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .agenda-heading, .agenda-toolbar { flex-wrap: wrap; }
+  .agenda-heading-actions { flex-wrap: wrap; }
+}
+@media (max-width: 650px) {
+  .provider-shell { display: flex; flex-direction: column; width: 100%; }
+  .provider-main { width: 100%; max-width: 100%; min-width: 0; }
+  .provider-header {
+    width: 100%; min-width: 0; gap: 8px;
+    padding-left: max(12px, var(--safe-left));
+    padding-right: max(12px, var(--safe-right));
+  }
+  .provider-header > *, .header-actions > *, .mobile-brand { min-width: 0; }
+  .mobile-brand { flex: 0 1 auto; }
+  .mobile-brand b { font-size: 21px; }
+  .header-actions { display: flex; flex: 0 1 auto; align-items: center; gap: 5px; }
+  .connection-label { max-width: 34vw; overflow-wrap: anywhere; }
+  .workspace { width: 100%; max-width: 100%; padding: 24px 14px calc(34px + var(--safe-bottom)); }
+  .welcome-row { align-items: stretch; }
+  .welcome-row > *, .welcome-row .provider-primary { max-width: 100%; }
+  .welcome-row h1, .workspace > h1 { font-size: clamp(30px, 8vw, 39px); overflow-wrap: anywhere; }
+  .metric-grid, .agenda-finance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .metric-card { padding: 12px 10px; }
+  .metric-card > span { font-size: 9px; letter-spacing: .7px; line-height: 1.35; overflow-wrap: anywhere; }
+  .metric-card > div { gap: 6px; flex-wrap: wrap; }
+  .metric-card > div > b { font-size: clamp(18px, 5vw, 25px); white-space: normal; overflow-wrap: anywhere; }
+  .metric-card > div > i { flex: 0 0 28px; width: 28px; height: 28px; }
+  .agenda-panel { padding: 14px 11px 12px; }
+  .agenda-heading, .agenda-toolbar { align-items: stretch; flex-direction: column; gap: 10px; }
+  .agenda-heading-actions, .agenda-top-actions { width: 100%; flex-wrap: wrap; }
+  .agenda-heading-actions > button, .agenda-top-actions > button { flex: 1 1 auto; }
+  .agenda-view-switch { width: 100%; }
+  .agenda-view-switch button { flex: 1 1 0; padding: 9px 6px; }
+  .agenda-week-grid { grid-template-columns: repeat(7, minmax(86px, 1fr)); }
+  .agenda-week-column { min-width: 0; }
+  .agenda-toolbar .agenda-date { width: 100%; min-width: 0; }
+  .agenda-search { width: 100%; min-width: 0; }
+  .agenda-search input { width: 100%; }
+  .agenda-appointment-summary { min-width: 0; }
+  .agenda-appointment-summary > * { min-width: 0; overflow-wrap: anywhere; }
+  .agenda-fab {
+    right: max(12px, var(--safe-right));
+    bottom: calc(76px + var(--safe-bottom));
+    z-index: 4;
+    max-width: calc(100vw - 24px);
+  }
+  .mobile-nav {
+    left: 0; right: 0; bottom: 0;
+    padding-left: var(--safe-left); padding-right: var(--safe-right);
+    padding-bottom: var(--safe-bottom);
+    width: 100%;
+  }
+  .provider-shell.has-mobile-nav { padding-bottom: calc(66px + var(--safe-bottom)); }
+  .settings-card, .schedule-card, .manual-turns-card,
+  .provider-portfolio-card, .license-renewal-card, .license-admin-card,
+  .color-mixer, .color-capture-card { width: 100%; }
+  .settings-card { align-items: flex-start; gap: 12px; }
+  .settings-card .settings-icon, .settings-card .settings-avatar { flex-shrink: 0; }
+  .settings-card > div:last-child { min-width: 0; flex: 1 1 180px; }
+  .block-form, .license-renewal-form, .mixer-inventory-form,
+  .color-mixer-grid, .provider-form-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-width: 0;
+  }
+  .block-form > *, .license-renewal-form > *, .mixer-inventory-form > *,
+  .color-mixer-grid > *, .provider-form-grid > * { min-width: 0; max-width: 100%; }
+  .schedule-card, .manual-turns-card { padding: 15px 12px; }
+  .manual-turn-add, .manual-turn-edit, .manual-turn-row { min-width: 0; }
+  .manual-turn-time { min-width: 0; }
+  .provider-service-category-section .provider-service-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+  .provider-service-card, .provider-service-card > *,
+  .provider-service-content, .provider-service-content > * { min-width: 0; }
+  .provider-service-content { padding: 12px 10px; }
+  .provider-service-content h3 { overflow-wrap: anywhere; }
+  .provider-service-pagination { flex-wrap: wrap; justify-content: center; }
+  .provider-service-pagination > span { flex-basis: 100%; text-align: center; }
+  .section-tabs, .admin-main-tabs, .admin-license-tabs, .portfolio-category-tabs {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .section-tabs .section-tab, .admin-main-tab, .admin-license-tab {
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .admin-role-row { grid-template-columns: minmax(0, 1fr) !important; }
+  .admin-role-row > *, .admin-account-card > * { min-width: 0; max-width: 100%; }
+  .license-admin-section, .license-admin-section > *, .admin-roles-card > * { min-width: 0; max-width: 100%; }
+  .studio-brand-customizer, .settings-card.studio-brand-customizer { flex-wrap: wrap; }
+  .studio-brand-copy { min-width: 0; flex: 1 1 180px; }
+  .provider-modal-backdrop { place-items: end center; padding: max(8px, var(--safe-top)) max(8px, var(--safe-right)) 0 max(8px, var(--safe-left)); }
+  .provider-modal, .agenda-manual-modal, .recipe-drops-dialog {
+    align-self: end;
+    width: 100%;
+    max-width: 680px;
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 8px);
+    padding: 28px 16px calc(18px + var(--safe-bottom));
+    border-radius: 18px 18px 0 0;
+  }
+  .provider-modal h2 { font-size: clamp(28px, 7.8vw, 35px); overflow-wrap: anywhere; }
+  .provider-modal label { min-width: 0; overflow-wrap: anywhere; }
+  .provider-modal input, .provider-modal select, .provider-modal textarea { width: 100%; min-width: 0; }
+  .recipe-drops-backdrop { place-items: end center; padding-bottom: 0; }
+  .color-capture-actions, .agenda-client-mode { flex-wrap: wrap; }
+  .color-capture-actions button, .agenda-client-mode button { flex: 1 1 130px; }
+  .color-camera-preview { min-width: 0; }
+  .color-captured-canvas, .color-mixer canvas, .color-photo-canvas { max-width: 100%; }
+  .target-palette { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .license-renewal-card, .license-admin-card { padding: 14px 12px; }
+  .license-admin-card .license-admin-section { margin-left: 0; margin-right: 0; }
+  .admin-license-workspace { width: 100%; padding-left: 12px; padding-right: 12px; }
+  .portfolio-work-images { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 390px) {
+  .provider-header { gap: 4px; padding-left: 8px; padding-right: 8px; }
+  .connection-label { display: none; }
+  .header-avatar { margin-left: 0; width: 34px; height: 34px; }
+  .workspace { padding-left: 10px; padding-right: 10px; }
+  .metric-grid, .agenda-finance-grid { grid-template-columns: minmax(0, 1fr); }
+  .metric-grid > :last-child { grid-column: auto; }
+  .agenda-fab { padding: 11px 14px; }
+  .provider-service-category-section .provider-service-grid { grid-template-columns: minmax(0, 1fr); }
+  .provider-service-card { display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); }
+  .provider-service-card .provider-service-art { min-width: 0; }
+  .provider-service-content { padding: 12px 10px; }
+  .provider-service-card .appointment-actions { grid-template-columns: minmax(0, 1fr); }
+  .provider-service-card .appointment-actions button { width: 100%; }
+  .portfolio-work-images, .target-palette { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .section-tabs, .admin-main-tabs, .admin-license-tabs { gap: 5px; }
+  .mobile-nav button { font-size: 10px; }
+}
+@media (max-height: 500px) and (max-width: 900px) {
+  .provider-modal, .agenda-manual-modal, .recipe-drops-dialog {
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 8px);
+  }
+}
