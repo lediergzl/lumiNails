@@ -220,3 +220,5 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .offline-conflicts button{background:none;border:1px solid currentColor;color:inherit;padding:6px 14px;font-size:12px;cursor:pointer}
 
 .provider-link-code{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border:1px solid #eadfc2;border-radius:12px;background:#fbf7ef;color:#6f5f3a;font-size:12px}.provider-link-code strong{font-size:16px;letter-spacing:1.5px;margin-left:6px;color:#4b3d32}.provider-link-code button{border:1px solid #d8c7a2;background:#fffdf8;color:#6f5f3a;border-radius:8px;padding:7px 10px;font:inherit;cursor:pointer}
+
+.appointment-cancellation-notice{flex-basis:100%;padding:16px 18px;background:#fff2f0;border:1px solid #e9c2bd;border-left:4px solid #bd7776;color:#604746;line-height:1.6}.appointment-cancellation-notice strong{display:block;font-size:14px;color:#8e4e50}.appointment-cancellation-notice p{margin:8px 0;font-size:13px}.appointment-cancellation-notice .button-outline{margin-top:6px;background:#fff}
