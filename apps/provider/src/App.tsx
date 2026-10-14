@@ -41,6 +41,8 @@ import {
   savePortfolioItem,
   deletePortfolioItem,
   getSupabaseClient,
+  SERVICE_CATEGORIES,
+  inferServiceCategory,
 } from "@lumi/api";
 
 type Tab = "agenda" | "servicios" | "trabajos" | "clientes" | "colores" | "perfil";
@@ -176,6 +178,7 @@ export default function App() {
   const [removePhoto, setRemovePhoto] = useState(false);
   const [serviceName, setServiceName] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
+  const [serviceCategory, setServiceCategory] = useState<string>("Manicura");
   const [servicePrice, setServicePrice] = useState("800");
   const [serviceDuration, setServiceDuration] = useState("45");
   const [day, setDay] = useState(dateKeyInTimeZone("America/Havana"));
@@ -326,6 +329,7 @@ export default function App() {
           providerId: profile.id,
           name: item.name,
           description: item.description,
+          category: inferServiceCategory(item.name, item.description),
           priceCents: Math.round(item.price * 100),
           currency: "CUP",
           durationMinutes: item.minutes,
@@ -354,6 +358,7 @@ export default function App() {
         id: editingServiceId ?? undefined,
         name: serviceName,
         description: serviceDescription,
+        category: serviceCategory,
         priceCents: Math.round(price * 100),
         currency: "CUP",
         durationMinutes: duration,
@@ -365,7 +370,7 @@ export default function App() {
         if (photo) photoQueued = (await setServiceImage(profile.id, serviceId, photo.set, p => setPhotoInfo(`Subiendo foto (${Math.min(p.done + 1, p.total)} de ${p.total})…`))).queued;
         else if (removePhoto) photoQueued = (await clearServiceImage(profile.id, serviceId)).queued;
       } catch (e) { photoProblem = e instanceof Error ? e.message : "No se pudo subir la foto."; }
-      setShowServiceForm(false); setEditingServiceId(null); setServiceName(""); setServiceDescription(""); resetPhoto();
+      setShowServiceForm(false); setEditingServiceId(null); setServiceName(""); setServiceDescription(""); setServiceCategory("Manicura"); resetPhoto();
       await refresh();
       if (photoProblem) setNotice(`Servicio guardado, pero la foto no se subió: ${photoProblem} Ábrelo con «Editar» para reintentar.`);
       else if (serviceQueued || photoQueued) setNotice("Guardado en este teléfono" + (photo ? ", con su foto" : "") + ". Se enviará cuando haya conexión.");
@@ -430,13 +435,13 @@ export default function App() {
 
   const openNewService = () => {
     resetPhoto(); setSavedPhotoPath(null);
-    setEditingServiceId(null); setServiceName(""); setServiceDescription("");
+    setEditingServiceId(null); setServiceName(""); setServiceDescription(""); setServiceCategory("Manicura");
     setServicePrice("800"); setServiceDuration("45"); setShowServiceForm(true);
   };
 
   const openEditService = (s: ProviderService) => {
     resetPhoto(); setSavedPhotoPath(s.card_path);
-    setEditingServiceId(s.id); setServiceName(s.name); setServiceDescription(s.description);
+    setEditingServiceId(s.id); setServiceName(s.name); setServiceDescription(s.description); setServiceCategory(s.category || inferServiceCategory(s.name, s.description));
     setServicePrice(String(s.price_cents / 100)); setServiceDuration(String(s.duration_minutes));
     setShowServiceForm(true);
   };
@@ -713,6 +718,6 @@ export default function App() {
     {reasonTarget&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="reason-title"><button className="modal-close" onClick={()=>setReasonTarget(null)} aria-label="Cerrar">×</button><span className="eyebrow">{reasonTarget.status==="rejected"?"RECHAZAR CITA":"CANCELAR CITA"}</span><h2 id="reason-title">Avisa a la <em>clienta.</em></h2><label>Motivo (opcional)<input value={reasonText} maxLength={200} onChange={e=>setReasonText(e.target.value)} placeholder="Ej. Ese día no podré atender"/></label><button className="provider-primary full-provider-button" disabled={busy} onClick={async()=>{const t=reasonTarget;setReasonTarget(null);await changeAppointment(t.id,t.status,reasonText);}}>{reasonTarget.status==="rejected"?"Rechazar cita":"Cancelar cita"}</button></section></div>}
     {zoomDesign && <div className="provider-modal-backdrop" role="presentation" onClick={() => setZoomDesign(null)} style={{ zIndex: 10000, padding: 16, background: "rgba(28, 18, 24, .88)" }}><section role="dialog" aria-modal="true" aria-label="Vista ampliada del diseño elegido" onClick={e => e.stopPropagation()} style={{ position: "relative", width: "min(94vw, 900px)", maxHeight: "94vh", overflow: "auto", margin: "auto", padding: 14, borderRadius: 18, background: "#fffaf8", boxSizing: "border-box" }}><button type="button" onClick={() => setZoomDesign(null)} aria-label="Cerrar imagen ampliada" style={{ position: "sticky", top: 0, float: "right", zIndex: 1, width: 42, height: 42, borderRadius: "50%", border: "1px solid #ead1d8", background: "#fff", color: "#5d3445", fontSize: 28, cursor: "pointer" }}>×</button><div style={{ clear: "both", textAlign: "center", padding: "0 4px 12px" }}><b style={{ color: "#5d3445" }}>{zoomDesign.title || "Diseño elegido"}</b><div style={{ color: "#8a6b77", fontSize: 13, marginTop: 3 }}>{zoomDesign.category}</div></div><CachedImage path={zoomDesign.path} alt={"Vista ampliada: " + zoomDesign.title} style={{ display: "block", width: "100%", maxHeight: "78vh", objectFit: "contain", borderRadius: 10, background: "#f4eef0" }} /></section></div>}
     {showWorkForm&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="portfolio-work-title"><button className="modal-close" onClick={()=>{setShowWorkForm(false);setEditingWorkId(null);setWorkPhotos([]);}} aria-label="Cerrar">×</button><span className="eyebrow">PORTAFOLIO DE TRABAJOS</span><h2 id="portfolio-work-title">{editingWorkId?"Editar":"Publicar"} <em>trabajo terminado.</em></h2><label>Título (opcional)<input maxLength={120} value={workTitle} onChange={e=>setWorkTitle(e.target.value)} placeholder="Ej. Francesa con detalles dorados"/></label><label>Categoría<select value={workCategory} onChange={e=>setWorkCategory(e.target.value)}><option>Diseños</option><option>Acrílicas</option><option>Semipermanente</option><option>Manicura</option><option>Pedicura</option><option>Gel</option><option>Novias y eventos</option><option>Otros</option></select></label><label>Descripción<textarea maxLength={1000} value={workDescription} onChange={e=>setWorkDescription(e.target.value)} placeholder="Cuenta qué técnica o diseño realizaste"/></label><label>Fotos (hasta 6 en total; JPG, PNG o WebP)<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setWorkPhotos(Array.from(e.target.files??[]).slice(0,6))}/></label><p>{workPhotos.length} foto(s) nuevas seleccionadas. Las fotos se optimizan antes de subirlas a Supabase Storage.</p><button className="provider-primary full-provider-button" disabled={busy||photoBusy||(!editingWorkId&&workPhotos.length===0)} onClick={()=>void createPortfolioPost()}>{busy?"Publicando…":editingWorkId?"Guardar cambios":"Publicar trabajo"}</button></section></div>}
-    {showServiceForm&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="new-service-title"><button className="modal-close" onClick={()=>setShowServiceForm(false)} aria-label="Cerrar">×</button><span className="eyebrow">{editingServiceId?"AJUSTA TU CATÁLOGO":"AMPLÍA TU CATÁLOGO"}</span><h2 id="new-service-title">{editingServiceId?<>Editar <em>servicio.</em></>:<>Nuevo <em>servicio.</em></>}</h2><label>Nombre del servicio<input value={serviceName} onChange={e=>setServiceName(e.target.value)} placeholder="Ej. Manicura clásica"/></label><label>Descripción<input value={serviceDescription} onChange={e=>setServiceDescription(e.target.value)} placeholder="Describe brevemente el servicio"/></label><div className="photo-field"><span>Foto del servicio</span>{(photo||(savedPhotoPath&&!removePhoto))?(photo?<img className="photo-preview" src={photo.previewUrl} alt="Foto del servicio"/>:<CachedImage className="photo-preview" path={savedPhotoPath} alt="Foto del servicio"/>):<div className="photo-empty">Sin foto</div>}<div className="photo-actions"><label className="provider-secondary photo-pick">{(photo||(savedPhotoPath&&!removePhoto))?"Cambiar foto":"Añadir foto"}<input type="file" accept="image/*" hidden disabled={busy||photoBusy} onChange={e=>{const f=e.target.files?.[0];e.target.value="";void pickPhoto(f);}}/></label>{(photo||(savedPhotoPath&&!removePhoto))&&<button type="button" className="provider-secondary" disabled={busy||photoBusy} onClick={()=>{if(photo)resetPhoto();else setRemovePhoto(true);}}>{photo?"Descartar":"Quitar foto"}</button>}</div>{photoBusy&&<small>Preparando la foto en tu teléfono…</small>}{!photoBusy&&photoInfo&&<small>{photoInfo}</small>}{photoError&&<small className="photo-error" role="alert">{photoError}</small>}</div><label>Precio (CUP)<input inputMode="decimal" value={servicePrice} onChange={e=>setServicePrice(e.target.value)} /></label><label>Duración en minutos<input type="number" min="1" max="1440" value={serviceDuration} onChange={e=>setServiceDuration(e.target.value)} /></label><p>El precio se guarda en centavos en la base de datos. Ejemplo: 800 CUP se guarda como 80000.</p><button className="provider-primary full-provider-button" disabled={busy||photoBusy||!serviceName.trim()} onClick={()=>void createService()}>{busy?(photoInfo.startsWith("Subiendo")?photoInfo:"Guardando…"):"Guardar servicio"}</button></section></div>}
+    {showServiceForm&&<div className="provider-modal-backdrop"><section className="provider-modal" role="dialog" aria-modal="true" aria-labelledby="new-service-title"><button className="modal-close" onClick={()=>setShowServiceForm(false)} aria-label="Cerrar">×</button><span className="eyebrow">{editingServiceId?"AJUSTA TU CATÁLOGO":"AMPLÍA TU CATÁLOGO"}</span><h2 id="new-service-title">{editingServiceId?<>Editar <em>servicio.</em></>:<>Nuevo <em>servicio.</em></>}</h2><label>Nombre del servicio<input value={serviceName} onChange={e=>setServiceName(e.target.value)} placeholder="Ej. Manicura clásica"/></label><label>Tipo de servicio<select value={serviceCategory} onChange={e=>setServiceCategory(e.target.value)}>{SERVICE_CATEGORIES.map(category=><option key={category} value={category}>{category}</option>)}</select><small>Esta categoría organiza tu catálogo y ayuda a tus clientas a encontrar el servicio.</small></label><label>Descripción<input value={serviceDescription} onChange={e=>setServiceDescription(e.target.value)} placeholder="Describe brevemente el servicio"/></label><div className="photo-field"><span>Foto del servicio</span>{(photo||(savedPhotoPath&&!removePhoto))?(photo?<img className="photo-preview" src={photo.previewUrl} alt="Foto del servicio"/>:<CachedImage className="photo-preview" path={savedPhotoPath} alt="Foto del servicio"/>):<div className="photo-empty">Sin foto</div>}<div className="photo-actions"><label className="provider-secondary photo-pick">{(photo||(savedPhotoPath&&!removePhoto))?"Cambiar foto":"Añadir foto"}<input type="file" accept="image/*" hidden disabled={busy||photoBusy} onChange={e=>{const f=e.target.files?.[0];e.target.value="";void pickPhoto(f);}}/></label>{(photo||(savedPhotoPath&&!removePhoto))&&<button type="button" className="provider-secondary" disabled={busy||photoBusy} onClick={()=>{if(photo)resetPhoto();else setRemovePhoto(true);}}>{photo?"Descartar":"Quitar foto"}</button>}</div>{photoBusy&&<small>Preparando la foto en tu teléfono…</small>}{!photoBusy&&photoInfo&&<small>{photoInfo}</small>}{photoError&&<small className="photo-error" role="alert">{photoError}</small>}</div><label>Precio (CUP)<input inputMode="decimal" value={servicePrice} onChange={e=>setServicePrice(e.target.value)} /></label><label>Duración en minutos<input type="number" min="1" max="1440" value={serviceDuration} onChange={e=>setServiceDuration(e.target.value)} /></label><p>El precio se guarda en centavos en la base de datos. Ejemplo: 800 CUP se guarda como 80000.</p><button className="provider-primary full-provider-button" disabled={busy||photoBusy||!serviceName.trim()} onClick={()=>void createService()}>{busy?(photoInfo.startsWith("Subiendo")?photoInfo:"Guardando…"):"Guardar servicio"}</button></section></div>}
   </main>;
 }
