@@ -1194,3 +1194,30 @@ button { overflow-wrap: anywhere; }
     max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 8px);
   }
 }
+
+
+/* En tabletas estrechas, el título de trabajos y su botón no deben sumar ancho de más. */
+@media (min-width: 651px) and (max-width: 900px) {
+  .welcome-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .welcome-row > div {
+    min-width: 0;
+    flex: 1 1 300px;
+  }
+  .welcome-row > .provider-primary {
+    flex: 0 1 auto;
+    max-width: 100%;
+    white-space: normal;
+  }
+  .portfolio-work-grid {
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: repeat(auto-fill, minmax(min(245px, 100%), 1fr));
+  }
+  .portfolio-work-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
