@@ -45,11 +45,11 @@ export type ServiceCategory = typeof SERVICE_CATEGORIES[number];
 export function inferServiceCategory(name: string, description = ""): ServiceCategory {
   const text = (name + " " + description)
     .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("es-CU");
   if (text.includes("pedicura") || text.includes("pedicure")) return "Pedicura";
-  if (/\\brellen[oa]s?\\b/.test(text)) return "Rellenos";
-  if (/\\bretirad[ao]\\b|\\bretiro\\b|\\bquitar\\b/.test(text)) return "Retirada";
+  if (/\brellen[oa]s?\b/.test(text)) return "Rellenos";
+  if (/\bretirad[ao]\b|\bretiro\b|\bquitar\b/.test(text)) return "Retirada";
   if (/unas naturales|rubber base natural|esmalte semipermanente/.test(text)) return "Uñas naturales";
   if (/diseno|decoracion|encapsulad|ojo de gato|aurora|efecto espejo|azucar|baby boomer|difuminad|cromad|joyeria|piedras|calcoman|relieve|francesa/.test(text)) return "Diseños y decoración";
   if (/unas nuevas|acrilic|acripie|tips|extension|cover/.test(text)) return "Extensiones";
