@@ -70,18 +70,33 @@ async function listPublishedProvidersRemote(): Promise<PublicProvider[]> {
 }
 
 async function listPublicServicesRemote(providerId?: string): Promise<PublicService[]> {
-  let query = getSupabaseClient()
-    .from("services")
-    .select("id,provider_id,name,description,category,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("name");
+  const selectServices = (includeCategory: boolean) => {
+    let query = getSupabaseClient()
+      .from("services")
+      .select(includeCategory
+        ? "id,provider_id,name,description,category,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash"
+        : "id,provider_id,name,description,price_cents,currency,duration_minutes,thumb_path,card_path,detail_path,blurhash")
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("name");
+    if (providerId) query = query.eq("provider_id", providerId);
+    return query;
+  };
 
-  if (providerId) query = query.eq("provider_id", providerId);
+  const result = await selectServices(true);
+  if (!result.error) return (result.data ?? []) as PublicService[];
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return (data ?? []) as PublicService[];
+  // Permite que una versión recién instalada siga leyendo el catálogo mientras
+  // el administrador aplica la migración de categorías en Supabase.
+  const categoryColumnMissing = /category.*(schema cache|does not exist|not found)|column .*category/i.test(result.error.message);
+  if (!categoryColumnMissing) throw new Error(result.error.message);
+
+  const legacy = await selectServices(false);
+  if (legacy.error) throw new Error(legacy.error.message);
+  return (legacy.data ?? []).map(service => ({
+    ...service,
+    category: inferServiceCategory(service.name, service.description),
+  })) as PublicService[];
 }
 
 export const listPublishedProviders = withOfflineCache("listPublishedProviders", listPublishedProvidersRemote);
