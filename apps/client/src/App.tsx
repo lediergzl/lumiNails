@@ -79,6 +79,10 @@ export default function App() {
   const [providerCodes, setProviderCodes] = useState<Record<string, string>>({});
   const [publicWorks, setPublicWorks] = useState<PublicPortfolioItem[]>([]);
   const [selectedDesign, setSelectedDesign] = useState<PublicPortfolioItem | null>(null);
+  const [workSearch, setWorkSearch] = useState("");
+  const [workCategory, setWorkCategory] = useState("Todas");
+  const [lightboxWork, setLightboxWork] = useState<PublicPortfolioItem | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [servicesRaw, setServicesRaw] = useState<PublicService[]>([]);
   const [appointments, setAppointments] = useState<RemoteAppointment[]>([]);
   const [sessionEmail, setSessionEmail] = useState("");
@@ -230,6 +234,51 @@ export default function App() {
   const visible = useMemo(() => services.filter(s =>
     `${s.name} ${s.description} ${s.providerName}`.toLowerCase().includes(search.toLowerCase())
   ), [services, search]);
+  const workCategories = useMemo(() => [
+    "Todas",
+    ...Array.from(new Set(publicWorks.map(item => item.category.trim()).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, "es")),
+  ], [publicWorks]);
+  const visiblePublicWorks = useMemo(() => {
+    const query = workSearch.trim().toLocaleLowerCase("es-CU");
+    return publicWorks.filter(item => {
+      const matchesCategory = workCategory === "Todas" || item.category === workCategory;
+      const searchable = `${item.title} ${item.description} ${item.category} ${item.business_name}`.toLocaleLowerCase("es-CU");
+      return matchesCategory && (!query || searchable.includes(query));
+    });
+  }, [publicWorks, workCategory, workSearch]);
+
+  useEffect(() => {
+    if (!lightboxWork) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxWork(null);
+      if (event.key === "ArrowRight" && lightboxWork.image_paths.length > 1) {
+        setLightboxIndex(index => (index + 1) % lightboxWork.image_paths.length);
+      }
+      if (event.key === "ArrowLeft" && lightboxWork.image_paths.length > 1) {
+        setLightboxIndex(index => (index - 1 + lightboxWork.image_paths.length) % lightboxWork.image_paths.length);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxWork]);
+
+  const chooseDesignForBooking = (item: PublicPortfolioItem) => {
+    setSelectedDesign(item);
+    setSearch(item.business_name);
+    if (!sessionEmail) {
+      setNotice("Tu diseño quedó guardado. Inicia sesión y vuelve a Inspiración para continuar con la reserva.");
+      setTab("perfil");
+      return;
+    }
+    if (!providers.some(provider => provider.id === item.provider_id)) {
+      setNotice("Diseño guardado. Para reservar con " + item.business_name + ", añade primero esta manicurista a tu cartera con su código de invitación. Después vuelve a Inspiración y selecciona este diseño.");
+      setHomeSection("providers");
+      return;
+    }
+    setHomeSection("services");
+    setNotice("Diseño elegido: " + (item.title || item.category) + ". Selecciona un servicio de " + item.business_name + "; el diseño se adjuntará a la solicitud de cita.");
+  };
 
   // Al abrir o cambiar de servicio se reinicia la selección.
   useEffect(() => {
@@ -378,7 +427,7 @@ export default function App() {
           : <div><p>Inicia sesión o crea tu cuenta para añadir esta manicurista a tu cartera.</p><button className="button-dark" onClick={() => setTab("perfil")}>Entrar o registrarme <span>↗</span></button></div>}
       </article>}
       </>}
-      {homeSection === "inspiration" && <section className="public-work-gallery"><div className="section-heading"><div><span className="eyebrow">INSPIRACIÓN REAL</span><h2>Trabajos <em>terminados.</em></h2><p>Descubre diseños publicados por las manicuristas en Luni.</p></div><span className="service-count">{publicWorks.length} publicaciones</span></div>{publicWorks.length > 0 ? <div className="public-work-grid">{publicWorks.map(item=><article className="public-work-card" key={item.id}><div className="public-work-photos">{item.image_paths.slice(0,3).map(path=><CachedImage key={path} path={path} alt={item.title||"Trabajo de uñas terminado"} loading="lazy" decoding="async"/>)}</div><div className="public-work-info"><span className="portfolio-work-category">{item.category}</span><h3>{item.title||item.category}</h3>{item.description&&<p>{item.description}</p>}<b>{item.business_name}</b><small>{item.image_paths.length} {item.image_paths.length===1?"foto":"fotos"}</small><button className="button-outline" onClick={()=>{setSelectedDesign(item);setSearch(item.business_name);if(!sessionEmail){setNotice("Inicia sesión para continuar con este diseño. Después vuelve a Inspiración y toca «Ver servicios / reservar».");setTab("perfil");}else if(!providers.some(p=>p.id===item.provider_id)){setNotice("Diseño guardado. Para reservar con "+item.business_name+", primero añade esta manicurista a tu cartera con su código de invitación; después vuelve a este diseño.");setHomeSection("providers");}else{setHomeSection("services");setNotice("Diseño seleccionado: "+(item.title||item.category)+". Elige un servicio de "+item.business_name+" y el diseño quedará adjunto a la solicitud de cita.");}}}>Ver servicios / reservar ↗</button></div></article>)}</div>:<div className="public-work-empty"><span>✧</span><h3>Pronto habrá trabajos para descubrir</h3><p>Las publicaciones de las manicuristas aparecerán aquí.</p></div>}</section>}
+      {homeSection === "inspiration" && <section className="public-work-gallery"><div className="section-heading"><div><span className="eyebrow">INSPIRACIÓN REAL</span><h2>Diseños que <em>inspiran.</em></h2><p>Explora trabajos reales y elige el estilo que quieres llevar en tus uñas.</p></div><span className="service-count">{publicWorks.length} {publicWorks.length === 1 ? "publicación" : "publicaciones"}</span></div>{publicWorks.length > 0 ? <><label className="work-search"><span aria-hidden="true">⌕</span><input value={workSearch} onChange={e => setWorkSearch(e.target.value)} placeholder="Buscar diseño o manicurista…" aria-label="Buscar diseños por nombre o manicurista" /></label><div className="work-category-filters" role="group" aria-label="Filtrar diseños por categoría">{workCategories.map(category => <button type="button" key={category} className={workCategory === category ? "work-category-chip active" : "work-category-chip"} aria-pressed={workCategory === category} onClick={() => setWorkCategory(category)}>{category}</button>)}</div>{visiblePublicWorks.length > 0 ? <div className="public-work-grid">{visiblePublicWorks.map(item => { const cleanTitle = item.title.trim(); const sameAsCategory = !cleanTitle || cleanTitle.toLocaleLowerCase("es-CU") === item.category.trim().toLocaleLowerCase("es-CU"); return <article className="public-work-card" key={item.id}><div className="public-work-photos">{item.image_paths.slice(0,3).map((path,index) => <button type="button" className="public-work-photo-button" key={`${item.id}-${path}-${index}`} aria-label={`Ver foto ${index + 1} de ${cleanTitle || item.category}`} onClick={() => { setLightboxWork(item); setLightboxIndex(index); }}><CachedImage path={path} alt={cleanTitle || item.category || "Trabajo de uñas terminado"} loading="lazy" decoding="async" /><span aria-hidden="true">⌕</span></button>)}{item.image_paths.length > 3 && <button type="button" className="public-work-more-photos" onClick={() => { setLightboxWork(item); setLightboxIndex(3); }} aria-label={`Ver las ${item.image_paths.length} fotos`}>+{item.image_paths.length - 3}</button>}{item.image_paths.length === 0 && <div className="public-work-no-photo" aria-label="Sin foto disponible">✧</div>}</div><div className="public-work-info"><span className="portfolio-work-category">{item.category}</span>{!sameAsCategory && <h3>{cleanTitle}</h3>}{item.description && <p>{item.description}</p>}<b className="public-work-business">{item.business_name}</b><small>{item.image_paths.length} {item.image_paths.length === 1 ? "foto" : "fotos"} · Trabajo publicado en Luni</small><button className="button-dark public-work-choose" type="button" onClick={() => chooseDesignForBooking(item)}>Elegir este diseño <span>↗</span></button></div></article>; })}</div> : <div className="public-work-empty work-no-results"><span>⌕</span><h3>No encontramos ese diseño</h3><p>Prueba con otra búsqueda o selecciona «Todas» las categorías.</p><button className="button-outline" type="button" onClick={() => { setWorkSearch(""); setWorkCategory("Todas"); }}>Limpiar filtros</button></div>}</> : <div className="public-work-empty"><span>✧</span><h3>Pronto habrá trabajos para descubrir</h3><p>Las publicaciones de las manicuristas aparecerán aquí.</p></div>}</section>}
       {homeSection === "services" && <>
       <label className="search-box"><span>⌕</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar entre tus servicios..." /></label>
       </>}
@@ -399,6 +448,7 @@ export default function App() {
 
     <footer className="client-footer"><div className="brand-lockup"><div className="brand-mark small-mark">l<span>✦</span></div><div><div className="brand-name">luni</div><div className="brand-sub">TU MOMENTO, TU ESTILO</div></div></div><span>Hecho con cariño ♡</span></footer>
 
+    {lightboxWork && <div className="design-lightbox-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setLightboxWork(null); }}><section className="design-lightbox" role="dialog" aria-modal="true" aria-label={`Fotos del trabajo ${lightboxWork.title || lightboxWork.category}`}><button type="button" className="design-lightbox-close" aria-label="Cerrar fotos" onClick={() => setLightboxWork(null)}>×</button><div className="design-lightbox-image">{lightboxWork.image_paths[lightboxIndex] ? <CachedImage path={lightboxWork.image_paths[lightboxIndex]} alt={`${lightboxWork.title || lightboxWork.category}, foto ${lightboxIndex + 1}`} decoding="async" /> : <div className="public-work-no-photo">No hay foto disponible</div>}{lightboxWork.image_paths.length > 1 && <><button type="button" className="design-lightbox-arrow previous" aria-label="Foto anterior" onClick={() => setLightboxIndex(index => (index - 1 + lightboxWork.image_paths.length) % lightboxWork.image_paths.length)}>‹</button><button type="button" className="design-lightbox-arrow next" aria-label="Foto siguiente" onClick={() => setLightboxIndex(index => (index + 1) % lightboxWork.image_paths.length)}>›</button></>}</div><div className="design-lightbox-caption"><div><span className="portfolio-work-category">{lightboxWork.category}</span><h2>{lightboxWork.title && lightboxWork.title.trim().toLocaleLowerCase("es-CU") !== lightboxWork.category.trim().toLocaleLowerCase("es-CU") ? lightboxWork.title : lightboxWork.category}</h2><p>{lightboxWork.business_name}{lightboxWork.description ? ` · ${lightboxWork.description}` : ""}</p><small>{lightboxIndex + 1} de {lightboxWork.image_paths.length} {lightboxWork.image_paths.length === 1 ? "foto" : "fotos"}</small></div><button type="button" className="button-dark" onClick={() => { const item = lightboxWork; setLightboxWork(null); chooseDesignForBooking(item); }}>Elegir este diseño <span>↗</span></button></div></section></div>}
     {selected && <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" aria-label="Cerrar" onClick={() => { setSelected(null); setReschedulingAppointmentId(null); }}>×</button><span className="eyebrow">{reschedulingAppointmentId ? "MODIFICA TU CITA" : "TU PRÓXIMO MOMENTO"}</span><h2 id="booking-title">{reschedulingAppointmentId ? <>Cambia tu <em>horario.</em></> : <>Reserva tu <em>espacio.</em></>}</h2><div className="selected-service"><div className={"mini-service-art " + selected.tone}>{selected.thumb_path ? <CachedImage className="service-photo loaded" path={selected.thumb_path} alt="" /> : "✿"}</div><div><b>{selected.name}</b><small><span className="studio-card-icon">{selected.providerLogoPath ? <CachedImage className="provider-brand-logo small" path={selected.providerLogoPath} alt="" /> : selected.providerIcon}</span> {selected.providerName} · {selected.duration_minutes} min</small><small>{money(selected.price_cents, selected.currency)}</small></div></div><div className="field-label" role="group" aria-labelledby="day-label"><span id="day-label">Elige un día</span>
           {loadingDays && days.length === 0 ? <p className="muted availability-note">Buscando horarios disponibles…</p>
           : days.every(d => d.slots === 0) ? <p className="muted availability-note">Este estudio aún no tiene horarios disponibles en los próximos días. Vuelve a intentarlo pronto.</p>
