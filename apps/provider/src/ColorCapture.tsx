@@ -67,7 +67,7 @@ export default function ColorCapture({ onColorCaptured, onManualColor }: { onCol
       setError(name === "NotFoundError" || name === "DevicesNotFoundError"
         ? "No hay cámara disponible en este dispositivo. Podés cargar el color del esmalte manualmente."
         : name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError"
-          ? "No se concedió el permiso de cámara. Podés cargar el color del esmalte manualmente o habilitar el permiso e intentarlo de nuevo."
+          ? "No se concedió el permiso de cámara. En Android abre Ajustes → Aplicaciones → Luni Studio → Permisos → Cámara, actívalo y pulsa Reintentar. También podés cargar el color manualmente."
           : "No se pudo acceder a la cámara. Verificá que ninguna otra aplicación la esté usando e intentá de nuevo.");
       setPaso("error");
     }

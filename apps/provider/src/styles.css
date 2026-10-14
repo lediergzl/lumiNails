@@ -988,3 +988,14 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none}
   .provider-service-category-section .provider-service-content>div:not(.appointment-actions){align-items:flex-start;flex-direction:column}
   .provider-service-category-section .appointment-actions{grid-template-columns:1fr}
 }
+
+
+/* La cita manual no debe tapar la navegación inferior ni los botones Atrás/Inicio/Recientes de Android. */
+@media (max-width: 650px) {
+  .agenda-fab {
+    right: max(15px, calc(var(--safe-right) + 15px));
+    bottom: calc(76px + var(--safe-bottom));
+    z-index: 4;
+    max-width: calc(100vw - 30px);
+  }
+}

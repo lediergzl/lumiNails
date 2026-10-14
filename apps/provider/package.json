@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5174",
     "build": "tsc -b && vite build",
-    "cap:sync": "npx cap sync android",
+    "cap:sync": "npx cap sync android && node ../../scripts/android/ensure-camera-permission.mjs provider",
     "android:debug": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleDebug",
     "android:release": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleRelease",
-    "cap:add": "npx cap add android && npm run assets:brand && npm run assets:android",
+    "cap:add": "npx cap add android && node ../../scripts/android/ensure-camera-permission.mjs provider && npm run assets:brand && npm run assets:android",
     "assets:brand": "node ../../scripts/brand/apply-icons.mjs provider",
     "assets:android": "npx @capacitor/assets generate --android",
     "test:recipes": "node --experimental-strip-types --test tests/BuscadorRecetas.test.mjs"
