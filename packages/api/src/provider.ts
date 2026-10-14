@@ -25,6 +25,7 @@ export type ProviderService = {
   provider_id: string;
   name: string;
   description: string;
+  category: string;
   price_cents: number;
   currency: string;
   duration_minutes: number;
@@ -85,7 +86,7 @@ export async function createMyProviderProfile(businessName: string, bio = "", br
 async function listMyProviderServicesRemote(providerId: string): Promise<ProviderService[]> {
   const { data, error } = await getSupabaseClient()
     .from("services")
-    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
+    .select("id,provider_id,name,description,category,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
     .eq("provider_id", providerId)
     .is("deleted_at", null)
     .order("name");
@@ -98,6 +99,7 @@ type ServiceInput = {
   id?: string;
   name: string;
   description: string;
+  category: string;
   priceCents: number;
   currency: string;
   durationMinutes: number;
@@ -112,6 +114,7 @@ async function saveProviderServiceRemote(input: ServicePayload): Promise<string>
     provider_id: input.providerId,
     name: input.name,
     description: input.description,
+    category: input.category,
     price_cents: input.priceCents,
     currency: input.currency,
     duration_minutes: input.durationMinutes,
@@ -139,10 +142,11 @@ export async function saveProviderService(input: ServiceInput): Promise<{ id: st
     ...input,
     name,
     description: input.description.trim(),
+    category: input.category.trim() || "Otros",
     id: input.id ?? crypto.randomUUID(),
     create: !input.id,
   };
-  const fields = { name: payload.name, description: payload.description, price_cents: payload.priceCents, currency: payload.currency, duration_minutes: payload.durationMinutes };
+  const fields = { name: payload.name, description: payload.description, category: payload.category, price_cents: payload.priceCents, currency: payload.currency, duration_minutes: payload.durationMinutes };
   const outcome = await writeOrQueue(
     {
       type: "service.save",
