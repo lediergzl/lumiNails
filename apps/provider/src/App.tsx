@@ -56,6 +56,15 @@ const statusText: Record<string, string> = {
 };
 const BRAND_ICONS = ["💅", "🌸", "✨", "🌷", "🦋", "💎", "🌺", "🤍", "🎀", "🌿", "⭐", "👑"];
 
+// La agenda usa la fecha civil del estudio, no la fecha UTC del servidor.
+function dateKeyInTimeZone(timeZone = "America/Havana", date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(date);
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 function appointmentDesign(notes: string) {
   if (!notes.startsWith("DISEÑO ELEGIDO POR LA CLIENTA")) return null;
   const value = (label: string) => notes.match(new RegExp("^" + label + ": (.*)$", "m"))?.[1] ?? "";
@@ -169,7 +178,7 @@ export default function App() {
   const [serviceDescription, setServiceDescription] = useState("");
   const [servicePrice, setServicePrice] = useState("800");
   const [serviceDuration, setServiceDuration] = useState("45");
-  const [day, setDay] = useState(new Date().toISOString().slice(0, 10));
+  const [day, setDay] = useState(dateKeyInTimeZone("America/Havana"));
 
   const refresh = useCallback(async () => {
     const session = await getCurrentSession();
@@ -228,7 +237,7 @@ export default function App() {
   useEffect(() => onReconnect(() => { void refresh().then(() => setLoadFailed(false)).catch(() => undefined); }), [refresh]);
 
   const weekStart = useMemo(() => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }, [day]);
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d.toISOString().slice(0, 10); }), [weekStart]);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }), [weekStart]);
   const filteredAppointments = useMemo(() => appointments.filter(a => a.starts_at.slice(0, 10) === day), [appointments, day]);
   const agendaAppointments = useMemo(() => filteredAppointments.filter(a => {
     if (agendaSection === "pending" && a.status !== "pending_confirmation") return false;
@@ -641,7 +650,7 @@ export default function App() {
             <article className="metric-card"><span>POR COBRAR</span><div><b>{money(unpaidIncome)}</b><i>◷</i></div><small>Citas completadas sin pago registrado</small></article>
           </div>
           {expectedIncome===0 && collectedIncome===0 && unpaidIncome===0 && <p className="agenda-no-income">Sin citas con precio hoy</p>}
-          <section className="agenda-panel agenda-redesigned"><div className="agenda-heading"><div><h2>Agenda</h2><p>{profile.business_name}</p></div><div className="agenda-heading-actions"><button type="button" className="provider-secondary" disabled={busy} onClick={()=>void refresh().then(()=>setNotice("Agenda actualizada.")).catch(e=>setError(e instanceof Error?e.message:"No se pudo actualizar la agenda."))}>↻ Actualizar</button><button className="today-button" onClick={()=>setDay(new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10))}>Hoy</button></div></div>
+          <section className="agenda-panel agenda-redesigned"><div className="agenda-heading"><div><h2>Agenda</h2><p>{profile.business_name}</p></div><div className="agenda-heading-actions"><button type="button" className="provider-secondary" disabled={busy} onClick={()=>void refresh().then(()=>setNotice("Agenda actualizada.")).catch(e=>setError(e instanceof Error?e.message:"No se pudo actualizar la agenda."))}>↻ Actualizar</button><button className="today-button" onClick={()=>setDay(dateKeyInTimeZone(profile?.timezone || "America/Havana"))}>Hoy</button></div></div>
             <div className="agenda-toolbar"><div className="agenda-date"><b>{new Date(day+"T12:00:00").toLocaleDateString("es-CU",{weekday:"long",day:"numeric",month:"long"})}</b><span>{filteredAppointments.length} citas</span></div><div className="agenda-view-switch" role="group" aria-label="Vista de agenda"><button type="button" className={agendaView==="day"?"active":""} onClick={()=>setAgendaView("day")}>Día</button><button type="button" className={agendaView==="week"?"active":""} onClick={()=>setAgendaView("week")}>Semana</button></div></div>
             {agendaView==="day" && <div className="agenda-day-view">
               <div className="section-tabs provider-agenda-tabs" role="tablist" aria-label="Filtrar citas">
