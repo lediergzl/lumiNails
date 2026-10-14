@@ -85,24 +85,26 @@ export async function createMyProviderProfile(businessName: string, bio = "", br
 }
 
 async function listMyProviderServicesRemote(providerId: string): Promise<ProviderService[]> {
-  const selectServices = (includeCategory: boolean) => getSupabaseClient()
+  const supabase = getSupabaseClient();
+  const result = await supabase
     .from("services")
-    .select(includeCategory
-      ? "id,provider_id,name,description,category,price_cents,currency,duration_minutes,is_active,thumb_path,card_path"
-      : "id,provider_id,name,description,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
+    .select("id,provider_id,name,description,category,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
     .eq("provider_id", providerId)
     .is("deleted_at", null)
     .order("name");
-
-  const result = await selectServices(true);
   if (!result.error) return (result.data ?? []) as ProviderService[];
 
-  // No romper la consulta de servicios en una instalación que aún no aplicó
-  // la migración de categorías: se infiere una categoría temporal desde texto.
+  // No romper la consulta en una instalación que aún no aplicó la migración:
+  // se infiere una categoría temporal desde el texto del servicio.
   const categoryColumnMissing = /category.*(schema cache|does not exist|not found)|column .*category/i.test(result.error.message);
   if (!categoryColumnMissing) throw new Error(result.error.message);
 
-  const legacy = await selectServices(false);
+  const legacy = await supabase
+    .from("services")
+    .select("id,provider_id,name,description,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
+    .eq("provider_id", providerId)
+    .is("deleted_at", null)
+    .order("name");
   if (legacy.error) throw new Error(legacy.error.message);
   return (legacy.data ?? []).map(service => ({
     ...service,
