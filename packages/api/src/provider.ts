@@ -1,6 +1,7 @@
 import { getSupabaseClient } from "./client";
 import { isNetworkError, registerOutboxHandler, withOfflineCache, writeOrQueue } from "./offline";
 import { clearServiceImageRemote } from "./serviceImages";
+import { inferServiceCategory } from "./catalog";
 
 export type ProviderProfile = {
   id: string;
@@ -84,14 +85,29 @@ export async function createMyProviderProfile(businessName: string, bio = "", br
 }
 
 async function listMyProviderServicesRemote(providerId: string): Promise<ProviderService[]> {
-  const { data, error } = await getSupabaseClient()
+  const selectServices = (includeCategory: boolean) => getSupabaseClient()
     .from("services")
-    .select("id,provider_id,name,description,category,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
+    .select(includeCategory
+      ? "id,provider_id,name,description,category,price_cents,currency,duration_minutes,is_active,thumb_path,card_path"
+      : "id,provider_id,name,description,price_cents,currency,duration_minutes,is_active,thumb_path,card_path")
     .eq("provider_id", providerId)
     .is("deleted_at", null)
     .order("name");
-  if (error) throw new Error(error.message);
-  return (data ?? []) as ProviderService[];
+
+  const result = await selectServices(true);
+  if (!result.error) return (result.data ?? []) as ProviderService[];
+
+  // No romper la consulta de servicios en una instalación que aún no aplicó
+  // la migración de categorías: se infiere una categoría temporal desde texto.
+  const categoryColumnMissing = /category.*(schema cache|does not exist|not found)|column .*category/i.test(result.error.message);
+  if (!categoryColumnMissing) throw new Error(result.error.message);
+
+  const legacy = await selectServices(false);
+  if (legacy.error) throw new Error(legacy.error.message);
+  return (legacy.data ?? []).map(service => ({
+    ...service,
+    category: inferServiceCategory(service.name, service.description),
+  })) as ProviderService[];
 }
 
 type ServiceInput = {
@@ -120,13 +136,37 @@ async function saveProviderServiceRemote(input: ServicePayload): Promise<string>
     duration_minutes: input.durationMinutes,
   };
   if (input.create) {
-    const { error } = await supabase.from("services").insert({ ...payload, id: input.id, is_active: true });
+    let result = await supabase.from("services").insert({ ...payload, id: input.id, is_active: true });
+    const missingCategory = result.error && /category.*(schema cache|does not exist|not found)|column .*category/i.test(result.error.message);
+    if (missingCategory) {
+      // Mantener compatibilidad hasta que la migración se aplique en Supabase.
+      result = await supabase.from("services").insert({
+        id: input.id,
+        provider_id: input.providerId,
+        name: input.name,
+        description: input.description,
+        price_cents: input.priceCents,
+        currency: input.currency,
+        duration_minutes: input.durationMinutes,
+        is_active: true,
+      });
+    }
     // Si un intento anterior sí llegó al servidor, el reintento no debe fallar ni duplicar.
-    if (error && !/duplicate key|already exists/i.test(error.message)) throw new Error(error.message);
+    if (result.error && !/duplicate key|already exists/i.test(result.error.message)) throw new Error(result.error.message);
     return input.id;
   }
   // Al editar no se toca is_active: así un servicio pausado no se reactiva solo.
-  const result = await supabase.from("services").update(payload).eq("id", input.id).eq("provider_id", input.providerId).select("id");
+  let result = await supabase.from("services").update(payload).eq("id", input.id).eq("provider_id", input.providerId).select("id");
+  const missingCategory = result.error && /category.*(schema cache|does not exist|not found)|column .*category/i.test(result.error.message);
+  if (missingCategory) {
+    result = await supabase.from("services").update({
+      name: input.name,
+      description: input.description,
+      price_cents: input.priceCents,
+      currency: input.currency,
+      duration_minutes: input.durationMinutes,
+    }).eq("id", input.id).eq("provider_id", input.providerId).select("id");
+  }
   if (result.error) throw new Error(result.error.message);
   if (!result.data?.length) throw new Error("No se pudo guardar el servicio. Es posible que ya no exista.");
   return input.id;
