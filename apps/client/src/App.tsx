@@ -256,7 +256,7 @@ export default function App() {
     const matches = serviceCategoryFilter === "Todas"
       ? visible
       : visible.filter(service => categoryOfService(service) === serviceCategoryFilter);
-    const categoryOrder = new Map<string, number>(SERVICE_CATEGORIES.map((category, index) => [category, index]));
+    const categoryOrder = new Map<string, number>(SERVICE_CATEGORIES.map((category, index) => [category, index] as const));
     return [...matches].sort((a, b) => {
       const categoryA = categoryOfService(a);
       const categoryB = categoryOfService(b);
