@@ -5,13 +5,14 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = relative => readFile(path.join(ROOT, relative), "utf8");
-const [clientConfig, providerConfig, clientHtml, providerHtml, clientPkgRaw, providerPkgRaw] = await Promise.all([
+const [clientConfig, providerConfig, clientHtml, providerHtml, clientPkgRaw, providerPkgRaw, ensureAppName] = await Promise.all([
   read("apps/client/capacitor.config.ts"),
   read("apps/provider/capacitor.config.ts"),
   read("apps/client/index.html"),
   read("apps/provider/index.html"),
   read("apps/client/package.json"),
   read("apps/provider/package.json"),
+  read("scripts/android/ensure-app-name.mjs"),
 ]);
 const clientPkg = JSON.parse(clientPkgRaw);
 const providerPkg = JSON.parse(providerPkgRaw);
@@ -23,6 +24,8 @@ const checks = [
   ["Capacitor Studio", providerConfig.includes('appName:"Luni Estudio"')],
   ["Título Studio", providerHtml.includes("<title>Luni Estudio</title>")],
   ["Sync Studio aplica nombre Android", providerPkg.scripts["cap:sync"].includes("ensure-app-name.mjs provider")],
+  ["El manifiesto usa el nombre literal correcto", ensureAppName.includes('const label = `android:label="${escapeXml(value)}"`;') && ensureAppName.includes("setAndroidLabel(tag, displayName)")],
+  ["Los nombres nativos de Studio y Cliente están definidos", ensureAppName.includes('provider: { name: "Luni Estudio" }') && ensureAppName.includes('client: { name: "Luni Cliente" }')],
   ["APK Studio usa nombre propio", providerPkg.scripts["android:debug"].includes("rename-apk.mjs provider debug") && providerPkg.scripts["android:release"].includes("rename-apk.mjs provider release")],
 ];
 let fail = false;

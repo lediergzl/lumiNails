@@ -41,13 +41,13 @@ async function main() {
   let manifest = await readFile(manifestPath, "utf8");
   const applicationTag = /<application\b[^>]*>/i;
   if (!applicationTag.test(manifest)) throw new Error("No se encontró <application> en " + manifestPath);
-  manifest = manifest.replace(applicationTag, tag => setAndroidLabel(tag, "app_name"));
+  manifest = manifest.replace(applicationTag, tag => setAndroidLabel(tag, displayName));
 
   let foundMainActivity = false;
   manifest = manifest.replace(/<activity\b[^>]*>/gi, tag => {
     if (!/\bandroid:name\s*=\s*["'][^"']*MainActivity["']/i.test(tag)) return tag;
     foundMainActivity = true;
-    return setAndroidLabel(tag, "title_activity_main");
+    return setAndroidLabel(tag, displayName);
   });
   if (!foundMainActivity) {
     throw new Error("No se encontró la actividad MainActivity para aplicar el nombre visible: " + manifestPath);
