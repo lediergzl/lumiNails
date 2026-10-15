@@ -16,12 +16,12 @@ const [clientConfig, providerConfig, clientHtml, providerHtml, clientPkgRaw, pro
 const clientPkg = JSON.parse(clientPkgRaw);
 const providerPkg = JSON.parse(providerPkgRaw);
 const checks = [
-  ["Capacitor Cliente", /appName\s*:\s*["']Luni Cliente["']/.test(clientConfig)],
-  ["Título Cliente", /<title>Luni Cliente<\/title>/.test(clientHtml)],
+  ["Capacitor Cliente", clientConfig.includes('appName:"Luni Cliente"')],
+  ["Título Cliente", clientHtml.includes("<title>Luni Cliente</title>")],
   ["Sync Cliente aplica nombre Android", clientPkg.scripts["cap:sync"].includes("ensure-app-name.mjs client")],
   ["APK Cliente usa nombre propio", clientPkg.scripts["android:debug"].includes("rename-apk.mjs client debug") && clientPkg.scripts["android:release"].includes("rename-apk.mjs client release")],
-  ["Capacitor Studio", /appName\s*:\s*["']Luni Estudio["']/.test(providerConfig)],
-  ["Título Studio", /<title>Luni Estudio<\/title>/.test(providerHtml)],
+  ["Capacitor Studio", providerConfig.includes('appName:"Luni Estudio"')],
+  ["Título Studio", providerHtml.includes("<title>Luni Estudio</title>")],
   ["Sync Studio aplica nombre Android", providerPkg.scripts["cap:sync"].includes("ensure-app-name.mjs provider")],
   ["APK Studio usa nombre propio", providerPkg.scripts["android:debug"].includes("rename-apk.mjs provider debug") && providerPkg.scripts["android:release"].includes("rename-apk.mjs provider release")],
 ];
