@@ -18,13 +18,25 @@ if (!Object.hasOwn(APPS, app) || !["debug", "release"].includes(buildType)) {
   process.exit(2);
 }
 const outputDir = path.join(ROOT, "apps", app, "android", "app", "build", "outputs", "apk", buildType);
-const source = path.join(outputDir, `app-${buildType}.apk`);
+const candidates = buildType === "release"
+  ? [path.join(outputDir, "app-release.apk"), path.join(outputDir, "app-release-unsigned.apk")]
+  : [path.join(outputDir, "app-debug.apk")];
 const destination = path.join(outputDir, `${APPS[app].slug}-${buildType}.apk`);
 try {
-  await access(source);
+  let source = null;
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      source = candidate;
+      break;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+  if (!source) throw new Error("No se encontró ninguno de estos APK: " + candidates.join(", "));
   await copyFile(source, destination);
   console.log("APK listo:", path.relative(ROOT, destination));
 } catch (error) {
-  console.error(`No se encontró el APK ${source}. La compilación de Gradle debe terminar correctamente antes de renombrarlo.`);
+  console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 }
