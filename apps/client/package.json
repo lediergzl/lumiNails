@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "tsc -b && vite build",
-    "cap:sync": "npx cap sync android && node ../../scripts/android/ensure-camera-permission.mjs client",
-    "android:debug": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleDebug",
-    "android:release": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleRelease",
-    "cap:add": "npx cap add android && node ../../scripts/android/ensure-camera-permission.mjs client && npm run assets:brand && npm run assets:android",
+    "cap:sync": "npx cap sync android && node ../../scripts/android/ensure-camera-permission.mjs client && node ../../scripts/android/ensure-app-name.mjs client",
+    "android:debug": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleDebug && node ../../scripts/android/rename-apk.mjs client debug",
+    "android:release": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleRelease && node ../../scripts/android/rename-apk.mjs client release",
+    "cap:add": "npx cap add android && npm run assets:brand && npm run assets:android && node ../../scripts/android/ensure-camera-permission.mjs client && node ../../scripts/android/ensure-app-name.mjs client",
     "assets:brand": "node ../../scripts/brand/apply-icons.mjs client",
     "assets:android": "npx @capacitor/assets generate --android"
   },

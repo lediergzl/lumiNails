@@ -22,8 +22,12 @@ jobs:
         run: |
           npm --workspace @lumi/client run assets:brand
           npm --workspace @lumi/provider run assets:brand
-      - name: Validate Android manifest permission patch
-        run: node --check scripts/android/ensure-camera-permission.mjs
+      - name: Validate Android name and manifest patches
+        run: |
+          node --check scripts/android/ensure-camera-permission.mjs
+          node --check scripts/android/ensure-app-name.mjs
+          node --check scripts/android/rename-apk.mjs
+          node scripts/android/validate-app-branding.mjs
       - name: Test inverse recipe search
         run: npm --workspace @lumi/provider run test:recipes
       - name: Build both apps
