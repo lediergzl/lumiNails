@@ -1,0 +1,94 @@
+name: Build Luni web apps
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  web-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Generate the two APK launcher icons
+        run: |
+          npm --workspace @lumi/client run assets:brand
+          npm --workspace @lumi/provider run assets:brand
+      - name: Validate Android name and manifest patches
+        run: |
+          node --check scripts/android/ensure-camera-permission.mjs
+          node --check scripts/android/ensure-app-name.mjs
+          node --check scripts/android/rename-apk.mjs
+          node scripts/android/validate-app-branding.mjs
+      - name: Test inverse recipe search
+        run: npm --workspace @lumi/provider run test:recipes
+      - name: Build both apps
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: anon
+        run: npm run build
+
+  offline-e2e:
+    runs-on: ubuntu-latest
+    needs: web-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install root dependencies
+        run: npm install
+      - name: Build apps for the simulated Supabase environment
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: anon
+        run: npm run build
+      - name: Install offline E2E dependencies
+        working-directory: scripts/e2e-offline
+        run: npm install
+      - name: Test client offline queue
+        run: node scripts/e2e-offline/run.mjs client
+      - name: Test provider offline queue
+        run: node scripts/e2e-offline/run.mjs provider
+
+  provider-code-security-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      LUNI_TEST_DB: luni_code_security_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run migrations and provider code rate-limit regression test
+        run: bash supabase/tests/run-provider-code-security.sh

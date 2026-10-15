@@ -1,0 +1,42 @@
+{
+  "name": "@lumi/provider",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5174",
+    "build": "tsc -b && vite build",
+    "cap:sync": "npx cap sync android && node ../../scripts/android/ensure-camera-permission.mjs provider && node ../../scripts/android/ensure-app-name.mjs provider",
+    "android:debug": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleDebug && node ../../scripts/android/rename-apk.mjs provider debug",
+    "android:release": "npm run build && npm run assets:brand && npm run assets:android && npm run cap:sync && node ../../scripts/gradle.mjs assembleRelease && node ../../scripts/android/rename-apk.mjs provider release",
+    "cap:add": "npx cap add android && npm run assets:brand && npm run assets:android && node ../../scripts/android/ensure-camera-permission.mjs provider && node ../../scripts/android/ensure-app-name.mjs provider",
+    "assets:brand": "node ../../scripts/brand/apply-icons.mjs provider",
+    "assets:android": "npx @capacitor/assets generate --android",
+    "test:recipes": "node --experimental-strip-types --test tests/BuscadorRecetas.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "^7.0.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.0.2",
+    "@capacitor/network": "^7.0.2",
+    "@lumi/api": "0.1.0",
+    "@lumi/core": "0.1.0",
+    "@lumi/database": "0.1.0",
+    "@lumi/image-processor": "0.1.0",
+    "@lumi/sync": "0.1.0",
+    "@lumi/ui": "0.1.0",
+    "blurhash": "^2.0.5",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@vitejs/plugin-react": "^5.0.4",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7"
+  }
+}

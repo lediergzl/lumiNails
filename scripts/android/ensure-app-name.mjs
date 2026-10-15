@@ -23,12 +23,14 @@ const manifestPath = path.join(androidRoot, "AndroidManifest.xml");
 const resourcesPath = path.join(androidRoot, "res");
 const escapeXml = (value) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-function setAndroidLabel(tag, resourceName) {
-  const labelAttribute = /\bandroid:label\s*=\s*(["'])[^"']*\1/i;
-  const label = `android:label="@string/${resourceName}"`;
+function setAndroidLabel(tag, value) {
+  const labelAttribute = /\\bandroid:label\\s*=\\s*(["'])[^"']*\\1/i;
+  // Etiqueta literal en application y MainActivity: evita heredar títulos antiguos
+  // desde recursos Android que Capacitor puede dejar intactos en proyectos existentes.
+  const label = `android:label="${escapeXml(value)}"`;
   return labelAttribute.test(tag)
     ? tag.replace(labelAttribute, label)
-    : tag.replace(/\s*\/?>$/, end => ` ${label}${end}`);
+    : tag.replace(/\\s*\\/?>$/, end => ` ${label}${end}`);
 }
 
 function setStringResource(xml, key, value) {
