@@ -53,3 +53,24 @@ test("no se sugieren esmaltes sin stock", async () => {
   assert.ok(recetas.length > 0);
   assert.ok(recetas.every(receta => receta.ingredientes.every(ingrediente => ingrediente.esmalteId !== "blanco")));
 });
+
+
+test("las recetas se calculan en gotas enteras para el tamaño seleccionado", async () => {
+  const buscar = crearBuscadorRecetas(motorPrueba);
+  for (const total of [4, 7, 12, 20]) {
+    const recetas = await buscar("#07F9EE", inventario, 3, total);
+    assert.ok(recetas.length > 0);
+    for (const receta of recetas) {
+      assert.ok(Math.abs(receta.ingredientes.reduce((s, i) => s + i.porcentaje, 0) - 100) < 1e-9);
+      const gotas = receta.ingredientes.map(i => Math.round(i.porcentaje * total / 100));
+      assert.ok(gotas.every(g => g >= 1), `total ${total}: ${gotas}`);
+      assert.equal(gotas.reduce((s, g) => s + g, 0), total);
+    }
+  }
+});
+
+test("con 4 gotas, cada ingrediente sugerido representa al menos una gota", async () => {
+  const buscar = crearBuscadorRecetas(motorPrueba);
+  const recetas = await buscar("#07F9EE", inventario, 3, 4);
+  assert.ok(recetas.every(r => r.ingredientes.every(i => i.porcentaje >= 25)));
+});

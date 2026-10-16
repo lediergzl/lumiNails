@@ -297,7 +297,7 @@ export default function ColorMixer() {
     setMessage("Buscando recetas en tu inventario…");
     setResult([]);
     try {
-      const sugeridas = await buscarRecetasEnInventario(target, inventory, 3);
+      const sugeridas = await buscarRecetasEnInventario(target, inventory, 3, totalGotas);
       setResult(sugeridas.map(receta => ({
         hex: receta.hexResultante,
         deltaE: receta.deltaE,
@@ -466,7 +466,7 @@ export default function ColorMixer() {
           </button>)}
         </div>
         <NailPreview hex={target}/>
-        <p className="muted-small">Se comparan los colores en CIELAB con ΔE2000. La búsqueda usa hasta 15 esmaltes disponibles y prueba mezclas de 2 o 3 colores con proporciones en pasos del 10 %.</p>
+        <p className="muted-small">Se comparan los colores en CIELAB con ΔE2000. La búsqueda usa hasta 15 esmaltes disponibles y calcula mezclas de 2 o 3 colores en gotas enteras para {totalGotas} gotas (el tamaño se cambia en «Mezclar»).</p>
         {active.length<2 && <p className="form-notice" role="status">Necesitás al menos 2 esmaltes en tu inventario para buscar recetas.</p>}
         <button className="provider-primary" disabled={working || active.length<2} onClick={()=>void searchRecipes()}>{working?"Buscando recetas…":"Buscar recetas en mi inventario"}</button>
       </article>
