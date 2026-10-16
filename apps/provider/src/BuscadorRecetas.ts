@@ -40,7 +40,8 @@ export function crearBuscadorRecetas(motor: MotorMezcla) {
   return async function buscarRecetas(
     objetivoHex: string,
     inventario: EsmalteInventario[],
-    maxComponentes = 3
+    maxComponentes = 3,
+    totalGotas = 12
   ): Promise<RecetaSugerida[]> {
     const objetivoNormalizado = normalizarHex(objetivoHex);
     if (!objetivoNormalizado) throw new Error("El color objetivo debe ser un HEX válido, por ejemplo #F07835.");
@@ -70,7 +71,12 @@ export function crearBuscadorRecetas(motor: MotorMezcla) {
       .slice(0, 15)
       .map(item => item.esmalte);
 
-    const maximo = Math.min(3, Math.max(2, Math.floor(maxComponentes) || 3));
+    // Para 1–20 gotas se evalúa la proporción exacta de gotas enteras.
+    // En tamaños mayores se usa una cuadrícula de 20 unidades (pasos del 5 %)
+    // para evitar una búsqueda combinatoria desproporcionada.
+    const gotas = Math.max(1, Math.floor(totalGotas) || 12);
+    const unidades = Math.min(gotas, 20);
+    const maximo = Math.min(3, unidades, Math.max(2, Math.floor(maxComponentes) || 3));
     const resultados: RecetaSugerida[] = [];
     let evaluadas = 0;
 
@@ -92,19 +98,29 @@ export function crearBuscadorRecetas(motor: MotorMezcla) {
       evaluadas++;
     };
 
+    // Convierte unidades de gotas en porcentajes sin alterar las proporciones.
+    // El último componente absorbe el residuo decimal para que la suma sea 100.
+    const aPorcentajes = (partes: number[]): number[] => {
+      const porcentajes = partes.map(parte => parte * 100 / unidades);
+      const sumaPrevios = porcentajes.slice(0, -1).reduce((suma, valor) => suma + valor, 0);
+      porcentajes[porcentajes.length - 1] = 100 - sumaPrevios;
+      return porcentajes;
+    };
+
+    // Todas las reparticiones de unidades enteras, al menos una gota por esmalte.
     const generarPorcentajes = (componentes: number): number[][] => {
       const filas: number[][] = [];
       const recorrer = (restante: number, prefijo: number[]) => {
         if (prefijo.length === componentes - 1) {
-          if (restante >= 10 && restante <= 90 && restante % 10 === 0) filas.push([...prefijo, restante]);
+          if (restante >= 1) filas.push(aPorcentajes([...prefijo, restante]));
           return;
         }
-        const minimoRestante = 10 * (componentes - prefijo.length - 1);
-        for (let valor = 10; valor <= restante - minimoRestante; valor += 10) {
+        const minimoRestante = componentes - prefijo.length - 1;
+        for (let valor = 1; valor <= restante - minimoRestante; valor++) {
           recorrer(restante - valor, [...prefijo, valor]);
         }
       };
-      recorrer(100, []);
+      recorrer(unidades, []);
       return filas;
     };
 
